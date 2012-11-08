@@ -224,7 +224,7 @@ $(OCAMLDOC_LIBCMXA): $(LIBCMXFILES)
 
 manpages: stdlib_man/Pervasives.3o
 
-dot: $(EXECMOFILES)
+dot: $(EXECMOFILES) $(OCAMLDOC)
 	$(OCAMLDOC_RUN) -dot -dot-reduce -o ocamldoc.dot $(INCLUDES) \
 	odoc*.ml
 
@@ -295,7 +295,7 @@ installopt_really:
 
 # Testing :
 ###########
-test: dummy
+test: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -html -colorize-code -sort -d $@ $(INCLUDES) -dump $@/ocamldoc.odoc odoc*.ml odoc*.mli -v
 	$(MKDIR) $@-custom
@@ -303,29 +303,29 @@ test: dummy
 	-g generators/odoc_literate.cmo -g generators/odoc_todo.cmo \
 	-load $@/ocamldoc.odoc -v
 
-test_stdlib: dummy
+test_stdlib: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -html -colorize-code -sort -d $@ $(INCLUDES) -dump $@/stdlib.odoc -keep-code \
 	../stdlib/pervasives.ml ../stdlib/*.mli \
 	../otherlibs/unix/unix.mli \
 	../otherlibs/str/str.mli
 
-test_stdlib_code: dummy
+test_stdlib_code: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -html -colorize-code -sort -d $@ $(INCLUDES) -dump $@/stdlib.odoc -keep-code \
 	`ls ../stdlib/*.ml | grep -v Labels` \
 	../otherlibs/unix/unix.ml \
 	../otherlibs/str/str.ml
 
-test_framed: dummy
+test_framed: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -g odoc_fhtml.cmo -sort -colorize-code -d $@ $(INCLUDES) odoc*.ml odoc*.mli
 
-test_latex: dummy
+test_latex: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -latex -sort -o $@/test.tex -d $@ $(INCLUDES) odoc*.ml odoc*.mli test2.txt ../stdlib/*.mli ../otherlibs/unix/unix.mli
 
-test_latex_simple: dummy
+test_latex_simple: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -latex -sort -o $@/test.tex -d $@ $(INCLUDES) \
 	-latextitle 6,subsection -latextitle 7,subsubection \
@@ -334,21 +334,21 @@ test_latex_simple: dummy
 	../otherlibs/unix/unix.mli \
 	../stdlib/map.mli
 
-test_man: dummy
+test_man: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -man -sort -d $@ $(INCLUDES) odoc*.ml odoc*.mli
 
-test_texi: dummy
+test_texi: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -texi -sort -d $@ $(INCLUDES) odoc*.ml odoc*.mli
 
-stdlib_man/Pervasives.3o: $(STDLIB_MLIS)
+stdlib_man/Pervasives.3o: $(STDLIB_MLIS) $(OCAMLDOC)
 	$(MKDIR) stdlib_man
 	$(OCAMLDOC_RUN) -man -d stdlib_man $(INCLUDES) \
 	-t "OCaml library" -man-mini \
 	$(STDLIB_MLIS)
 
-autotest_stdlib: dummy
+autotest_stdlib: dummy $(OCAMLDOC)
 	$(MKDIR) $@
 	$(OCAMLDOC_RUN) -g autotest/odoc_test.cmo\
 	$(INCLUDES) -keep-code \
@@ -375,7 +375,7 @@ depend::
 	$(OCAMLLEX) odoc_lexer.mll
 	$(OCAMLLEX) odoc_ocamlhtml.mll
 	$(OCAMLLEX) odoc_see_lexer.mll
-	$(OCAMLDEP) $(INCLUDES_DEP) *.mll *.mly *.ml *.mli > .depend
+	$(OCAMLDEP) $(INCLUDES_DEP) generators/*.ml generators/*.mli *.mll *.mly *.ml *.mli > .depend
 
 dummy:
 

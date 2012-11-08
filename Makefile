@@ -104,6 +104,10 @@ NATTOPOBJS=$(UTILS) $(PARSING) $(TYPING) $(COMP) $(ASMCOMP) \
 
 PERVASIVES=$(STDLIB_MODULES) outcometree topdirs toploop
 
+ALLSOURCES=$(COMMON) $(BYTECOMP) $(ASMCOMP) \
+  $(TOPLEVEL) $(BYTESTART) $(OPTSTART) $(TOPLEVELSTART) \
+  $(NATTOPOBJS)
+
 # For users who don't read the INSTALL file
 defaultentry:
 	@echo "Please refer to the installation instructions in file INSTALL."
@@ -169,14 +173,25 @@ bootstrap:
 
 LIBFILES=stdlib.cma std_exit.cmo *.cmi camlheader
 
-# Start up the system from the distribution compiler
-coldstart:
+byterun/ocamlrun$(EXE):
 	cd byterun; $(MAKE) all
+
+boot/ocamlrun$(EXE): byterun/ocamlrun$(EXE)
 	cp byterun/ocamlrun$(EXE) boot/ocamlrun$(EXE)
+
+yacc/ocamlyacc$(EXE): boot/ocamlrun$(EXE)
 	cd yacc; $(MAKE) all
+
+boot/ocamlyacc$(EXE): yacc/ocamlyacc$(EXE)
 	cp yacc/ocamlyacc$(EXE) boot/ocamlyacc$(EXE)
-	cd stdlib; $(MAKE) COMPILER=../boot/ocamlc all
-	cd stdlib; cp $(LIBFILES) ../boot
+
+boot/stdlib.cma: boot/ocamlrun$(EXE)
+	if test -f boot/stdlib.cma; then :; else \
+	  cd stdlib; $(MAKE) COMPILER=../boot/ocamlc all; \
+	  cp $(LIBFILES) ../boot; fi
+
+# Start up the system from the distribution compiler
+coldstart: boot/ocamlrun$(EXE) boot/ocamlyacc$(EXE) boot/stdlib.cma
 	if test -f boot/libcamlrun.a; then :; else \
 	  ln -s ../byterun/libcamlrun.a boot/libcamlrun.a; fi
 	if test -d stdlib/caml; then :; else \
@@ -337,7 +352,7 @@ compilerlibs/ocamlbytecomp.cma: $(BYTECOMP)
 partialclean::
 	rm -f compilerlibs/ocamlbytecomp.cma
 
-ocamlc: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
+ocamlc: boot/ocamlrun$(EXE) compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
 	$(CAMLC) $(LINKFLAGS) -o ocamlc \
            compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
 	@sed -e 's|@compiler@|$$topdir/boot/ocamlrun $$topdir/ocamlc|' \
@@ -427,7 +442,7 @@ beforedepend:: utils/config.ml
 
 # The parser
 
-parsing/parser.mli parsing/parser.ml: parsing/parser.mly
+parsing/parser.mli parsing/parser.ml: boot/ocamlyacc parsing/parser.mly
 	$(CAMLYACC) $(YACCFLAGS) parsing/parser.mly
 
 partialclean::
@@ -437,7 +452,7 @@ beforedepend:: parsing/parser.mli parsing/parser.ml
 
 # The lexer
 
-parsing/lexer.ml: parsing/lexer.mll
+parsing/lexer.ml: boot/ocamlrun parsing/lexer.mll
 	$(CAMLLEX) parsing/lexer.mll
 
 partialclean::
@@ -635,11 +650,13 @@ alldepend::
 
 # The lexer and parser generators
 
-ocamllex: ocamlyacc ocamlc
+lex/ocamllex: ocamlyacc ocamlc
 	cd lex; $(MAKE) all
+ocamllex: lex/ocamllex
 
-ocamllex.opt: ocamlopt
+lex/ocamllex.opt: ocamlopt
 	cd lex; $(MAKE) allopt
+ocamllex.opt: lex/ocamllex.opt
 
 partialclean::
 	cd lex; $(MAKE) clean
@@ -647,8 +664,7 @@ partialclean::
 alldepend::
 	cd lex; $(MAKE) depend
 
-ocamlyacc:
-	cd yacc; $(MAKE) all
+ocamlyacc: yacc/ocamlyacc$(EXE)
 
 clean::
 	cd yacc; $(MAKE) clean
@@ -771,6 +787,8 @@ clean::
 # Default rules
 
 .SUFFIXES: .ml .mli .cmo .cmi .cmx
+
+$(ALLSOURCES) $(ALLSOURCES:.cmo=.cmi): boot/ocamlrun boot/stdlib.cma
 
 .ml.cmo:
 	$(CAMLC) $(COMPFLAGS) -c $<
