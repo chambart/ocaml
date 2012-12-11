@@ -1,4 +1,7 @@
-4.00.2+dev1-2012-10-16
+4.01.2+dev1-2012-10-16
+
+# in fact this is OCaml 4.00.2+dev1-2012-10-16, but to be able to use the optimised ocplib-endian
+# with it, I needed to increment the second version number to pass the "if ocaml > 4.01"
 
 # The version string is the first line of this file.
 # It must be in the format described in stdlib/sys.mli
