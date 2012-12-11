@@ -1,3 +1,9 @@
+- PR#5762: Add primitives for fast access to bigarray dimensions
+- PR#5769: Allow propagation of Sys.big_endian in native code
+- PR#5771: Add primitives for reading 2, 4, 8 bytes in strings and bigarrays
+- PR#5774: Add bswap primitives for amd64
+- PR#5824: Generate more efficient code for immediate right shifts.
+
 OCaml 4.00.1:
 -------------
 
