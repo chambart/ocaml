@@ -1018,10 +1018,15 @@ let functions = (Queue.create() : ufunction Queue.t)
 let rec transl = function
     Uvar id ->
       Cvar id
-  | Uconst (sc, Some const_label) ->
+  | Ulbl const_label
+  | Uconst ( _, Some const_label) ->
       Cconst_symbol const_label
   | Uconst (sc, None) ->
       transl_constant sc
+  | Uconst_closure(fundecls, lbl) ->
+      constant_closures := (lbl, fundecls) :: !constant_closures;
+      List.iter (fun f -> Queue.add f functions) fundecls;
+      Cconst_symbol lbl
   | Uclosure(fundecls, []) ->
       let lbl = Compilenv.new_const_symbol() in
       constant_closures := (lbl, fundecls) :: !constant_closures;

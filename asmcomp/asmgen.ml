@@ -38,6 +38,9 @@ let pass_dump_linear_if ppf flag message phrase =
 let clambda_dump_if ppf ulambda =
   if !dump_clambda then Printclambda.clambda ppf ulambda; ulambda
 
+let flambda_dump_if ppf flambda =
+  if !dump_flambda then Printflambda.flambda ppf flambda; flambda
+
 let rec regalloc ppf round fd =
   if round > 50 then
     fatal_error(fd.Mach.fun_name ^
@@ -104,7 +107,12 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
   begin try
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
-    Closure.intro size lam
+    let flambda = Flambdagen.intro size lam in
+    ignore(flambda_dump_if ppf flambda);
+    Flambda.check flambda;
+    Flambda.check flambda;
+    Clambdagen.convert flambda
+    (* Closure.intro size lam *)
     ++ clambda_dump_if ppf
     ++ Cmmgen.compunit size
     ++ List.iter (compile_phrase ppf) ++ (fun () -> ());

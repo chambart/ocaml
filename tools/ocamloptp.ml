@@ -100,6 +100,7 @@ module Options = Main_args.Make_optcomp_options (struct
   let _drawlambda = option "-drawlambda"
   let _dlambda = option "-dlambda"
   let _dclambda = option "-dclambda"
+  let _dflambda = option "-dflambda"
   let _dcmm = option "-dcmm"
   let _dsel = option "-dsel"
   let _dcombine = option "-dcombine"
@@ -113,6 +114,7 @@ module Options = Main_args.Make_optcomp_options (struct
   let _dscheduling = option "-dscheduling"
   let _dlinear = option "-dlinear"
   let _dstartup = option "-dstartup"
+  let _optim = option "-optim"
 
   let anonymous = process_file
 end);;

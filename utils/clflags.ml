@@ -62,6 +62,7 @@ and dump_typedtree = ref false          (* -dtypedtree *)
 and dump_rawlambda = ref false          (* -drawlambda *)
 and dump_lambda = ref false             (* -dlambda *)
 and dump_clambda = ref false            (* -dclambda *)
+and dump_flambda = ref false            (* -dflambda *)
 and dump_instr = ref false              (* -dinstr *)
 
 let keep_asm_file = ref false           (* -S *)
@@ -81,6 +82,7 @@ let dump_scheduling = ref false         (* -dscheduling *)
 let dump_linear = ref false             (* -dlinear *)
 let keep_startup_file = ref false       (* -dstartup *)
 let dump_combine = ref false            (* -dcombine *)
+let enable_optim = ref false            (* -optim *)
 
 let native_code = ref false             (* set to true under ocamlopt *)
 let inline_threshold = ref 10
