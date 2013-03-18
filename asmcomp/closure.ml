@@ -48,10 +48,12 @@ let getglobal id =
 let occurs_var var u =
   let rec occurs = function
       Uvar v -> v = var
+    | Ulbl s -> false
     | Uconst (cst,_) -> false
     | Udirect_apply(lbl, args, _) -> List.exists occurs args
     | Ugeneric_apply(funct, args, _) -> occurs funct || List.exists occurs args
     | Uclosure(fundecls, clos) -> List.exists occurs clos
+    | Uconst_closure(_,_) -> assert false
     | Uoffset(u, ofs) -> occurs u
     | Ulet(id, def, body) -> occurs def || occurs body
     | Uletrec(decls, body) ->
@@ -118,10 +120,11 @@ let lambda_smaller lam threshold =
     if !size > threshold then raise Exit;
     match lam with
       Uvar v -> ()
+    | Ulbl s -> ()
     | Uconst(
-        (Const_base(Const_int _ | Const_char _ | Const_float _ |
+        (Uconst_base(Const_int _ | Const_char _ | Const_float _ |
                         Const_int32 _ | Const_int64 _ | Const_nativeint _) |
-             Const_pointer _), _) -> incr size
+             Uconst_pointer _), _) -> incr size
 (* Structured Constants are now emitted during closure conversion. *)
     | Uconst (_, Some _) -> incr size
     | Uconst _ ->
@@ -132,6 +135,7 @@ let lambda_smaller lam threshold =
         size := !size + 6; lambda_size fn; lambda_list_size args
     | Uclosure(defs, vars) ->
         raise Exit (* inlining would duplicate function definitions *)
+    | Uconst_closure(_,_) -> assert false
     | Uoffset(lam, ofs) ->
         incr size; lambda_size lam
     | Ulet(id, lam, body) ->
@@ -187,8 +191,8 @@ let rec is_pure_clambda = function
 
 (* Simplify primitive operations on integers *)
 
-let make_const_int n = (Uconst(Const_base(Const_int n), None), Value_integer n)
-let make_const_ptr n = (Uconst(Const_pointer n, None), Value_constptr n)
+let make_const_int n = (Uconst(Uconst_base(Const_int n), None), Value_integer n)
+let make_const_ptr n = (Uconst(Uconst_pointer n, None), Value_constptr n)
 let make_const_bool b = make_const_ptr(if b then 1 else 0)
 
 let simplif_prim_pure p (args, approxs) dbg =
@@ -267,15 +271,16 @@ let simplif_prim p (args, approxs as args_approxs) dbg =
    over functions. *)
 
 let approx_ulam = function
-    Uconst(Const_base(Const_int n),_) -> Value_integer n
-  | Uconst(Const_base(Const_char c),_) -> Value_integer(Char.code c)
-  | Uconst(Const_pointer n,_) -> Value_constptr n
+    Uconst(Uconst_base(Const_int n),_) -> Value_integer n
+  | Uconst(Uconst_base(Const_char c),_) -> Value_integer(Char.code c)
+  | Uconst(Uconst_pointer n,_) -> Value_constptr n
   | _ -> Value_unknown
 
 let rec substitute sb ulam =
   match ulam with
     Uvar v ->
       begin try Tbl.find v sb with Not_found -> ulam end
+  | Ulbl _ -> ulam
   | Uconst _ -> ulam
   | Udirect_apply(lbl, args, dbg) ->
       Udirect_apply(lbl, List.map (substitute sb) args, dbg)
@@ -291,6 +296,7 @@ let rec substitute sb ulam =
            in [close], case [Lletrec], we discard the original
            let rec body and use only the substituted term. *)
       Uclosure(defs, List.map (substitute sb) env)
+  | Uconst_closure(_,_) -> assert false
   | Uoffset(u, ofs) -> Uoffset(substitute sb u, ofs)
   | Ulet(id, u1, u2) ->
       let id' = Ident.rename id in
@@ -326,7 +332,7 @@ let rec substitute sb ulam =
       Utrywith(substitute sb u1, id', substitute (Tbl.add id (Uvar id') sb) u2)
   | Uifthenelse(u1, u2, u3) ->
       begin match substitute sb u1 with
-        Uconst(Const_pointer n, _) ->
+        Uconst(Uconst_pointer n, _) ->
           if n <> 0 then substitute sb u2 else substitute sb u3
       | su1 ->
           Uifthenelse(su1, substitute sb u2, substitute sb u3)
@@ -351,15 +357,15 @@ let rec substitute sb ulam =
 
 let is_simple_argument = function
     Uvar _ -> true
-  | Uconst(Const_base(Const_int _ | Const_char _ | Const_float _ |
-                      Const_int32 _ | Const_int64 _ | Const_nativeint _),_) ->
+  | Uconst(Uconst_base(Const_int _ | Const_char _ | Const_float _ |
+                       Const_int32 _ | Const_int64 _ | Const_nativeint _),_) ->
       true
-  | Uconst(Const_pointer _, _) -> true
+  | Uconst(Uconst_pointer _, _) -> true
   | _ -> false
 
 let no_effects = function
     Uclosure _ -> true
-  | Uconst(Const_base(Const_string _),_) -> true
+  | Uconst(Uconst_base(Const_string _),_) -> true
   | u -> is_simple_argument u
 
 let rec bind_params_rec subst params args body =
@@ -472,6 +478,13 @@ let rec add_debug_info ev u =
       end
   | _ -> u
 
+let rec convert_constant = function
+  | Const_base c -> Uconst_base c
+  | Const_pointer c -> Uconst_pointer c
+  | Const_block (tag,a) -> Uconst_block (tag, List.map convert_constant a)
+  | Const_float_array c -> Uconst_float_array c
+  | Const_immstring c -> Uconst_immstring c
+
 (* Uncurry an expression and explicitate closures.
    Also return the approximation of the expression.
    The approximation environment [fenv] maps idents to approximations.
@@ -497,10 +510,11 @@ let rec close fenv cenv = function
     Lvar id ->
       close_approx_var fenv cenv id
   | Lconst cst ->
+      let cst = convert_constant cst in
       begin match cst with
-        Const_base(Const_int n) -> (Uconst (cst,None), Value_integer n)
-      | Const_base(Const_char c) -> (Uconst (cst,None), Value_integer(Char.code c))
-      | Const_pointer n -> (Uconst (cst, None), Value_constptr n)
+        Uconst_base(Const_int n) -> (Uconst (cst,None), Value_integer n)
+      | Uconst_base(Const_char c) -> (Uconst (cst,None), Value_integer(Char.code c))
+      | Uconst_pointer n -> (Uconst (cst, None), Value_constptr n)
       | _ -> (Uconst (cst, Some (Compilenv.new_structured_constant cst true)), Value_unknown)
       end
   | Lfunction(kind, params, body) as funct ->

@@ -199,12 +199,12 @@ and conv_list sb l = List.map (conv sb) l
 
 and conv_const sb cst =
   let (* rec *) aux = function
-    | Fconst_base c -> Const_base c
-    | Fconst_pointer c -> Const_pointer c
+    | Fconst_base c -> Uconst_base c
+    | Fconst_pointer c -> Uconst_pointer c
     (* | Fconst_block (tag,l) -> *)
     (*   Const_block (tag,List.map aux l) *)
-    | Fconst_float_array c -> Const_float_array c
-    | Fconst_immstring c -> Const_immstring c
+    | Fconst_float_array c -> Uconst_float_array c
+    | Fconst_immstring c -> Uconst_immstring c
     (* | Fconst_id id -> *)
     (*   failwith "TODO: ident constant" *)
       (* let label = Compilenv.make_symbol (Some (Ident.unique_name id)) in *)

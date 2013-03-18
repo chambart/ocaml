@@ -15,6 +15,31 @@ open Format
 open Asttypes
 open Clambda
 
+let rec struct_const ppf = function
+  | Uconst_base(Const_int n) -> fprintf ppf "%i" n
+  | Uconst_base(Const_char c) -> fprintf ppf "%C" c
+  | Uconst_base(Const_string s) -> fprintf ppf "%S" s
+  | Uconst_immstring s -> fprintf ppf "#%S" s
+  | Uconst_base(Const_float f) -> fprintf ppf "%s" f
+  | Uconst_base(Const_int32 n) -> fprintf ppf "%lil" n
+  | Uconst_base(Const_int64 n) -> fprintf ppf "%LiL" n
+  | Uconst_base(Const_nativeint n) -> fprintf ppf "%nin" n
+  | Uconst_pointer n -> fprintf ppf "%ia" n
+  | Uconst_block(tag, []) ->
+      fprintf ppf "[%i]" tag
+  | Uconst_block(tag, sc1::scl) ->
+      let sconsts ppf scl =
+        List.iter (fun sc -> fprintf ppf "@ %a" struct_const sc) scl in
+      fprintf ppf "@[<1>[%i:@ @[%a%a@]]@]" tag struct_const sc1 sconsts scl
+  | Uconst_float_array [] ->
+      fprintf ppf "[| |]"
+  | Uconst_float_array (f1 :: fl) ->
+      let floats ppf fl =
+        List.iter (fun f -> fprintf ppf "@ %s" f) fl in
+      fprintf ppf "@[<1>[|@[%s%a@]|]@]" f1 floats fl
+  | Uconst_label s ->
+    pp_print_string ppf s
+
 let rec pr_idents ppf = function
   | [] -> ()
   | h::t -> fprintf ppf "%a %a" Ident.print h pr_idents t
@@ -25,7 +50,7 @@ let rec lam ppf = function
   | Ulbl s ->
       pp_print_string ppf s
   | Uconst (cst,_) ->
-      Printlambda.structured_constant ppf cst
+      struct_const ppf cst
   | Udirect_apply(f, largs, _) ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
