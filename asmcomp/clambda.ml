@@ -28,7 +28,6 @@ type ustructured_constant =
 
 type ulambda =
     Uvar of Ident.t
-  | Ulbl of string
   | Uconst of ustructured_constant * string option
   | Udirect_apply of function_label * ulambda list * Debuginfo.t
   | Ugeneric_apply of ulambda * ulambda list * Debuginfo.t

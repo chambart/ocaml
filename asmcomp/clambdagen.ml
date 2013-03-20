@@ -19,16 +19,26 @@ let offset_table = ref IdentMap.empty
 
    For everything else, it is basically the identity.
 *)
-let rec conv (sb:ulambda IdentMap.t) = function
+let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
   | Fvar (id,_) ->
-    (* If the variable is a recursive access to the function currently
-       being defined: it is replaced by an offset in the closure.  If
-       the variable is bound by the closure, it is replace by a field
-       access inside the closure *)
-    begin try IdentMap.find id sb
-    with Not_found -> Uvar id end
+
+    (* If the variable is an acces to a constant, it is replaced by
+       the constant label *)
+    begin
+      try
+        let lbl = IdentMap.find id cm in
+        Uconst(Uconst_label lbl, None)
+      with Not_found ->
+
+        (* If the variable is a recursive access to the function currently
+           being defined: it is replaced by an offset in the closure.  If
+           the variable is bound by the closure, it is replace by a field
+           access inside the closure *)
+        try IdentMap.find id sb
+        with Not_found -> Uvar id
+    end
   | Fconst (cst,_) ->
-    let cst' = conv_const sb cst in
+    let cst' = conv_const sb cm cst in
     begin match cst with
       | Fconst_base(Const_int n) -> Uconst (cst',None)
       | Fconst_base(Const_char c) -> Uconst (cst',None)
@@ -39,15 +49,15 @@ let rec conv (sb:ulambda IdentMap.t) = function
     (* we need to ensure that definitions are converted before the
        body to be able to use the offset of function defined inside
        it. *)
-    let lam = conv sb lam in
-    Ulet(id, lam, conv sb body)
+    let lam = conv sb cm lam in
+    Ulet(id, lam, conv sb cm body)
   | Fletrec(defs, body, _) ->
-    let defs = List.map (fun (id,def) -> id, conv sb def) defs in
-    Uletrec(defs, conv sb body)
+    let defs = List.map (fun (id,def) -> id, conv sb cm def) defs in
+    Uletrec(defs, conv sb cm body)
   | Fclosure(funct, fv, _) ->
-    conv_closure sb funct fv
+    conv_closure sb cm funct fv
   | Foffset(lam,id, _) ->
-    let ulam = conv sb lam in
+    let ulam = conv sb cm lam in
     if not (IdentMap.mem id !offset_table)
     then fatal_error (Printf.sprintf "missing offset %s" (Ident.unique_name id));
     Uoffset(ulam, IdentMap.find id !offset_table)
@@ -57,51 +67,51 @@ let rec conv (sb:ulambda IdentMap.t) = function
 
   | Fapply(funct, args, Some (direct_func,closed), dbg, _) ->
     let args = match closed with Closed -> args | NotClosed -> args @ [funct] in
-    Udirect_apply((direct_func:>string), conv_list sb args, dbg)
+    Udirect_apply((direct_func:>string), conv_list sb cm args, dbg)
   | Fapply(funct, args, None, dbg, _) ->
     (* the closure parameter of the function is added by cmmgen, but
        it already appears in the list of parameters of the clambda
        function for generic calls. Notice that for direct calls it is
        added here. *)
-    Ugeneric_apply(conv sb funct, conv_list sb args, dbg)
+    Ugeneric_apply(conv sb cm funct, conv_list sb cm args, dbg)
 
   | Fswitch(arg, sw, _) ->
     (* NB: failaction might get copied, thus it should be some Lstaticraise *)
     let const_index, const_actions =
-      conv_switch sb sw.fs_consts sw.fs_numconsts sw.fs_failaction
+      conv_switch sb cm sw.fs_consts sw.fs_numconsts sw.fs_failaction
     and block_index, block_actions =
-      conv_switch sb sw.fs_blocks sw.fs_numblocks sw.fs_failaction in
-    Uswitch(conv sb arg,
+      conv_switch sb cm sw.fs_blocks sw.fs_numblocks sw.fs_failaction in
+    Uswitch(conv sb cm arg,
       {us_index_consts = const_index;
        us_actions_consts = const_actions;
        us_index_blocks = block_index;
        us_actions_blocks = block_actions})
   | Fsend(kind, met, obj, args, dbg, _) ->
-    Usend(kind, conv sb met, conv sb obj, conv_list sb args, dbg)
+    Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
   | Fprim(Pgetglobal id, l, dbg, _) ->
     assert(l = []);
     Uprim(Pgetglobal (Ident.create_persistent (Compilenv.symbol_for_global id)),
       [], dbg)
   | Fprim(p, args, dbg, _) ->
-    Uprim(p, conv_list sb args, dbg)
+    Uprim(p, conv_list sb cm args, dbg)
   | Fstaticfail (i, args, _) ->
-    Ustaticfail (i, conv_list sb args)
+    Ustaticfail (i, conv_list sb cm args)
   | Fcatch (i, vars, body, handler, _) ->
-    Ucatch (i, vars, conv sb body, conv sb handler)
+    Ucatch (i, vars, conv sb cm body, conv sb cm handler)
   | Ftrywith(body, id, handler, _) ->
-    Utrywith(conv sb body, id, conv sb handler)
+    Utrywith(conv sb cm body, id, conv sb cm handler)
   | Fifthenelse(arg, ifso, ifnot, _) ->
-    Uifthenelse(conv sb arg, conv sb ifso, conv sb ifnot)
+    Uifthenelse(conv sb cm arg, conv sb cm ifso, conv sb cm ifnot)
   | Fsequence(lam1, lam2, _) ->
-    Usequence(conv sb lam1, conv sb lam2)
+    Usequence(conv sb cm lam1, conv sb cm lam2)
   | Fwhile(cond, body, _) ->
-    Uwhile(conv sb cond, conv sb body)
+    Uwhile(conv sb cm cond, conv sb cm body)
   | Ffor(id, lo, hi, dir, body, _) ->
-    Ufor(id, conv sb lo, conv sb hi, dir, conv sb body)
+    Ufor(id, conv sb cm lo, conv sb cm hi, dir, conv sb cm body)
   | Fassign(id, lam, _) ->
-    Uassign(id, conv sb lam)
+    Uassign(id, conv sb cm lam)
 
-and conv_switch sb cases num_keys default =
+and conv_switch sb cm cases num_keys default =
   let index = Array.create num_keys 0
   and store = mk_store Flambda.same in
 
@@ -114,15 +124,17 @@ and conv_switch sb cases num_keys default =
   (* Then all other cases *)
   List.iter
     (fun (key,lam) ->
+      if key >= Array.length index
+      then Printf.printf "len: %i key: %i\n%!" (Array.length index) key;
       index.(key) <- store.act_store lam)
     cases ;
   (* Compile action *)
-  let actions = Array.map (conv sb) (store.act_get ()) in
+  let actions = Array.map (conv sb cm) (store.act_get ()) in
   match actions with
   | [| |] -> [| |], [| |] (* May happen when default is None *)
   | _     -> index, actions
 
-and conv_closure sb funct fv =
+and conv_closure sb cm funct fv =
   let funct = IdentMap.bindings funct.funs in
   let fv = IdentMap.bindings fv in
   let closed = fv = [] in
@@ -150,10 +162,7 @@ and conv_closure sb funct fv =
      constant that we can access using the closure_lbl label *)
   let closure_flam =
     if closed
-    then
-      (* the constant (Const_pointer 0) is useless, it is ignored by
-         cmmgen when there is a label *)
-      Ulbl closure_lbl
+    then Uconst(Uconst_label closure_lbl, None)
     else Uvar env_var in
 
   (* Add the relative offset of functions in the closure to the
@@ -185,19 +194,19 @@ and conv_closure sb funct fv =
     { Clambda.label = (func.label:>string);
       arity = if func.kind = Tupled then -func.arity else func.arity;
       params = if closed then func.params else func.params @ [env_var];
-      body = conv sb func.body;
+      body = conv sb cm func.body;
       dbg = func.dbg } in
 
   let ufunct = List.map aux_funct funct in
 
-  let ulam = conv_list sb (List.map snd fv) in
+  let ulam = conv_list sb cm (List.map snd fv) in
   match ulam with
   | [] -> Uconst_closure (ufunct,closure_lbl)
   | _ -> Uclosure (ufunct,ulam)
 
-and conv_list sb l = List.map (conv sb) l
+and conv_list sb cm l = List.map (conv sb cm) l
 
-and conv_const sb cst =
+and conv_const sb cm cst =
   let (* rec *) aux = function
     | Fconst_base c -> Uconst_base c
     | Fconst_pointer c -> Uconst_pointer c
@@ -235,6 +244,6 @@ and build_closure_env env_param pos = function
 
 let convert flam =
   offset_table := IdentMap.empty;
-  let r = conv IdentMap.empty flam in
+  let r = conv IdentMap.empty IdentMap.empty flam in
   offset_table := IdentMap.empty; (* allows garbage collection *)
   r

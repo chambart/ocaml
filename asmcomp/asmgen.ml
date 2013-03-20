@@ -108,11 +108,14 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
     let flambda = Flambdagen.intro size lam in
-    ignore(flambda_dump_if ppf flambda);
     Flambda.check flambda;
-    Flambda.check flambda;
-    Clambdagen.convert flambda
-    (* Closure.intro size lam *)
+    let analysis = Absint.analyse flambda in
+    let purity = Purity.unpure_expressions flambda in
+    flambda
+    ++ flambda_dump_if ppf
+    ++ Cleaner.clean analysis purity
+    ++ flambda_dump_if ppf
+    ++ Clambdagen.convert
     ++ clambda_dump_if ppf
     ++ Cmmgen.compunit size
     ++ List.iter (compile_phrase ppf) ++ (fun () -> ());

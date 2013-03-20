@@ -500,6 +500,8 @@ let transl_constant = function
       then Cconst_pointer((n lsl 1) + 1)
       else Cconst_natpointer
               (Nativeint.add (Nativeint.shift_left (Nativeint.of_int n) 1) 1n)
+  | Uconst_label lbl ->
+      Cconst_symbol lbl
   | cst ->
       Cconst_symbol (Compilenv.new_structured_constant cst false)
 
@@ -1018,7 +1020,6 @@ let functions = (Queue.create() : ufunction Queue.t)
 let rec transl = function
     Uvar id ->
       Cvar id
-  | Ulbl const_label
   | Uconst ( _, Some const_label) ->
       Cconst_symbol const_label
   | Uconst (sc, None) ->

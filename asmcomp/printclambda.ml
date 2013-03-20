@@ -47,8 +47,6 @@ let rec pr_idents ppf = function
 let rec lam ppf = function
   | Uvar id ->
       Ident.print ppf id
-  | Ulbl s ->
-      pp_print_string ppf s
   | Uconst (cst,_) ->
       struct_const ppf cst
   | Udirect_apply(f, largs, _) ->
