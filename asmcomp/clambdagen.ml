@@ -79,10 +79,8 @@ module Conv(P:Param) = struct
             let cm = IdentMap.add id lbl cm in
             cm, (lbl,def)::acc) (cm,[]) consts in
       List.iter (fun (lbl,def) ->
-        match conv sb cm def with
-        | Uconst(cst,None) ->
-          Compilenv.add_structured_constant lbl cst false
-        | _ -> assert false) consts;
+        match constant_label (conv sb cm def) with
+        | Some _ -> () | None -> assert false) consts;
       let not_consts = List.map (fun (id,def) -> id, conv sb cm def) not_consts in
       begin match not_consts with
         | [] -> conv sb cm body
@@ -186,7 +184,8 @@ module Conv(P:Param) = struct
     let funct = IdentMap.bindings functs.funs in
     let fv = IdentMap.bindings fv in
     let closed =
-      (* fv = [] *)
+      (* it is closed if there are no free variables that will not be
+         converted to constant *)
       not (FunSet.mem functs.ident not_constants.Constants.not_constant_closure) in
     let env_var = Ident.create "env" in
     (* the label used for constant (empty) closures *)
@@ -212,7 +211,7 @@ module Conv(P:Param) = struct
        constant that we can access using the closure_lbl label *)
     let closure_flam =
       if closed
-      then (Printf.printf "closed !\n%!";Uconst(Uconst_label closure_lbl, None))
+      then Uconst(Uconst_label closure_lbl, None)
       else Uvar env_var in
 
     (* Add the relative offset of functions in the closure to the

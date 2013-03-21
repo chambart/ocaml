@@ -1,5 +1,41 @@
 
-(* Detection of constant values *)
+(* Detection of not constant values *)
+
+(* This cannot be done in a single recursive pass due to expressions like:
+
+  let ... =
+    let v = ... in
+
+    let rec f1 x =
+      let f2 y =
+        f1 rec_list
+      in
+      f2 v
+    and rec_list = f1 :: rec_list
+
+    ...
+
+  f1, f2 and rec_list are constants iff v is a constant.
+
+  To handle this we implement it as 2 loops populating a 'not constant'
+  set NC:
+
+   - the first one collects informations on the expressions to add dependencies
+     between variables and mark values directly known as not constant:
+
+      f1 in NC => rec_list in NC
+      f2 in NC => f1 in NC
+      rec_list in NC => f2 in NC
+      v in NC => f1 in NC
+
+     and if for instance if v is:
+      let v = if ... then 1 else 2 in
+     it adds
+
+      v in NC
+
+   - the second propagates the implications
+*)
 
 open Asttypes
 open Lambda
@@ -21,30 +57,31 @@ module NotConstants(P:Param) = struct
     | Closure of FunId.t
     | Var of Ident.t
 
+  (* Sets representing NC *)
   let variables = ref IdentSet.empty
   let closures = ref FunSet.empty
 
+  (* if the table associates [v1;v2;...;vn] to v, it represents
+     v in NC => v1 in NC /\ v2 in NC ... /\ vn in NC *)
   let id_dep_table : dep list IdentTbl.t = IdentTbl.create 100
   let fun_dep_table : dep list FunTbl.t = FunTbl.create 100
 
-  let add_dep_id id v =
-    let t = try IdentTbl.find id_dep_table id
-    with Not_found -> [] in
-    IdentTbl.replace id_dep_table id (v :: t)
-
-  let add_dep_closure cl v =
-    let t = try FunTbl.find fun_dep_table cl
-    with Not_found -> [] in
-    FunTbl.replace fun_dep_table cl (v :: t)
-
+  (* adds in the tables 'dep in NC => curr in NC' *)
   let add_depend curr dep =
     match curr with
     | None -> ()
     | Some curr ->
       match dep with
-      | Var id -> add_dep_id id curr
-      | Closure cl -> add_dep_closure cl curr
+      | Var id ->
+        let t = try IdentTbl.find id_dep_table id
+        with Not_found -> [] in
+        IdentTbl.replace id_dep_table id (curr :: t)
+      | Closure cl ->
+        let t = try FunTbl.find fun_dep_table cl
+        with Not_found -> [] in
+        FunTbl.replace fun_dep_table cl (curr :: t)
 
+  (* adds 'curr in NC' *)
   let mark_curr curr =
     match curr with
     | None -> ()
@@ -55,44 +92,56 @@ module NotConstants(P:Param) = struct
       if not (FunSet.mem cl !closures)
       then closures := FunSet.add cl !closures
 
+  (* First loop: iterates on the tree to mark dependencies.
+
+     curr is the variable or closure to wich we add constraints like
+     '... in NC => curr in NC' or 'curr in NC'
+
+     It can be empty when no constraint can be added like in the toplevel
+     expression or in the body of a function.
+  *)
   let rec mark_loop (curr:dep option) = function
-    | Fvar (id,_) ->
-      add_depend curr (Var id)
+
     | Flet(str, id, lam, body, _) ->
-      (* No need to match on str: if the variable is assign it will be marked,
-         but if it is not assigned, it could be considered *)
+      (* No need to match on str: if the variable is assigne it will
+         be marked directly as not constant, but if it is not
+         assigned, it could be considered constant *)
       mark_loop (Some (Var id)) lam;
       mark_loop curr body
+
     | Fletrec(defs, body, _) ->
       List.iter (fun (id,def) -> mark_loop (Some (Var id)) def) defs;
       mark_loop curr body
-    | Fconst (cst,_) -> ()
 
-      (* Those are constants if all their arguments are *)
-    | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
-      List.iter (mark_loop curr) args
-    | Foffset (f1, _,_)
-    | Fenv_field (f1, _,_) ->
-      (* in fact f1 is a constant only if it is closed, so there is no
-         way we can acces to its closure like this... ???
-         At least I wish it is effectively the case... *)
-      mark_loop curr f1
+    | Fvar (id,_) ->
+      (* adds 'id in NC => curr in NC' *)
+      add_depend curr (Var id)
 
     | Fclosure (funcs,fv,_) ->
-      (* a function is considered to be constant if all the free variables
-         are aliased to constants. *)
-      let aux _ = function
-        | Fvar (id,_) ->
-          add_depend (Some (Closure funcs.ident)) (Var id)
-        | lam ->
-          mark_curr curr;
-          mark_curr (Some (Closure funcs.ident));
-          mark_loop None lam in
-      IdentMap.iter aux fv;
+      (* adds 'funcs in NC => curr in NC' *)
+      add_depend curr (Closure funcs.ident);
+      (* a closure is constant if its free variables are constants. *)
+      IdentMap.iter (fun _ lam -> mark_loop (Some (Closure funcs.ident)) lam) fv;
       IdentMap.iter (fun _ ffunc -> mark_loop None ffunc.body) funcs.funs
 
-        (* Not constants *)
+    | Fconst (cst,_) -> ()
+
+    (* Constant constructors: those expressions are constant if all their parameters are:
+       - makeblock is compiled to a constant block
+       - offset is compiled to a pointer inside a constant closure
+       - env_field will be compiled to a pointer to the original constant *)
+
+    | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
+      List.iter (mark_loop curr) args
+
+    | Foffset (f1, _,_)
+    | Fenv_field (f1, _,_) ->
+      mark_loop curr f1
+
+    (* Not constant cases: we mark directly 'curr in NC' *)
+
     | Fassign (id, f1, _) ->
+      (* the assigned is also not constant *)
       mark_curr (Some (Var id));
       mark_curr curr;
       mark_loop None f1
@@ -133,7 +182,9 @@ module NotConstants(P:Param) = struct
       mark_loop None f2;
       List.iter (mark_loop None) fl
 
+  (* Second loop: propagates implications *)
   let propagate () =
+    (* Set of variables/closures added to NC but not their dependencies *)
     let q = Queue.create () in
     IdentSet.iter (fun v -> Queue.push (Var v) q) !variables;
     FunSet.iter (fun v -> Queue.push (Closure v) q) !closures;
