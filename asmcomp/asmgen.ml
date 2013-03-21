@@ -47,7 +47,9 @@ let clambda_dump_if ppf ulambda =
   ulambda
 
 let flambda_dump_if ppf flambda =
-  if !dump_flambda then Printflambda.flambda ppf flambda; flambda
+  Flambda.check flambda;
+  if !dump_flambda then Printflambda.flambda ppf flambda;
+  flambda
 
 let rec regalloc ppf round fd =
   if round > 50 then
@@ -115,13 +117,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
   begin try
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
-    let flambda = Flambdagen.intro size lam in
-    Flambda.check flambda;
-    let analysis = Absint.analyse flambda in
-    let purity = Purity.unpure_expressions flambda in
-    flambda
-    ++ flambda_dump_if ppf
-    ++ Cleaner.clean analysis purity
+    Flambdagen.intro size lam
     ++ flambda_dump_if ppf
     ++ Clambdagen.convert
     ++ clambda_dump_if ppf
