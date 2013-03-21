@@ -29,6 +29,8 @@ let global_infos_table =
 
 let structured_constants = ref ([] : (string * bool * Clambda.ustructured_constant) list)
 
+let symbol_alias : (string,string list) Hashtbl.t = Hashtbl.create 10
+
 let current_unit =
   { ui_name = "";
     ui_symbol = "";
@@ -68,7 +70,8 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
-  structured_constants := []
+  structured_constants := [];
+  Hashtbl.clear symbol_alias
 
 let current_unit_infos () =
   current_unit
@@ -223,6 +226,13 @@ let new_structured_constant cst global =
 let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
+
+let new_symbol_alias ~orig ~alias =
+  let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
+  Hashtbl.replace symbol_alias orig (alias::l)
+
+let symbol_alias s =
+  try Hashtbl.find symbol_alias s with Not_found -> []
 
 (* Error report *)
 

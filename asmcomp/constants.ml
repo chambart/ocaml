@@ -68,9 +68,7 @@ module NotConstants(P:Param) = struct
 
   (* adds in the tables 'dep in NC => curr in NC' *)
   let add_depend curr dep =
-    match curr with
-    | None -> ()
-    | Some curr ->
+    List.iter (fun curr ->
       match dep with
       | Var id ->
         let t = try IdentTbl.find id_dep_table id
@@ -79,38 +77,39 @@ module NotConstants(P:Param) = struct
       | Closure cl ->
         let t = try FunTbl.find fun_dep_table cl
         with Not_found -> [] in
-        FunTbl.replace fun_dep_table cl (curr :: t)
+        FunTbl.replace fun_dep_table cl (curr :: t))
+      curr
 
   (* adds 'curr in NC' *)
   let mark_curr curr =
-    match curr with
-    | None -> ()
-    | Some (Var id) ->
-      if not (IdentSet.mem id !variables)
-      then variables := IdentSet.add id !variables
-    | Some (Closure cl) ->
-      if not (FunSet.mem cl !closures)
-      then closures := FunSet.add cl !closures
+    List.iter (function
+      | Var id ->
+        if not (IdentSet.mem id !variables)
+        then variables := IdentSet.add id !variables
+      | Closure cl ->
+        if not (FunSet.mem cl !closures)
+        then closures := FunSet.add cl !closures)
+      curr
 
   (* First loop: iterates on the tree to mark dependencies.
 
-     curr is the variable or closure to wich we add constraints like
+     curr is the variables or closures to wich we add constraints like
      '... in NC => curr in NC' or 'curr in NC'
 
      It can be empty when no constraint can be added like in the toplevel
      expression or in the body of a function.
   *)
-  let rec mark_loop (curr:dep option) = function
+  let rec mark_loop (curr:dep list) = function
 
     | Flet(str, id, lam, body, _) ->
-      (* No need to match on str: if the variable is assigne it will
+      (* No need to match on str: if the variable is assigned it will
          be marked directly as not constant, but if it is not
          assigned, it could be considered constant *)
-      mark_loop (Some (Var id)) lam;
+      mark_loop [Var id] lam;
       mark_loop curr body
 
     | Fletrec(defs, body, _) ->
-      List.iter (fun (id,def) -> mark_loop (Some (Var id)) def) defs;
+      List.iter (fun (id,def) -> mark_loop [Var id] def) defs;
       mark_loop curr body
 
     | Fvar (id,_) ->
@@ -121,8 +120,11 @@ module NotConstants(P:Param) = struct
       (* adds 'funcs in NC => curr in NC' *)
       add_depend curr (Closure funcs.ident);
       (* a closure is constant if its free variables are constants. *)
-      IdentMap.iter (fun _ lam -> mark_loop (Some (Closure funcs.ident)) lam) fv;
-      IdentMap.iter (fun _ ffunc -> mark_loop None ffunc.body) funcs.funs
+      IdentMap.iter (fun inner_id lam ->
+        mark_loop [Closure funcs.ident; Var inner_id] lam) fv;
+      IdentMap.iter (fun _ ffunc ->
+        List.iter (fun id -> mark_curr [Var id]) ffunc.params;
+        mark_loop [] ffunc.body) funcs.funs
 
     | Fconst (cst,_) -> ()
 
@@ -138,49 +140,67 @@ module NotConstants(P:Param) = struct
     | Fenv_field (f1, _,_) ->
       mark_loop curr f1
 
-    (* Not constant cases: we mark directly 'curr in NC' *)
+    (* Not constant cases: we mark directly 'curr in NC' and mark
+       bound variables as in NC also *)
 
     | Fassign (id, f1, _) ->
       (* the assigned is also not constant *)
-      mark_curr (Some (Var id));
+      mark_curr [Var id];
       mark_curr curr;
-      mark_loop None f1
+      mark_loop [] f1
 
-    | Ftrywith (f1,_,f2,_)
+    | Ftrywith (f1,id,f2,_) ->
+      mark_curr [Var id];
+      mark_curr curr;
+      mark_loop [] f1;
+      mark_loop [] f2
+
+    | Fcatch (_,ids,f1,f2,_) ->
+      List.iter (fun id -> mark_curr [Var id]) ids;
+      mark_curr curr;
+      mark_loop [] f1;
+      mark_loop [] f2
+
+    | Ffor (id,f1,f2,_,f3,_) ->
+      mark_curr [Var id];
+      mark_curr curr;
+      mark_loop [] f1;
+      mark_loop [] f2;
+      mark_loop [] f3
+
     | Fsequence (f1,f2,_)
-    | Fwhile (f1,f2,_)
-    | Fcatch (_,_,f1,f2,_) ->
+    | Fwhile (f1,f2,_) ->
       mark_curr curr;
-      mark_loop None f1;
-      mark_loop None f2
+      mark_loop [] f1;
+      mark_loop [] f2
 
-    | Ffor (_,f1,f2,_,f3,_)
     | Fifthenelse (f1,f2,f3,_) ->
       mark_curr curr;
-      mark_loop None f1;
-      mark_loop None f2;
-      mark_loop None f3
+      mark_loop [] f1;
+      mark_loop [] f2;
+      mark_loop [] f3
 
     | Fstaticfail (_,l,_)
     | Fprim (_,l,_,_) ->
       mark_curr curr;
-      List.iter (mark_loop None) l
+      List.iter (mark_loop []) l
 
     | Fapply (f1,fl,_,_,_) ->
       mark_curr curr;
-      mark_loop None f1;
-      List.iter (mark_loop None) fl
+      mark_loop [] f1;
+      List.iter (mark_loop []) fl
 
     | Fswitch (arg,sw,_) ->
       mark_curr curr;
-      List.iter (fun (_,l) -> mark_loop None l) sw.fs_consts;
-      List.iter (fun (_,l) -> mark_loop None l) sw.fs_blocks
+      List.iter (fun (_,l) -> mark_loop [] l) sw.fs_consts;
+      List.iter (fun (_,l) -> mark_loop [] l) sw.fs_blocks;
+      Misc.may (fun l -> mark_loop [] l) sw.fs_failaction
 
     | Fsend (_,f1,f2,fl,_,_) ->
       mark_curr curr;
-      mark_loop None f1;
-      mark_loop None f2;
-      List.iter (mark_loop None) fl
+      mark_loop [] f1;
+      mark_loop [] f2;
+      List.iter (mark_loop []) fl
 
   (* Second loop: propagates implications *)
   let propagate () =
@@ -206,7 +226,7 @@ module NotConstants(P:Param) = struct
     done
 
   let res =
-    mark_loop None P.expr;
+    mark_loop [] P.expr;
     propagate ();
     { not_constant_id = !variables;
       not_constant_closure = !closures; }

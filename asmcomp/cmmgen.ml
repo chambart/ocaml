@@ -1918,6 +1918,10 @@ let rec transl_all_functions already_translated cont =
   with Queue.Empty ->
     cont, already_translated
 
+let cdefine_symbol symb =
+  let l = symb :: (Compilenv.symbol_alias symb) in
+  List.map (fun v -> Cdefine_symbol v) l
+
 (* Emit structured constants *)
 
 let immstrings = Hashtbl.create 17
@@ -1925,28 +1929,28 @@ let immstrings = Hashtbl.create 17
 let rec emit_constant symb cst cont =
   match cst with
     Uconst_base(Const_float s) ->
-      Cint(float_header) :: Cdefine_symbol symb :: Cdouble s :: cont
+      Cint(float_header) :: cdefine_symbol symb @ Cdouble s :: cont
   | Uconst_base(Const_string s) | Uconst_immstring s ->
       Cint(string_header (String.length s)) ::
-      Cdefine_symbol symb ::
+      cdefine_symbol symb @
       emit_string_constant s cont
   | Uconst_base(Const_int32 n) ->
-      Cint(boxedint32_header) :: Cdefine_symbol symb ::
+      Cint(boxedint32_header) :: cdefine_symbol symb @
       emit_boxed_int32_constant n cont
   | Uconst_base(Const_int64 n) ->
-      Cint(boxedint64_header) :: Cdefine_symbol symb ::
+      Cint(boxedint64_header) :: cdefine_symbol symb @
       emit_boxed_int64_constant n cont
   | Uconst_base(Const_nativeint n) ->
-      Cint(boxedintnat_header) :: Cdefine_symbol symb ::
+      Cint(boxedintnat_header) :: cdefine_symbol symb @
       emit_boxed_nativeint_constant n cont
   | Uconst_block(tag, fields) ->
       let (emit_fields, cont1) = emit_constant_fields fields cont in
       Cint(block_header tag (List.length fields)) ::
-      Cdefine_symbol symb ::
+      cdefine_symbol symb @
       emit_fields @ cont1
   | Uconst_float_array(fields) ->
       Cint(floatarray_header (List.length fields)) ::
-      Cdefine_symbol symb ::
+      cdefine_symbol symb @
       Misc.map_end (fun f -> Cdouble f) fields cont
   | Uconst_closure(fundecls, lbl) ->
       constant_closures := (lbl, fundecls) :: !constant_closures;
@@ -2062,19 +2066,19 @@ let emit_constant_closure symb fundecls cont =
           let symb' = symb ^ "_" ^ (string_of_int pos) in
           if f2.arity = 1 then
             Cint(infix_header pos) ::
-            Cdefine_symbol symb' ::
+            cdefine_symbol symb' @
             Csymbol_address f2.label ::
             Cint 3n ::
             emit_others (pos + 3) rem
           else
             Cint(infix_header pos) ::
-            Cdefine_symbol symb' ::
+            cdefine_symbol symb' @
             Csymbol_address(curry_function f2.arity) ::
             Cint(Nativeint.of_int (f2.arity lsl 1 + 1)) ::
             Csymbol_address f2.label ::
             emit_others (pos + 4) rem in
       Cint(closure_header (fundecls_size fundecls)) ::
-      Cdefine_symbol symb ::
+      cdefine_symbol symb @
       if f1.arity = 1 then
         Csymbol_address f1.label ::
         Cint 3n ::
