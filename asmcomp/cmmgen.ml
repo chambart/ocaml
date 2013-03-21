@@ -1024,10 +1024,6 @@ let rec transl = function
       Cconst_symbol const_label
   | Uconst (sc, None) ->
       transl_constant sc
-  | Uconst_closure(fundecls, lbl) ->
-      constant_closures := (lbl, fundecls) :: !constant_closures;
-      List.iter (fun f -> Queue.add f functions) fundecls;
-      Cconst_symbol lbl
   | Uclosure(fundecls, []) ->
       let lbl = Compilenv.new_const_symbol() in
       constant_closures := (lbl, fundecls) :: !constant_closures;
@@ -1920,7 +1916,7 @@ let rec transl_all_functions already_translated cont =
         (transl_function f :: cont)
     end
   with Queue.Empty ->
-    cont
+    cont, already_translated
 
 (* Emit structured constants *)
 
@@ -1952,6 +1948,10 @@ let rec emit_constant symb cst cont =
       Cint(floatarray_header (List.length fields)) ::
       Cdefine_symbol symb ::
       Misc.map_end (fun f -> Cdouble f) fields cont
+  | Uconst_closure(fundecls, lbl) ->
+      constant_closures := (lbl, fundecls) :: !constant_closures;
+      List.iter (fun f -> Queue.add f functions) fundecls;
+      cont
   | _ -> fatal_error "gencmm.emit_constant"
 
 and emit_constant_fields fields cont =
@@ -2017,6 +2017,10 @@ and emit_constant_field field cont =
       (Clabel_address lbl,
        Cint(floatarray_header (List.length fields)) :: Cdefine_label lbl ::
        Misc.map_end (fun f -> Cdouble f) fields cont)
+  | Uconst_closure(fundecls, lbl) ->
+      constant_closures := (lbl, fundecls) :: !constant_closures;
+      List.iter (fun f -> Queue.add f functions) fundecls;
+      (Csymbol_address lbl, cont)
   | Uconst_label lbl ->
       (Csymbol_address lbl, cont)
 
@@ -2055,13 +2059,16 @@ let emit_constant_closure symb fundecls cont =
       let rec emit_others pos = function
         [] -> cont
       | f2 :: rem ->
+          let symb' = symb ^ "_" ^ (string_of_int pos) in
           if f2.arity = 1 then
             Cint(infix_header pos) ::
+            Cdefine_symbol symb' ::
             Csymbol_address f2.label ::
             Cint 3n ::
             emit_others (pos + 3) rem
           else
             Cint(infix_header pos) ::
+            Cdefine_symbol symb' ::
             Csymbol_address(curry_function f2.arity) ::
             Cint(Nativeint.of_int (f2.arity lsl 1 + 1)) ::
             Csymbol_address f2.label ::
@@ -2090,6 +2097,7 @@ let emit_all_constants cont =
        else cst in
          c:= Cdata(cst):: !c)
     (Compilenv.structured_constants());
+  Compilenv.clear_structured_constants ();
 (*  structured_constants := []; done in Compilenv.reset() *)
   Hashtbl.clear immstrings;   (* PR#3979 *)
   List.iter
@@ -2108,8 +2116,16 @@ let compunit size ulam =
                        fun_args = [];
                        fun_body = init_code; fun_fast = false;
                        fun_dbg  = Debuginfo.none }] in
-  let c2 = transl_all_functions StringSet.empty c1 in
-  let c3 = emit_all_constants c2 in
+  let rec aux set c1 =
+    if Compilenv.structured_constants () = [] &&
+       Queue.is_empty functions
+    then c1
+    else
+      let c2, set = transl_all_functions set c1 in
+      let c3 = emit_all_constants c2 in
+      aux set c3
+  in
+  let c3 = aux StringSet.empty c1 in
   Cdata [Cint(block_header 0 size);
          Cglobal_symbol glob;
          Cdefine_symbol glob;

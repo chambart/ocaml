@@ -36,7 +36,15 @@ let pass_dump_linear_if ppf flag message phrase =
   phrase
 
 let clambda_dump_if ppf ulambda =
-  if !dump_clambda then Printclambda.clambda ppf ulambda; ulambda
+  if !dump_clambda then
+    begin
+      Printclambda.clambda ppf ulambda;
+      List.iter (fun (lbl,_,cst) ->
+        Format.fprintf ppf "%s:@ " lbl;
+        Printclambda.structured_constant ppf cst)
+        (Compilenv.structured_constants ())
+    end;
+  ulambda
 
 let flambda_dump_if ppf flambda =
   if !dump_flambda then Printflambda.flambda ppf flambda; flambda

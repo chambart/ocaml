@@ -15,6 +15,10 @@ open Format
 open Asttypes
 open Clambda
 
+let rec pr_idents ppf = function
+  | [] -> ()
+  | h::t -> fprintf ppf "%a %a" Ident.print h pr_idents t
+
 let rec struct_const ppf = function
   | Uconst_base(Const_int n) -> fprintf ppf "%i" n
   | Uconst_base(Const_char c) -> fprintf ppf "%C" c
@@ -37,14 +41,19 @@ let rec struct_const ppf = function
       let floats ppf fl =
         List.iter (fun f -> fprintf ppf "@ %s" f) fl in
       fprintf ppf "@[<1>[|@[%s%a@]|]@]" f1 floats fl
+  | Uconst_closure(clos, sym) ->
+      let idents ppf =
+        List.iter (fprintf ppf "@ %a" Ident.print)in
+      let one_fun ppf f =
+        fprintf ppf "(fun@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
+          f.label f.arity idents f.params lam f.body in
+      let funs ppf =
+        List.iter (fprintf ppf "@ %a" one_fun) in
+      fprintf ppf "@[<2>(const_closure%a %s)@]" funs clos sym
   | Uconst_label s ->
     pp_print_string ppf s
 
-let rec pr_idents ppf = function
-  | [] -> ()
-  | h::t -> fprintf ppf "%a %a" Ident.print h pr_idents t
-
-let rec lam ppf = function
+and lam ppf = function
   | Uvar id ->
       Ident.print ppf id
   | Uconst (cst,_) ->
@@ -68,15 +77,6 @@ let rec lam ppf = function
       let lams ppf =
         List.iter (fprintf ppf "@ %a" lam) in
       fprintf ppf "@[<2>(closure%a@ %a)@]" funs clos lams fv
-  | Uconst_closure(clos, sym) ->
-      let idents ppf =
-        List.iter (fprintf ppf "@ %a" Ident.print)in
-      let one_fun ppf f =
-        fprintf ppf "(fun@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
-          f.label f.arity idents f.params lam f.body in
-      let funs ppf =
-        List.iter (fprintf ppf "@ %a" one_fun) in
-      fprintf ppf "@[<2>(const_closure%a %s)@]" funs clos sym
   | Uoffset(l,i) -> fprintf ppf "@[<2>(offset@ %a@ %d)@]" lam l i
   | Ulet(id, arg, body) ->
       let rec letbody ul = match ul with
@@ -164,3 +164,6 @@ and sequence ppf ulam = match ulam with
 
 let clambda ppf ulam =
   fprintf ppf "%a@." lam ulam
+
+let structured_constant ppf sc =
+  fprintf ppf "%a@." struct_const sc

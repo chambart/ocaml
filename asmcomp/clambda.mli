@@ -24,15 +24,15 @@ type ustructured_constant =
   | Uconst_block of int * ustructured_constant list
   | Uconst_float_array of string list
   | Uconst_immstring of string
+  | Uconst_closure of ufunction list * string
   | Uconst_label of string
 
-type ulambda =
+and ulambda =
     Uvar of Ident.t
   | Uconst of ustructured_constant * string option
   | Udirect_apply of function_label * ulambda list * Debuginfo.t
   | Ugeneric_apply of ulambda * ulambda list * Debuginfo.t
   | Uclosure of ufunction list * ulambda list
-  | Uconst_closure of ufunction list * string
   | Uoffset of ulambda * int
   | Ulet of Ident.t * ulambda * ulambda
   | Uletrec of (Ident.t * ulambda) list * ulambda

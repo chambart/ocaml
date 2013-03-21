@@ -212,10 +212,15 @@ let new_const_symbol () =
   incr const_label;
   make_symbol (Some (string_of_int !const_label))
 
+let add_structured_constant lbl cst global =
+  structured_constants := (lbl, global, cst) :: !structured_constants
+
 let new_structured_constant cst global =
   let lbl = new_const_symbol() in
-  structured_constants := (lbl, global, cst) :: !structured_constants;
+  add_structured_constant lbl cst global;
   lbl
+
+let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
 
