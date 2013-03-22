@@ -104,12 +104,21 @@ module Conv(P:Param) = struct
     | Fclosure(funct, fv, _) ->
       conv_closure sb cm funct fv
     | Foffset(lam,id, _) ->
+      (* For compiling offset inside a constant closure as a constant,
+         we compile it as a direct label to the function:
+         label ^ "_" ^ offset
+         This works because we know that Foffset is by construction always
+         applied to a variable or the closure on which we can recover the
+         original label. *)
       let ulam = conv sb cm lam in
       if not (IdentMap.mem id !offset_table)
       then fatal_error (Printf.sprintf "missing offset %s" (Ident.unique_name id));
       let offset = IdentMap.find id !offset_table in
       make_offset ulam offset
+
     | Fenv_field(lam,id, _) ->
+
+      (* (Uprim(Pfield pos, [Uvar env_param], Debuginfo.none)) *)
       failwith "TODO env_field will appear only when inlining"
 
     | Fapply(funct, args, Some (direct_func,closed), dbg, _) ->
@@ -206,7 +215,7 @@ module Conv(P:Param) = struct
     (* the label used for constant (empty) closures *)
     let closure_lbl = Compilenv.new_const_symbol () in
 
-    let aux_offset (map,env_pos) (id, func) =
+    let aux_fun_offset (map,env_pos) (id, func) =
       let pos = env_pos + 1 in
       let env_pos = env_pos + 1 +
           (if func.arity <> 1 then 3 else 2) in
@@ -215,7 +224,16 @@ module Conv(P:Param) = struct
       (map,env_pos)
     in
     let offset, fv_pos =
-      List.fold_left aux_offset (!offset_table, -1) funct in
+      List.fold_left aux_fun_offset (!offset_table, -1) funct in
+
+    (* used only to access variables inside closure of an inlined function *)
+    let aux_fv_offset (map,pos) (id, _) =
+      assert(not (IdentMap.mem id map));
+      let map = IdentMap.add id pos map in
+      (map,pos + 1)
+    in
+    let offset, _ =
+      List.fold_left aux_fv_offset (offset, fv_pos) fv in
 
     offset_table := offset;
 

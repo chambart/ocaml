@@ -130,14 +130,13 @@ module NotConstants(P:Param) = struct
 
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block
-       - offset is compiled to a pointer inside a constant closure
-       - env_field will be compiled to a pointer to the original constant *)
+       - offset is compiled to a pointer inside a constant closure.
+         See Cmmgen for the details *)
 
     | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
       List.iter (mark_loop curr) args
 
-    | Foffset (f1, _,_)
-    | Fenv_field (f1, _,_) ->
+    | Foffset (f1, _,_) ->
       mark_loop curr f1
 
     (* Not constant cases: we mark directly 'curr in NC' and mark
@@ -167,6 +166,10 @@ module NotConstants(P:Param) = struct
       mark_loop [] f1;
       mark_loop [] f2;
       mark_loop [] f3
+
+    | Fenv_field (f1, _,_) ->
+      mark_curr curr;
+      mark_loop [] f1
 
     | Fsequence (f1,f2,_)
     | Fwhile (f1,f2,_) ->
