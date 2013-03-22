@@ -123,7 +123,7 @@ type 'a flambda =
         (function_label*closed) option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
   | Foffset of 'a flambda * Ident.t * 'a
-  | Fenv_field of 'a flambda * Ident.t * 'a
+  | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
   | Fprim of primitive * 'a flambda list * Debuginfo.t * 'a
@@ -167,6 +167,12 @@ and 'a ffunctions = {
   recursives : bool;
 }
 
+and 'a fenv_field = {
+  env : 'a flambda;
+  env_fun_id : Ident.t;
+  env_var : Ident.t
+}
+
 let same f1 f2 =
   (* TODO ! used for switch compiling *)
   false
@@ -174,7 +180,16 @@ let same f1 f2 =
 (* Well formedness checking
    Ensures that:
     * No identifier is bound multiple times
-    * every variable used is bound *)
+    * every variable used is bound
+
+   TODO: check assumptions of the rest of the code
+   - ensure well formedness of Foffset
+   - staticfail correctly enclosed inside the catch
+   - no reuse of staticfail identifier ?
+   - no let rec x = y and y = ...
+     -> assumed by clambdagen
+   - allow access to free variables if they are constants ?
+ *)
 
 module StringSet = Set.Make(String)
 
@@ -226,8 +241,8 @@ let rec check env = function
     check_closure env funct fv
   | Foffset(lam,id,_) ->
     check env lam
-  | Fenv_field(lam,id,_) ->
-    check env lam
+  | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
+    check env env_lam
   | Fapply(funct, args, _, _,_) ->
     check env funct;
     List.iter (check env) args
@@ -291,7 +306,7 @@ let data = function
   | Fletrec(defs, body,data) -> data
   | Fclosure(funct, fv,data) -> data
   | Foffset(lam,id,data) -> data
-  | Fenv_field(lam,id,data) -> data
+  | Fenv_field(_,data) -> data
   | Fapply(funct, args, _, _,data) -> data
   | Fswitch(arg, sw,data) -> data
   | Fsend(kind, met, obj, args, _,data) -> data
@@ -314,7 +329,7 @@ let string_desc = function
   | Fletrec(defs, body,data) -> "letrec"
   | Fclosure(funct, fv,data) -> "closure"
   | Foffset(lam,id,data) -> "offset"
-  | Fenv_field(lam,id,data) -> "env_field"
+  | Fenv_field(_,data) -> "env_field"
   | Fapply(funct, args, _, _,data) -> "apply"
   | Fswitch(arg, sw,data) -> "switch"
   | Fsend(kind, met, obj, args, _,data) -> "send"

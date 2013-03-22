@@ -24,7 +24,7 @@ type ustructured_constant =
   | Uconst_block of int * ustructured_constant list
   | Uconst_float_array of string list
   | Uconst_immstring of string
-  | Uconst_closure of ufunction list * string
+  | Uconst_closure of ufunction list * string * ustructured_constant list
   | Uconst_label of string
 
 and ulambda =

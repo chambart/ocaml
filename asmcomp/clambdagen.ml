@@ -34,26 +34,27 @@ module Conv(P:Param) = struct
 
   let not_constants = Constants.not_constants P.expr
 
-  let conv_var sb cm id =
-    (* If the variable is an acces to a constant, it is replaced by
-       the constant label *)
-    try
-      let lbl = IdentMap.find id cm in
-      Uconst(Uconst_label lbl, None)
-    with Not_found ->
-
-      (* If the variable is a recursive access to the function currently
-         being defined: it is replaced by an offset in the closure.  If
-         the variable is bound by the closure, it is replace by a field
-         access inside the closure *)
-      try IdentMap.find id sb
-      with Not_found -> Uvar id
-
   let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
     | Fvar (id,_) ->
-      conv_var sb cm id
+      begin
+        (* If the variable reference a constant, it is replaced by the
+           constant label *)
+        try
+          let lbl = IdentMap.find id cm in
+          Uconst(Uconst_label lbl, None)
+        with Not_found ->
+
+          (* If the variable is a recursive access to the function
+             currently being defined: it is replaced by an offset in the
+             closure. If the variable is bound by the closure, it is
+             replace by a field access inside the closure *)
+          try IdentMap.find id sb
+          with Not_found -> Uvar id
+      end
+
     | Fconst (cst,_) ->
       Uconst (conv_const sb cm cst, None)
+
     | Flet(str, id, lam, body, _) ->
       (* we need to ensure that definitions are converted before the
          body to be able to use the offset of function defined inside
@@ -101,8 +102,10 @@ module Conv(P:Param) = struct
       begin match not_consts with
         | [] -> conv sb cm body
         | _ -> Uletrec(not_consts, conv sb cm body) end
+
     | Fclosure(funct, fv, _) ->
       conv_closure sb cm funct fv
+
     | Foffset(lam,id, _) ->
       (* For compiling offset inside a constant closure as a constant,
          we compile it as a direct label to the function:
@@ -116,14 +119,19 @@ module Conv(P:Param) = struct
       let offset = IdentMap.find id !offset_table in
       make_offset ulam offset
 
-    | Fenv_field(lam,id, _) ->
-
-      (* (Uprim(Pfield pos, [Uvar env_param], Debuginfo.none)) *)
-      failwith "TODO env_field will appear only when inlining"
+    | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
+      let ulam = conv sb cm lam in
+      assert(IdentMap.mem env_var !offset_table);
+      assert(IdentMap.mem env_fun_id !offset_table);
+      let fun_offset = IdentMap.find env_fun_id !offset_table in
+      let var_offset = IdentMap.find env_var !offset_table in
+      let pos = var_offset - fun_offset in
+      Uprim(Pfield pos, [ulam], Debuginfo.none)
 
     | Fapply(funct, args, Some (direct_func,closed), dbg, _) ->
       let args = match closed with Closed -> args | NotClosed -> args @ [funct] in
       Udirect_apply((direct_func:>string), conv_list sb cm args, dbg)
+
     | Fapply(funct, args, None, dbg, _) ->
       (* the closure parameter of the function is added by cmmgen, but
          it already appears in the list of parameters of the clambda
@@ -142,12 +150,12 @@ module Conv(P:Param) = struct
          us_actions_consts = const_actions;
          us_index_blocks = block_index;
          us_actions_blocks = block_actions})
-    | Fsend(kind, met, obj, args, dbg, _) ->
-      Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
+
     | Fprim(Pgetglobal id, l, dbg, _) ->
       assert(l = []);
       Uprim(Pgetglobal (Ident.create_persistent (Compilenv.symbol_for_global id)),
         [], dbg)
+
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
       let args = conv_list sb cm args in
       begin match constant_list args with
@@ -157,6 +165,7 @@ module Conv(P:Param) = struct
           let cst = Uconst_block (tag,l) in
           Uconst(cst, None)
       end
+
     | Fprim(p, args, dbg, _) ->
       Uprim(p, conv_list sb cm args, dbg)
     | Fstaticfail (i, args, _) ->
@@ -175,16 +184,25 @@ module Conv(P:Param) = struct
       Ufor(id, conv sb cm lo, conv sb cm hi, dir, conv sb cm body)
     | Fassign(id, lam, _) ->
       Uassign(id, conv sb cm lam)
+    | Fsend(kind, met, obj, args, dbg, _) ->
+      Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
 
   and make_offset ulam offset =
     match ulam with
     | Uconst(Uconst_label lbl,_)
     | Uconst(_,Some lbl) ->
-      if offset = 0
-      then Uconst(Uconst_label lbl,None)
-      else Uconst(Uconst_label (lbl ^ "_" ^ string_of_int offset),None)
+      Uconst(Uconst_label (offset_label lbl offset),None)
     | _ ->
-      Uoffset(ulam, offset)
+      if offset = 0
+      then ulam
+      (* compilation of let rec in cmmgen assumes
+         that a closure is not offseted (Cmmgen.expr_size) *)
+      else Uoffset(ulam, offset)
+
+  and offset_label lbl offset =
+    if offset = 0
+    then lbl
+    else lbl ^ "_" ^ string_of_int offset
 
   and conv_switch sb cm cases num_keys default =
     let index = Array.create num_keys 0
@@ -205,16 +223,53 @@ module Conv(P:Param) = struct
     | _     -> index, actions
 
   and conv_closure sb cm functs fv =
+    (* Make the susbtitutions for variables bound by the closure:
+       the variables bounds are the functions inside the closure and
+       the free variables of the functions.
+
+       For instance the closure for a code like
+
+         let rec fun_a x =
+           if x <= 0 then 0 else fun_b (x-1) v1
+         and fun_b x y =
+           if x <= 0 then 0 else v1 + v2 + y + fun_a (x-1)
+
+       will be represented in memory as:
+
+         [ closure header; fun_a; 1; infix header; fun caml_curry_2; 2; fun_b; v1; v2 ]
+
+       fun_a and fun_b will take an additional parameter 'env' to access their closure.
+       It will be shifted such that in the body of a function the env parameter points
+       to its code pointer. i.e. in fun_b it will be shifted by 3 words.
+
+       Hence accessing to v1 in the body of fun_a is accessing to the 6th field of 'env'
+       and in the body of fun_b it is the 1st field.
+
+       If the closure can be compiled to a constant, the env parameter is not always passed
+       to the function (for direct calls). Inside the body of the function, we acces a constant
+       globaly defined: there are label camlModule__id created to access the functions.
+       fun_a can be accessed by 'camlModule__id' and fun_b by 'camlModule__id_3'
+       (3 is the offset of fun_b in the closure).
+
+       Inside a constant closure, there will be no access to the closure for the free variables,
+       but if the function is inlined, some variables can be retrieved from the closure outside
+       of its body, so constant closure still contains their free variables. *)
+
     let funct = IdentMap.bindings functs.funs in
     let fv = IdentMap.bindings fv in
+
     let closed =
-      (* it is closed if there are no free variables that will not be
-         converted to constant *)
+      (* A function is considered to be closed if all the free variables can be converted
+         to constant. i.e. if the whole closure will be compiled as a constant *)
       not (FunSet.mem functs.ident not_constants.Constants.not_constant_closure) in
+
+    (* the environment variable used for non constant closures *)
     let env_var = Ident.create "env" in
-    (* the label used for constant (empty) closures *)
+    (* the label used for constant closures *)
     let closure_lbl = Compilenv.new_const_symbol () in
 
+    (* build the table mapping the function to the offset of its code
+       pointer inside the closure value *)
     let aux_fun_offset (map,env_pos) (id, func) =
       let pos = env_pos + 1 in
       let env_pos = env_pos + 1 +
@@ -226,7 +281,10 @@ module Conv(P:Param) = struct
     let offset, fv_pos =
       List.fold_left aux_fun_offset (!offset_table, -1) funct in
 
-    (* used only to access variables inside closure of an inlined function *)
+    (* Adds the mapping of free variables to their offset. It is not
+       used inside the body of the function: it is directly
+       substituted here. But if the function is inlined, it is
+       possible that the closure is accessed from outside its body. *)
     let aux_fv_offset (map,pos) (id, _) =
       assert(not (IdentMap.mem id map));
       let map = IdentMap.add id pos map in
@@ -237,131 +295,90 @@ module Conv(P:Param) = struct
 
     offset_table := offset;
 
-    (* When the function is closed, it is compiled as a function without
-       closure parameter. So the env_var variable does not exist and
-       thus can't be used to retrieve the closure. Since the closure of
-       a closed function is a constant, it is compiled as a global
-       constant that we can access using the closure_lbl label *)
-    let closure_flam =
-      if closed
-      then Uconst(Uconst_label closure_lbl, None)
-      else Uvar env_var in
-
-    (* Add the relative offset of functions in the closure to the
-       substitution *)
-    let add_offset_subst pos (sb,cm) (id,_) =
-      let offset = make_offset closure_flam
-          (IdentMap.find id !offset_table - pos) in
-      match constant_label offset with
-      | No_lbl ->
-        (* Uoffset cannot be a direct value *)
-        assert false
-      | Not_const ->
-        assert(not closed);
-        IdentMap.add id offset sb, cm
-      | Lbl lbl ->
-        assert(closed);
-        sb, IdentMap.add id lbl cm in
-
     let fv_ulam = List.map (fun (id,lam) -> id,conv sb cm lam) fv in
 
-    let aux_funct (id,func) =
-      (* the offset inside the closure of the function currently being
-         converted: used to compute relative offset of other functions
-         of the closure and the field of variables bounds in the closure.
-
-         If all the functions are closed the closure is statically
-         allocated and each function use the same closure (and point to
-         its head) so the relative offset in the closure is null.
-
-         Notice that when the closure is statically allocated, we could
-         avoid computing the offset when pointing to a function inside
-         the closure: we could add intermediate labels. *)
-      let fun_offset =
-        if closed
-        then 0
-        else IdentMap.find id offset in
+    let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
 
-      let sb, cm =
+      let fun_offset = IdentMap.find id offset in
+
+      let env_param =
         if closed
         then
-          let sb = IdentMap.empty in
-          (* TODO: clean this *)
-          List.fold_left (fun (sb, cm) (id,lam) ->
-              match constant_label lam with
-              | Not_const ->
-                Format.printf "%a@." Ident.print id;
-                Printclambda.clambda Format.std_formatter lam;
-                assert false
-              | No_lbl ->
-                let sb = IdentMap.add id lam sb in
-                sb, cm
-              | Lbl lbl ->
-                let cm = IdentMap.add id lbl cm in
-                sb, cm) (sb,cm) fv_ulam
-        else build_closure_env env_var (fv_pos - fun_offset) fv_ulam in
-      (* adds recursive function variables to the substitution environment *)
-      let sb, cm = List.fold_left (add_offset_subst fun_offset) (sb,cm) funct in
+          (* This case not be used: when the function is closed every
+             acces to the environment is directly substituted *)
+          Uconst(Uconst_label (offset_label closure_lbl fun_offset), None)
+        else Uvar env_var in
+
+      (* inside the body of the function, we cannot access variables
+         declared outside, so take a clean substitution table. *)
+      let sb = IdentMap.empty in
+
+      let sb, cm =
+        (* Add to the substitution the value of the free variables *)
+
+        let add_env_variable (sb,cm,pos) (id,lam) =
+          let sb, cm =
+            match constant_label lam with
+            | Not_const ->
+              assert(not closed);
+              IdentMap.add id (Uprim(Pfield pos, [env_param], Debuginfo.none)) sb,
+              cm
+            | No_lbl ->
+              let sb = IdentMap.add id lam sb in
+              sb, cm
+            | Lbl lbl ->
+              let cm = IdentMap.add id lbl cm in
+              sb, cm in
+          sb, cm, (pos+1) in
+
+        let (sb, cm, _pos) = List.fold_left add_env_variable
+            (sb, cm, fv_pos - fun_offset) fv_ulam in
+
+        (* Add to the substitution the value of the functions defined in
+           the current closure:
+         * If the function is not closed, this can be retrieved by shifting
+           the environment.
+         * If the function is closed, we use a global variable named
+           'closure_lbl_offset' defined. *)
+        let add_offset_subst pos (sb,cm) (id,_) =
+          let offset = IdentMap.find id !offset_table in
+          if closed
+          then
+            let lbl = offset_label closure_lbl offset in
+            sb, IdentMap.add id lbl cm
+          else
+            let exp = Uoffset(Uvar env_var, offset - pos) in
+            IdentMap.add id exp sb,cm in
+
+        List.fold_left (add_offset_subst fun_offset) (sb,cm) funct in
+
       { Clambda.label = (func.label:>string);
         arity = if func.kind = Tupled then -func.arity else func.arity;
         params = if closed then func.params else func.params @ [env_var];
         body = conv sb cm func.body;
         dbg = func.dbg } in
 
-    let ufunct = List.map aux_funct funct in
+    let ufunct = List.map conv_function funct in
 
     if closed
     then
-      let cst = Uconst_closure (ufunct, closure_lbl) in
-      Compilenv.add_structured_constant closure_lbl cst true;
-      Uconst(cst,Some closure_lbl)
+      match constant_list (List.map snd fv_ulam) with
+      | None -> assert false
+      | Some fv_const ->
+        let cst = Uconst_closure (ufunct, closure_lbl, fv_const) in
+        Compilenv.add_structured_constant closure_lbl cst true;
+        Uconst(cst,Some closure_lbl)
     else
       Uclosure (ufunct, List.map snd fv_ulam)
 
   and conv_list sb cm l = List.map (conv sb cm) l
 
-  and conv_const sb cm cst =
-    let (* rec *) aux = function
-      | Fconst_base c -> Uconst_base c
-      | Fconst_pointer c -> Uconst_pointer c
-                              (* | Fconst_block (tag,l) -> *)
-                              (*   Const_block (tag,List.map aux l) *)
-      | Fconst_float_array c -> Uconst_float_array c
-      | Fconst_immstring c -> Uconst_immstring c
-                                (* | Fconst_id id -> *)
-                                (*   failwith "TODO: ident constant" *)
-                                (* let label = Compilenv.make_symbol (Some (Ident.unique_name id)) in *)
-                                (* Const_lbl label *)
-    in
-    aux cst
-
-  (* If fun_a is of arity one and fun_b of arity two, and there are
-     variables v1 and v2 bound in the closure, its memory representation will be
-
-     closure = [ closure header; fun_a; 1; infix header; fun caml_curry_2; 2; fun_b; v1; v2 ]
-
-     the closure parameter inside fun_a is the whole closure block, from
-     inside fun_b it is the closure block shifted from fun_b offset (here 3)
-
-     So access to v1 from fun_a is field( 6, env ) and from fun_b is field( 3, env ) .
-
-     build_closure_env adds substitutions like (Uvar v1) -> Pfield( 6 - fun_offset, env )
-  *)
-  and build_closure_env env_param pos = function
-      [] -> IdentMap.empty, IdentMap.empty
-    | (id,lam) :: rem ->
-      let sb, cm = build_closure_env env_param (pos+1) rem in
-      match constant_label lam with
-      | Not_const ->
-        IdentMap.add id (Uprim(Pfield pos, [Uvar env_param], Debuginfo.none)) sb,
-        cm
-      | No_lbl ->
-        let sb = IdentMap.add id lam sb in
-        sb, cm
-      | Lbl lbl ->
-        let cm = IdentMap.add id lbl cm in
-        sb, cm
+  and conv_const sb cm = function
+    | Fconst_base c -> Uconst_base c
+    | Fconst_pointer c -> Uconst_pointer c
+    | Fconst_float_array c -> Uconst_float_array c
+    | Fconst_immstring c -> Uconst_immstring c
 
   and constant_list l =
     let rec aux acc = function

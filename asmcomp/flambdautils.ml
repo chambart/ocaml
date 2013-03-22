@@ -13,7 +13,7 @@ let iter_flambda f t =
 
     | Fassign (_,f1,_)
     | Foffset (f1, _,_)
-    | Fenv_field (f1, _,_) ->
+    | Fenv_field ({env = f1},_) ->
       aux f1
 
     | Flet ( _, _, f1, f2,_)
@@ -63,7 +63,7 @@ module type Folder = sig
         -> annot -> data return
   val closure : data ffunctions -> data flambda IdentMap.t -> annot -> data return
   val offset : data flambda -> Ident.t -> annot -> data return
-  val env_field : data flambda -> Ident.t -> annot -> data return
+  val env_field : data fenv_field -> annot -> data return
   val let_ : let_kind -> Ident.t -> def:data flambda -> body:data flambda -> annot -> data return
   val letrec : (Ident.t * data flambda) list -> data flambda -> annot -> data return
   val prim : primitive -> data flambda list -> Debuginfo.t -> annot -> data return
@@ -118,10 +118,11 @@ end = struct
         | Data data -> Foffset (flam, off, data)
         | Node n -> n
       end
-    | Fenv_field (flam, off, annot) ->
-      let flam = fold flam in
-      begin match M.env_field flam off annot with
-        | Data data -> Fenv_field (flam, off, data)
+    | Fenv_field (fenv_field, annot) ->
+      let flam = fold fenv_field.env in
+      let fenv_field = { fenv_field with env = flam } in
+      begin match M.env_field fenv_field annot with
+        | Data data -> Fenv_field (fenv_field, data)
         | Node n -> n
       end
     | Flet(str, id, lam, body, annot) ->
@@ -245,7 +246,7 @@ struct
   let apply ~func ~args ~direct ~dbg data = default ()
   let closure _ _ data = default ()
   let offset _ _ data = default ()
-  let env_field _ _ data = default ()
+  let env_field _ data = default ()
   let let_ _ _ ~def ~body data = default ()
   let letrec _ _ data = default ()
   let prim _ _ _ data = default ()
@@ -272,7 +273,7 @@ module Identity(M:Identity) : Folder with type annot = M.annot and type data = M
   let apply ~func ~args ~direct ~dbg annot = Data annot
   let closure _ _ annot = Data annot
   let offset _ _ annot = Data annot
-  let env_field _ _ annot = Data annot
+  let env_field _ annot = Data annot
   let let_ _ _ ~def ~body annot = Data annot
   let letrec _ _ annot = Data annot
   let prim _ _ _ annot = Data annot
@@ -314,7 +315,7 @@ struct
         (IdentMap.bindings fv) in
     merge (ffuns @ fv) annot
   let offset lam _ annot = merge [lam] annot
-  let env_field lam _ annot = merge [lam] annot
+  let env_field { env } annot = merge [env] annot
   let let_ _ _ ~def ~body annot = merge [def;body] annot
   let letrec defs body annot =
     let defs = List.map snd defs in
@@ -366,8 +367,8 @@ let map f tree =
         Fclosure (ffuns, fv, annot)
       | Foffset (flam, off, annot) ->
         Foffset (aux flam, off, annot)
-      | Fenv_field (flam, off, annot) ->
-        Fenv_field (aux flam, off, annot)
+      | Fenv_field (fenv_field, annot) ->
+        Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot)
       | Flet(str, id, lam, body, annot) ->
         let lam = aux lam in
         let body = aux body in

@@ -508,7 +508,7 @@ let transl_constant = function
 (* Translate constant closures *)
 
 let constant_closures =
-  ref ([] : (string * ufunction list) list)
+  ref ([] : (string * ufunction list * ustructured_constant list) list)
 
 (* Boxed integers *)
 
@@ -1026,7 +1026,7 @@ let rec transl = function
       transl_constant sc
   | Uclosure(fundecls, []) ->
       let lbl = Compilenv.new_const_symbol() in
-      constant_closures := (lbl, fundecls) :: !constant_closures;
+      constant_closures := (lbl, fundecls, []) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       Cconst_symbol lbl
   | Uclosure(fundecls, clos_vars) ->
@@ -1952,8 +1952,8 @@ let rec emit_constant symb cst cont =
       Cint(floatarray_header (List.length fields)) ::
       cdefine_symbol symb @
       Misc.map_end (fun f -> Cdouble f) fields cont
-  | Uconst_closure(fundecls, lbl) ->
-      constant_closures := (lbl, fundecls) :: !constant_closures;
+  | Uconst_closure(fundecls, lbl, fv) ->
+      constant_closures := (lbl, fundecls, fv) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       cont
   | _ -> fatal_error "gencmm.emit_constant"
@@ -2021,8 +2021,8 @@ and emit_constant_field field cont =
       (Clabel_address lbl,
        Cint(floatarray_header (List.length fields)) :: Cdefine_label lbl ::
        Misc.map_end (fun f -> Cdouble f) fields cont)
-  | Uconst_closure(fundecls, lbl) ->
-      constant_closures := (lbl, fundecls) :: !constant_closures;
+  | Uconst_closure(fundecls, lbl, fv) ->
+      constant_closures := (lbl, fundecls, fv) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       (Csymbol_address lbl, cont)
   | Uconst_label lbl ->
@@ -2056,12 +2056,14 @@ and emit_boxed_int64_constant n cont =
 
 (* Emit constant closures *)
 
-let emit_constant_closure symb fundecls cont =
+let emit_constant_closure symb fundecls clos_vars cont =
   match fundecls with
     [] -> assert false
   | f1 :: remainder ->
       let rec emit_others pos = function
-        [] -> cont
+        [] ->
+          let emit_fields, cont1 = emit_constant_fields clos_vars cont in
+          emit_fields@cont1
       | f2 :: rem ->
           let symb' = symb ^ "_" ^ (string_of_int pos) in
           if f2.arity = 1 then
@@ -2077,7 +2079,7 @@ let emit_constant_closure symb fundecls cont =
             Cint(Nativeint.of_int (f2.arity lsl 1 + 1)) ::
             Csymbol_address f2.label ::
             emit_others (pos + 4) rem in
-      Cint(closure_header (fundecls_size fundecls)) ::
+      Cint(closure_header (fundecls_size fundecls + List.length clos_vars)) ::
       cdefine_symbol symb @
       if f1.arity = 1 then
         Csymbol_address f1.label ::
@@ -2105,8 +2107,8 @@ let emit_all_constants cont =
 (*  structured_constants := []; done in Compilenv.reset() *)
   Hashtbl.clear immstrings;   (* PR#3979 *)
   List.iter
-    (fun (symb, fundecls) ->
-        c := Cdata(emit_constant_closure symb fundecls []) :: !c)
+    (fun (symb, fundecls, clos_vars) ->
+        c := Cdata(emit_constant_closure symb fundecls clos_vars []) :: !c)
     !constant_closures;
   constant_closures := [];
   !c

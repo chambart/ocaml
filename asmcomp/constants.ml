@@ -167,7 +167,7 @@ module NotConstants(P:Param) = struct
       mark_loop [] f2;
       mark_loop [] f3
 
-    | Fenv_field (f1, _,_) ->
+    | Fenv_field ({env = f1},_) ->
       mark_curr curr;
       mark_loop [] f1
 
