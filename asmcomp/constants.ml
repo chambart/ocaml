@@ -106,10 +106,17 @@ module NotConstants(P:Param) = struct
          be marked directly as not constant, but if it is not
          assigned, it could be considered constant *)
       mark_loop [Var id] lam;
+      (* adds 'id in NC => curr in NC'
+         This is not really necessary, but compiling this correctly is
+         trickier than eliminating that earlier. *)
+      add_depend curr (Var id);
       mark_loop curr body
 
     | Fletrec(defs, body, _) ->
-      List.iter (fun (id,def) -> mark_loop [Var id] def) defs;
+      List.iter (fun (id,def) ->
+          mark_loop [Var id] def;
+          (* adds 'id in NC => curr in NC' same remark as let case *)
+          add_depend curr (Var id)) defs;
       mark_loop curr body
 
     | Fvar (id,_) ->
