@@ -12,6 +12,15 @@
 
 (* Introduction of closures *)
 
+(* This pass bind free variables of functions in a explicitely created
+   closure.
+
+   Also done here:
+   * constant blocks are converted to applications of the makeblock
+     primitive
+   * Levent nodes are removed and their informations is moved to
+     raise, function and method calls *)
+
 open Misc
 open Lambda
 open Flambda
@@ -23,20 +32,19 @@ let make_function_lbl id =
 let rec add_debug_info ev f =
   match ev.lev_kind with
   | Lev_after _ ->
-      begin match f with
-        | Fapply(fn, args, direct, dinfo ,v) ->
-          Fapply(fn, args, direct, Debuginfo.from_call ev, v)
-        | Fprim(Praise, args, dinfo, v) ->
-          Fprim(Praise, args, Debuginfo.from_call ev, v)
-        | Fsend(kind, f1, f2, args, dinfo, v) ->
-          Fsend(kind, f1, f2, args, Debuginfo.from_call ev, v)
-        | Fsequence(f1, f2, v) ->
-          Fsequence(f1, add_debug_info ev f2, v)
-        | _ -> f
-      end
+    begin match f with
+      | Fapply(fn, args, direct, dinfo ,v) ->
+        Fapply(fn, args, direct, Debuginfo.from_call ev, v)
+      | Fprim(Praise, args, dinfo, v) ->
+        Fprim(Praise, args, Debuginfo.from_call ev, v)
+      | Fsend(kind, f1, f2, args, dinfo, v) ->
+        Fsend(kind, f1, f2, args, Debuginfo.from_call ev, v)
+      | Fsequence(f1, f2, v) ->
+        Fsequence(f1, add_debug_info ev f2, v)
+      | _ -> f
+    end
   | _ -> f
 
-(* shouldn't be recursive: insertion should be instead *)
 let rec subst sb id =
   try subst sb (IdentMap.find id sb)
   with Not_found -> id
@@ -61,10 +69,13 @@ let rec close sb = function
         (function (id, Lfunction(_, _, _)) -> true | _ -> false)
         defs
     then
+      (* When all the binding are functions, we build a single closure
+         for all the functions *)
       let clos = close_functions sb defs in
       let clos_ident = Ident.create "clos" in
       let body = List.fold_left (fun body (id,_) ->
-          Flet(Strict, id, Foffset(Fvar (clos_ident, nid ()), id, nid ()), body, nid ()))
+          Flet(Strict, id, Foffset(Fvar (clos_ident, nid ()), id, nid ()),
+            body, nid ()))
           (close sb body) defs in
       Flet(Strict, clos_ident, clos, body, nid ())
     else
@@ -83,11 +94,11 @@ let rec close sb = function
   | Lswitch(arg, sw) ->
     let aux (i,lam) = i, close sb lam in
     Fswitch(close sb arg,
-        { fs_numconsts = sw.sw_numconsts;
-          fs_consts = List.map aux sw.sw_consts;
-          fs_numblocks = sw.sw_numblocks;
-          fs_blocks = List.map aux sw.sw_blocks;
-          fs_failaction = may_map (close sb) sw.sw_failaction }, nid ())
+      { fs_numconsts = sw.sw_numconsts;
+        fs_consts = List.map aux sw.sw_consts;
+        fs_numblocks = sw.sw_numblocks;
+        fs_blocks = List.map aux sw.sw_blocks;
+        fs_failaction = may_map (close sb) sw.sw_failaction }, nid ())
   | Lstaticraise (i, args) ->
     Fstaticfail (i, close_list sb args, nid ())
   | Lstaticcatch(body, (i, vars), handler) ->
@@ -115,9 +126,9 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
       IdentSet.empty fun_defs in
   let fun_ids = List.fold_left (fun set (id,_) -> IdentSet.add id set)
       IdentSet.empty fun_defs in
-  (* let fv = free_variables (Lletrec(fun_defs, lambda_unit)) in *)
-  (* the recursive call to the function should not be added to clos_var *)
   let recursives = ref false in
+  (* clos_var contains all free variables that are not functions
+     declared in this closure *)
   let sb,clos_var = List.fold_left (fun (sb,clos_var) id ->
       let id = subst sb id in
       let id' = Ident.rename id in
@@ -129,19 +140,19 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
       (sb,IdentMap.empty)
       (IdentSet.elements fv) in
   let close_one = function
-      | (id, Lfunction(kind, params, body)) ->
-        let dbg = match body with
-          | Levent (_,({lev_kind=Lev_function} as ev)) ->
-            Debuginfo.from_call ev
-          | _ -> Debuginfo.none in
-        { label = make_function_lbl id;
-          kind;
-          arity = List.length params;
-          params;
-          closure_params = fv;
-          body = close sb body;
-          dbg }
-      | (_, _) -> fatal_error "Flambdagen.close_functions"
+    | (id, Lfunction(kind, params, body)) ->
+      let dbg = match body with
+        | Levent (_,({lev_kind=Lev_function} as ev)) ->
+          Debuginfo.from_call ev
+        | _ -> Debuginfo.none in
+      { label = make_function_lbl id;
+        kind;
+        arity = List.length params;
+        params;
+        closure_params = fv;
+        body = close sb body;
+        dbg }
+    | (_, _) -> fatal_error "Flambdagen.close_functions"
   in
   let functions = List.fold_left (fun map (id, f) ->
       IdentMap.add id (close_one (id,f)) map) IdentMap.empty fun_defs in
