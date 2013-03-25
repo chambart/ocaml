@@ -1,22 +1,9 @@
 open Flambda
 
-module Int = struct
-  type t = int
-  let compare x y = x - y
-  let output oc x = Printf.fprintf oc "%i" x
-  let hash i = i
-  let equal (i:int) j = i = j
-  let print = Format.pp_print_int
-end
-
-module IntSet = MySet(Int)
-module IntMap = MyMap(Int)
-module IntTbl = MyHashTbl(Int)
-
 module ValId : Id = Id(Empty)
-module ValMap = MyMap(ValId)
-module ValSet = MySet(ValId)
-module ValTbl = MyHashTbl(ValId)
+module ValMap = ExtMap(ValId)
+module ValSet = ExtSet(ValId)
+module ValTbl = ExtHashtbl(ValId)
 
 type partial_parameters =
   | Known of (ValSet.t * ExprSet.t) list
