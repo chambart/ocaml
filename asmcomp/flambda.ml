@@ -18,6 +18,8 @@ module ExtMap(M:PrintableHashOrdered) = struct
       match f id v with
       | None -> map
       | Some r -> add id r map) m empty
+  let of_list l =
+    List.fold_left (fun map (id,v) -> add id v map) empty l
 end
 
 module ExtSet(M:PrintableHashOrdered) = struct
@@ -29,7 +31,10 @@ module ExtSet(M:PrintableHashOrdered) = struct
   let print ppf s =
     let elts ppf s = iter (fun e -> Format.fprintf ppf "@ %a" M.print e) s in
     Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
-
+  let of_list l = match l with
+    | [] -> empty
+    | [t] -> singleton t
+    | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
 end
 
 module ExtHashtbl(M:PrintableHashOrdered) = struct
@@ -100,6 +105,7 @@ module Idt = struct
   let equal = Ident.same
 end
 
+module IdentSet = Lambda.IdentSet
 module IdentMap = ExtMap(Idt)
 module IdentTbl = ExtHashtbl(Idt)
 
@@ -115,6 +121,8 @@ include M
 
 type closed = Closed | NotClosed
 
+(* A data is attached to each node. It is often used to uniquely
+   identify an expression *)
 type 'a flambda =
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
@@ -122,6 +130,7 @@ type 'a flambda =
         (function_label*closed) option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
   | Foffset of 'a flambda * Ident.t * 'a
+    (* Foffset(closure, id) access to the function 'id' from the closure *)
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a

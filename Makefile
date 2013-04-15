@@ -82,6 +82,13 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/flambdagen.cmo \
   asmcomp/flambdautils.cmo \
+  asmcomp/branching.cmo \
+  asmcomp/run_branching.cmo \
+  asmcomp/data_dependency.cmo \
+  asmcomp/make_data_graph.cmo \
+  asmcomp/domains.cmo \
+  asmcomp/propagate.cmo \
+  asmcomp/analysis.cmo \
   asmcomp/absint.cmo \
   asmcomp/purity.cmo \
   asmcomp/constants.cmo \

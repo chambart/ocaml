@@ -5,6 +5,53 @@ module ValMap = ExtMap(ValId)
 module ValSet = ExtSet(ValId)
 module ValTbl = ExtHashtbl(ValId)
 
+module CallId : Id = Id(Empty)
+
+type 'a binding =
+  | Unbound
+  | Bound of 'a
+  | Weak_unbound
+
+type bindings =
+  { const_binding : Ident.t binding;
+    global_binding : (Ident.t * int option) binding;
+    local_binding : (Ident.t * CallId.t) binding }
+
+let empty_binding =
+  { const_binding = Weak_unbound
+  ; global_binding = Weak_unbound
+  ; local_binding = Weak_unbound }
+
+let unknown_binding =
+  { const_binding = Unbound
+  ; global_binding = Unbound
+  ; local_binding = Unbound }
+
+let union_const_binding b1 b2 = match b1, b2 with
+  | Weak_unbound, a | a, Weak_unbound -> a
+  | Unbound, _ | _, Unbound -> Unbound
+  | Bound a, Bound b -> if Ident.same a b then b1 else Unbound
+
+let union_global_binding b1 b2 = match b1, b2 with
+  | Weak_unbound, a | a, Weak_unbound -> a
+  | Unbound, _ | _, Unbound -> Unbound
+  | Bound (i1,p1), Bound (i2,p2) ->
+    if p1 = p2 && Ident.same i1 i2 then b1 else Unbound
+
+let union_local_binding b1 b2 = match b1, b2 with
+  | Weak_unbound, a | a, Weak_unbound -> a
+  | Unbound, _ | _, Unbound -> Unbound
+  | Bound (i1,p1), Bound (i2,p2) ->
+    if CallId.equal p1 p2 && Ident.same i1 i2 then b1 else Unbound
+
+let union_binding v1 v2 =
+  { const_binding = union_const_binding v1.const_binding v2.const_binding
+  ; global_binding = union_global_binding v1.global_binding v2.global_binding
+  ; local_binding = union_local_binding v1.local_binding v2.local_binding }
+
+let set_global_binding v id =
+  { v with global_binding = Bound (id,None) }
+
 type partial_parameters =
   | Known of (ValSet.t * ExprSet.t) list
   | Unknown of ValSet.t
@@ -26,9 +73,6 @@ type block_description =
     fields : ValSet.t array }
 
 type other_values =
-  (* | Value_unoffseted_closure of function_description *)
-  (*   (\* closure passed to Foffset: should never be unioned with another *)
-  (*      kind of values *\) *)
   | Value_mutable
   | Value_string
   | Value_floatarray
@@ -37,16 +81,15 @@ type other_values =
   | Value_float
   | Value_boxed_int of Lambda.boxed_integer
   | Value_bottom      (* never terminates *)
-  | Value_unknown_not_block
-  (* an unknown value that can't contain any value *)
+  | Value_unknown_not_block (* an unknown value that can't contain any value *)
   | Value_unknown     (* unknown result *)
-  | Value_external    (* value potentially contains an external *)
   | Value_none        (* no other case possible *)
 
 (* This is the ident used to name closures with None in the fun_id field *)
 let unspecified_closure = Ident.create_persistent "unspecified closure"
 
 type values = {
+  v_binding : bindings;
   v_clos : function_description IdentMap.t FunMap.t;
   v_cstptr: IntSet.t;
   v_block: block_description IntMap.t;
@@ -101,6 +144,7 @@ let equal v1 v2 =
   && v1.v_other = v2.v_other
 
 let empty_value = {
+  v_binding = unknown_binding;
   v_clos = FunMap.empty; v_cstptr = IntSet.empty;
   v_block = IntMap.empty;
   v_other = Value_none
@@ -111,7 +155,6 @@ let fun_desc_id fun_desc = match fun_desc.fun_id with
   | Some i -> i
 
 let unknown_value = { empty_value with v_other = Value_unknown }
-let external_value = { empty_value with v_other = Value_external }
 
 let value_unknown_not_block =
   { empty_value with v_other = Value_unknown_not_block }
@@ -148,7 +191,12 @@ let set_closure_funid value fun_id fun_map =
     if IdentMap.mem unspecified_closure fun_desc_map
     then
       let fun_desc = IdentMap.find unspecified_closure fun_desc_map in
-      let ffunctions = FunMap.find fun_desc.closure_funs fun_map in
+      let ffunctions = try
+        FunMap.find fun_desc.closure_funs fun_map
+      with Not_found as e ->
+        Printf.printf "set_closure_funid %a\n%!" FunId.output fun_desc.closure_funs;
+        raise e
+      in
       assert(fun_desc.fun_id = None);
       assert(fun_desc.partial_application = Known []);
       if IdentMap.mem fun_id ffunctions.funs
@@ -161,11 +209,10 @@ let set_closure_funid value fun_id fun_map =
   let v_block = IntMap.empty in
   let v_cstptr = IntSet.empty in
   let v_other = match value.v_other with
-    | Value_external -> Value_external
     | Value_unknown -> Value_unknown
     | _ -> Value_none
   in
-  { v_clos; v_block; v_other; v_cstptr }
+  { v_binding = unknown_binding; v_clos; v_block; v_other; v_cstptr }
 
 let value_unit = value_constptr 0
 
@@ -258,7 +305,6 @@ let union_other o1 o2 = match o1, o2 with
   | Value_bottom, o
   | o, Value_bottom -> o
 
-  | Value_external, _ | _, Value_external -> Value_external
   | Value_unknown, _ | _, Value_unknown -> Value_unknown
   | (Value_mutable | Value_floatarray) , _
   | _ , (Value_mutable | Value_floatarray) -> Value_unknown
@@ -277,7 +323,8 @@ let union_other o1 o2 = match o1, o2 with
 
 
 let union v1 v2 =
-  { v_clos = union_closure v1.v_clos v2.v_clos;
+  { v_binding = union_binding v1.v_binding v2.v_binding;
+    v_clos = union_closure v1.v_clos v2.v_clos;
     v_cstptr = union_cstptr v1.v_cstptr v2.v_cstptr;
     v_block = union_block v1.v_block v2.v_block;
     v_other = union_other v1.v_other v2.v_other }
@@ -290,7 +337,6 @@ let list_union = function
 (* access to fields inside blocks *)
 let field i v =
   let v_other = match v.v_other with
-    | Value_external -> Some external_value
     | Value_unknown
     | Value_mutable -> Some unknown_value
     | Value_floatarray -> Some value_float
@@ -317,7 +363,6 @@ let set_field i v new_val =
 (* access to fields inside closures *)
 let env_field id v =
   let v_other = match v.v_other with
-    | Value_external -> Some external_value
     | Value_unknown -> Some unknown_value
     | _ -> None
   in
@@ -338,8 +383,7 @@ let possible_bool_values v =
     match v.v_other with
     | Value_any_integer
     | Value_unknown_not_block
-    | Value_unknown
-    | Value_external -> true, true
+    | Value_unknown -> true, true
     | Value_integer i -> i <> 0, i = 0
     | Value_mutable
     | Value_string
@@ -381,8 +425,7 @@ let possible_constptrs v =
   match v.v_other with
   | Value_any_integer
   | Value_unknown_not_block
-  | Value_unknown
-  | Value_external -> All_cases
+  | Value_unknown -> All_cases
   | Value_integer i -> Some_cases  (IntSet.add i v.v_cstptr)
   | Value_mutable
   | Value_string
@@ -401,8 +444,7 @@ let possible_block_tags v =
   | Value_boxed_int _
     (* in a match we never check for those cases, it could change in
        the future -> safe choice: we know nothing about them *)
-  | Value_unknown
-  | Value_external -> All_cases
+  | Value_unknown -> All_cases
   | Value_integer _
   | Value_any_integer
   | Value_unknown_not_block
@@ -423,7 +465,6 @@ let simple_constant v =
   | Value_any_integer
   | Value_unknown_not_block
   | Value_unknown
-  | Value_external
   | Value_mutable
   | Value_string
   | Value_floatarray
@@ -449,8 +490,7 @@ type possible_closure =
 
 let possible_closure v =
   match v.v_other with
-  | Value_unknown
-  | Value_external -> Many_functions
+  | Value_unknown -> Many_functions
   | Value_any_integer
   | Value_unknown_not_block
   | Value_mutable
@@ -488,8 +528,7 @@ let no_kind =
 let array_kind_of_element v =
   let kind = match v.v_other with
     | Value_unknown_not_block
-    | Value_unknown
-    | Value_external ->
+    | Value_unknown ->
       { int_kind = true; block_kind = true; float_kind = true }
     | Value_integer _
     | Value_any_integer ->
@@ -520,8 +559,7 @@ let array_kind_of_element v =
 let array_kind_of_array v =
   (* WARNING: !!! if in absint mutable are analysed as blocks this must change !!! *)
   match v.v_other with
-  | Value_unknown
-  | Value_external ->
+  | Value_unknown ->
     { int_kind = true; block_kind = true; float_kind = true }
   | Value_mutable ->
     { no_kind with int_kind = true; block_kind = true }
@@ -545,10 +583,18 @@ let array_kind_intersection k1 k2 =
 (* TODO: handle unreachable also to filter potential bad cases *)
 
 let to_int v =
-  if (FunMap.is_empty v.v_clos) && (IntSet.is_empty v.v_cstptr)
+  if (FunMap.is_empty v.v_clos)
      && (IntMap.is_empty v.v_block)
   then match v.v_other with
-    | Value_integer i -> Some i
+    | Value_integer i when IntSet.is_empty v.v_cstptr ->
+      Some i
+    | Value_integer _ ->
+      None
+    | Value_none
+    | Value_bottom ->
+      if IntSet.cardinal v.v_cstptr = 1
+      then Some (IntSet.choose v.v_cstptr)
+      else None
     | _ -> None
   else None
 
@@ -626,8 +672,7 @@ let isint l = match l with
       | Value_any_integer
       | Value_integer _ -> true, false
       | Value_unknown_not_block
-      | Value_unknown
-      | Value_external -> true, true
+      | Value_unknown -> true, true
       | Value_mutable
       | Value_string
       | Value_floatarray

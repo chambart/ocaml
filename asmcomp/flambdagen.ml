@@ -52,18 +52,21 @@ let rec subst sb id =
 let add_subst sb ~replace ~by =
   IdentMap.add replace by sb
 
-let nid () = ExprId.create ()
+let nid = ExprId.create
 
 let rec close sb = function
-    Lvar id -> Fvar (subst sb id, nid ())
+    Lvar id ->
+    Fvar (subst sb id,
+        nid ~name:(Printf.sprintf "var_%s" (Ident.unique_name id)) ())
   | Lconst cst -> close_const sb cst
   | Llet(str, id, lam, body) ->
-    Flet(str, id, close_named id sb lam, close sb body, nid ())
+    Flet(str, id, close_named id sb lam, close sb body, nid ~name:"let" ())
   | Lfunction(kind, params, body) as funct ->
     let id = Ident.create "fun" in
-    Foffset(close_functions sb [id,funct],id, nid ())
+    Foffset(close_functions sb [id,funct],id, nid ~name:"offset" ())
   | Lapply(funct, args, loc) ->
-    Fapply(close sb funct, close_list sb args, None, Debuginfo.none, nid ())
+    Fapply(close sb funct, close_list sb args, None, Debuginfo.none,
+        nid ~name:"apply" ())
   | Lletrec(defs, body) ->
     if List.for_all
         (function (id, Lfunction(_, _, _)) -> true | _ -> false)
@@ -90,7 +93,8 @@ let rec close sb = function
   | Lprim(Praise, [Levent(arg, ev)]) ->
     Fprim(Praise, [close sb arg], Debuginfo.from_raise ev, nid ())
   | Lprim(p, args) ->
-    Fprim(p, close_list sb args, Debuginfo.none, nid ())
+    Fprim(p, close_list sb args, Debuginfo.none,
+        nid ~name:"prim" ())
   | Lswitch(arg, sw) ->
     let aux (i,lam) = i, close sb lam in
     Fswitch(close sb arg,
@@ -98,7 +102,8 @@ let rec close sb = function
         fs_consts = List.map aux sw.sw_consts;
         fs_numblocks = sw.sw_numblocks;
         fs_blocks = List.map aux sw.sw_blocks;
-        fs_failaction = may_map (close sb) sw.sw_failaction }, nid ())
+        fs_failaction = may_map (close sb) sw.sw_failaction },
+      nid ~name:"switch" ())
   | Lstaticraise (i, args) ->
     Fstaticfail (i, close_list sb args, nid ())
   | Lstaticcatch(body, (i, vars), handler) ->
@@ -106,9 +111,11 @@ let rec close sb = function
   | Ltrywith(body, id, handler) ->
     Ftrywith(close sb body, id, close sb handler, nid ())
   | Lifthenelse(arg, ifso, ifnot) ->
-    Fifthenelse(close sb arg, close sb ifso, close sb ifnot, nid ())
+    Fifthenelse(close sb arg, close sb ifso, close sb ifnot,
+        nid ~name:"if" ())
   | Lsequence(lam1, lam2) ->
-    Fsequence(close sb lam1, close sb lam2, nid ())
+    Fsequence(close sb lam1, close sb lam2,
+        nid ~name:"seq" ())
   | Lwhile(cond, body) ->
     Fwhile(close sb cond, close sb body, nid ())
   | Lfor(id, lo, hi, dir, body) ->
@@ -170,13 +177,13 @@ and close_named id sb = function
 
 and close_const sb cst =
   let rec aux = function
-    | Const_base c -> Fconst(Fconst_base c, nid ())
-    | Const_pointer c -> Fconst(Fconst_pointer c, nid ())
+    | Const_base c -> Fconst(Fconst_base c, nid ~name:"cst" ())
+    | Const_pointer c -> Fconst(Fconst_pointer c, nid ~name:"cstptr" ())
     | Const_block (tag,l) ->
       Fprim(Pmakeblock(tag, Asttypes.Immutable),
-          List.map aux l, Debuginfo.none, nid ())
-    | Const_float_array c -> Fconst(Fconst_float_array c, nid ())
-    | Const_immstring c -> Fconst(Fconst_immstring c, nid ())
+          List.map aux l, Debuginfo.none, nid ~name:"cstblock" ())
+    | Const_float_array c -> Fconst(Fconst_float_array c, nid ~name:"float" ())
+    | Const_immstring c -> Fconst(Fconst_immstring c, nid ~name:"immstring" ())
   in
   aux cst
 
