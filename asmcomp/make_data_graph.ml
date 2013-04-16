@@ -23,16 +23,28 @@ let basic_graph tree =
 
   let rec aux constr_stack exp =
     let aux' = aux constr_stack in
-    let new_expr term =
+    let new_expr ?new_value term =
       let eid = Flambda.data exp in
-      new_expr ~location:([],eid) graph constr_stack term
+      new_expr ?new_value ~location:([],eid) graph constr_stack term
     in match exp with
     | Fconst (cst,_) ->
       new_expr (Const cst)
 
-    | Flet (_, id, lam, body, _) ->
+    | Flet (str, id, lam, body, _) ->
+      assert(str = Strict);
       let v = aux' lam in
       IdentTbl.add bindings id v;
+      aux' body
+
+    | Fletrec (defs, body, _) ->
+      let l = List.map (fun (id,lam) ->
+          let v = make_value ~name:"letrec_union" graph constr_stack in
+          IdentTbl.add bindings id v;
+          ignore_need graph v;
+          lam,v) defs in
+      List.iter (fun (lam,new_value) ->
+        let v' = aux' lam in
+        ignore(new_expr ~new_value (Union [v']):v)) l;
       aux' body
 
     | Fvar (id, _) ->
@@ -42,15 +54,43 @@ let basic_graph tree =
       let _ = aux' lam1 in
       aux' lam2
 
-    | Fprim(Paddint, [arg1;arg2], _, _) ->
+    | Fprim(( Paddint | Psubint | Pmulint | Pdivint | Pmodint | Pandint
+            | Porint  | Pxorint | Plslint | Plsrint | Pasrint ) as op,
+          [arg1;arg2], _, _) ->
       let v1 = aux' arg1 in
       let v2 = aux' arg2 in
-      new_expr (Addint (v1,v2))
+      let op' = match op with
+        | Paddint -> Addint
+        | Psubint -> Subint
+        | Pmulint -> Mulint
+        | Pdivint -> Divint
+        | Pmodint -> Modint
+        | Pandint -> Andint
+        | Porint -> Orint
+        | Pxorint -> Xorint
+        | Plslint -> Lslint
+        | Plsrint -> Lsrint
+        | Pasrint -> Asrint
+        | _ -> assert false
+      in
+      new_expr (Intbinop(op',v1,v2))
 
-    | Fprim(Pmulint, [arg1;arg2], _, _) ->
+    | Fprim(Pintcomp cmp, [arg1;arg2], _, _) ->
       let v1 = aux' arg1 in
       let v2 = aux' arg2 in
-      new_expr (Mulint (v1,v2))
+      new_expr (Cmpint (cmp,v1,v2))
+
+    | Fprim(Parraylength _, [arg], _, _) ->
+      let v = aux' arg in
+      new_expr (Arraylength v)
+
+    | Fprim(Pmakearray kind, args, _, _) ->
+      let vals = List.map aux' args in
+      let tag = match kind with
+        | Pgenarray | Paddrarray | Pintarray -> 0
+        | Pfloatarray -> Obj.double_array_tag
+      in
+      new_expr (Makeblock (tag,Asttypes.Mutable,vals))
 
     | Fprim(Pmakeblock (tag,mut), args, _, _) ->
       let vals = List.map aux' args in

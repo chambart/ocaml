@@ -88,7 +88,8 @@ module ValueDom = struct
   type t = {
     v_clos : intern_funct IdentMap.t;
     v_cstptr: IntSet.t;
-    v_block: intern_block IntMap.t;
+    v_block: intern_block IntMap.t IntMap.t;
+    (* tag -> size -> block *)
     v_other: other_values;
   }
 
@@ -126,13 +127,22 @@ module ValueDom = struct
     let b2 = IdentMap.bindings m2 in
     equal_forall aux b1 b2
 
-  let equal_block m1 m2 =
-    let aux (tag1,l1) (tag2,l2) =
+  let equal_block mtag1 mtag2 =
+    let equal_block' msize1 msize2 =
+      let aux (size1,l1) (size2,l2) =
+        size1 = size2 &&
+        l1.mut = l2.mut &&
+        equal_forall ValSet.equal l1.fields l2.fields
+      in
+      let b1 = IntMap.bindings msize1 in
+      let b2 = IntMap.bindings msize2 in
+      equal_forall aux b1 b2
+    in
+    let aux (tag1,msize1) (tag2,msize2) =
       tag1 = tag2 &&
-      l1.mut = l2.mut &&
-      equal_forall ValSet.equal l1.fields l2.fields in
-    let b1 = IntMap.bindings m1 in
-    let b2 = IntMap.bindings m2 in
+      equal_block' msize1 msize2 in
+    let b1 = IntMap.bindings mtag1 in
+    let b2 = IntMap.bindings mtag2 in
     equal_forall aux b1 b2
 
   let equal_cstptr v1 v2 =
@@ -175,8 +185,60 @@ module ValueDom = struct
 
   (* union *)
 
+  let union_closure c1 c2 =
+    let aux _ v1 v2 = match v1, v2 with
+      | None, a | a, None -> a
+      | Some a1, Some a2 -> failwith "TODO union closure"
+    in
+    IdentMap.merge aux c1 c2
+
+  let union_block b1 b2 =
+    let aux_size size v1 v2 = match v1, v2 with
+      | None, v | v, None -> v
+      | Some v1, Some v2 ->
+        assert(v1.tag = v2.tag);
+        let mut = match v1.mut, v2.mut with
+          | Mutable, _ | _, Mutable -> Mutable
+          | Immutable, Immutable -> Immutable
+        in
+        let fields = List.map2 ValSet.union v1.fields v2.fields in
+        Some { mut; tag = v1.tag; fields } in
+    let aux_tag tag v1 v2 = match v1, v2 with
+      | None, a | a, None -> a
+      | Some a1, Some a2 ->
+        Some (IntMap.merge aux_size a1 a2)
+    in
+    IntMap.merge aux_tag b1 b2
+
+  let union_cstptr s1 s2 = IntSet.union s1 s2
+
+  let unoffseted_closure f1 f2 = failwith "TODO union unoffseted_closure"
+
+  let union_other o1 o2 = match o1, o2 with
+    | Value_none, o
+    | o, Value_none -> o
+
+    | Value_unoffseted_closure (f1,cl1), Value_unoffseted_closure (f2,cl2)
+      -> unoffseted_closure (f1,cl1) (f2,cl2)
+    | Value_unoffseted_closure _, _
+    | _, Value_unoffseted_closure _ -> assert false
+
+    | Value_unknown, _ | _, Value_unknown -> Value_unknown
+
+    | Value_integer i, Value_integer j ->
+      if i = j then Value_integer i
+      else Value_any_integer
+    | Value_integer _, Value_any_integer
+    | Value_any_integer, Value_integer _
+    | Value_any_integer, Value_any_integer -> Value_any_integer
+
+    | _, _ -> failwith "TODO union other"
+
   let union v1 v2 =
-    failwith "TODO union"
+    { v_clos = union_closure v1.v_clos v2.v_clos;
+      v_cstptr = union_cstptr v1.v_cstptr v2.v_cstptr;
+      v_block = union_block v1.v_block v2.v_block;
+      v_other = union_other v1.v_other v2.v_other }
 
   let union_list l = match l with
     | [] -> empty_val
@@ -206,9 +268,14 @@ module ValueDom = struct
   let constptr_val i = { empty_val with v_cstptr = IntSet.singleton i }
   let constptrs_val s = { empty_val with v_cstptr = s }
 
+  let bool_val b = constptr_val (if b then 1 else 0)
+  let any_bool_val = constptrs_val (IntSet.of_list [0;1])
+
   let block_val tag mut fields =
     let block = { tag; mut; fields } in
-    { empty_val with v_block = IntMap.singleton tag block }
+    let size = List.length fields in
+    { empty_val with
+      v_block = IntMap.singleton tag (IntMap.singleton size block) }
 
   let fun_val ident fl cl =
     let fl = List.filter (fun funct -> Idt.equal ident funct.function_id) fl in
@@ -243,7 +310,7 @@ module ValueDom = struct
 
   type fun_answer = intern_funct list answer
 
-  type block_answer = intern_block IntMap.t answer
+  type block_answer = intern_block IntMap.t IntMap.t answer
 
   type unoffseted_closure_answer = (funct list * values IdentMap.t) option answer
 
@@ -379,6 +446,24 @@ module ValueDom = struct
     | Singleton i1, Singleton i2 -> int_val (i1 * i2)
     | Multiple, _ | _, Multiple -> any_int_val
 
+  let cmpint cmp v1 v2 =
+    (* TODO: do on the sets rather than on the collapsed sets:
+       more precise *)
+    let v1 = single_set_int (to_int (union_list v1)) in
+    let v2 = single_set_int (to_int (union_list v2)) in
+    match v1, v2 with
+    | Empty, _ | _, Empty -> empty_val
+    | Singleton i1, Singleton i2 ->
+      let b = let open Lambda in match cmp with
+        | Ceq -> i1 = i2
+        | Cneq -> i1 <> i2
+        | Clt -> i1 < i2
+        | Cgt -> i1 > i2
+        | Cle -> i1 <= i2
+        | Cge -> i1 >= i2 in
+      bool_val b
+    | Multiple, _ | _, Multiple -> any_bool_val
+
   let makeblock tag mut fields =
     block_val tag mut (List.map ValSet.singleton fields)
 
@@ -409,7 +494,9 @@ module ValueDom = struct
       if List.length v.fields <= i
       then ValSet.empty
       else List.nth v.fields i in
-    let l = List.map (fun (_,v) -> get_field n v) (IntMap.bindings v.known) in
+    let l = List.flatten (List.map (fun (_,m) -> IntMap.bindings m)
+          (IntMap.bindings v.known)) in
+    let l = List.map (fun (_,v) -> get_field n v) l in
     let s = sets_union l in
     let field_v =
       if v.has_unknown
@@ -417,6 +504,20 @@ module ValueDom = struct
       else None
     in
     field_v, s
+
+  let arraylength v =
+    let v = to_block (union_list v) in
+    if v.has_unknown
+    then any_int_val
+    else
+      let l =
+        List.flatten (List.map (fun (_,m) ->
+            List.map fst (IntMap.bindings m))
+            (IntMap.bindings v.known)) in
+      match l with
+      | [] -> empty_val
+      | [i] -> int_val i
+      | _ -> any_int_val
 
   let offset id values =
     let uc = to_unoffseted_closure (union_list values) in
@@ -518,13 +619,15 @@ module ValueDom = struct
       | Value_none -> ()
 
     and print_block ?traces ppf map =
-      IntMap.iter (fun _ v ->
-        let mut = match v.mut with
-          | Mutable -> " (mutable)"
-          | Immutable -> "" in
-        fprintf ppf "[@[<1>%i%s: " v.tag mut;
-        List.iter (fun set -> print_set ?traces ppf set) v.fields;
-        fprintf ppf "@]]")
+      IntMap.iter (fun _ map' ->
+        IntMap.iter (fun _ v ->
+          let mut = match v.mut with
+            | Mutable -> " (mutable)"
+            | Immutable -> "" in
+          fprintf ppf "[@[<1>%i%s: " v.tag mut;
+          List.iter (fun set -> print_set ?traces ppf set) v.fields;
+          fprintf ppf "@]]")
+          map')
         map
 
     and print_set ?traces ppf s =

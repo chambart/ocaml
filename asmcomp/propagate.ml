@@ -80,19 +80,22 @@ let get_values t v =
   | None -> [get t v]
   | Some _ -> get_values' t v
 
-let is_val_empty t v =
-  match get' t v, get_virtual_union' t.graph v with
-  | None, None ->
-    (* Printf.printf "none/none empty\n%!"; *)
-    true
-  | Some v, None ->
-    (* Printf.printf "Some/none is_empty %b\n%!" (ValueDom.is_empty v); *)
-    ValueDom.is_empty v
-  | _, Some dep ->
-    let l = (get_values t v) in
-    let b = List.for_all ValueDom.is_empty l in
-    (* Printf.printf "rest is_empty %b %i %i\n%!" b (List.length l) (ValSet.cardinal dep); *)
-    b
+let is_not_available t v =
+  if is_ignored_need t.graph v
+  then false
+  else
+    match get' t v, get_virtual_union' t.graph v with
+    | None, None ->
+      (* Printf.printf "none/none empty\n%!"; *)
+      true
+    | Some v, None ->
+      (* Printf.printf "Some/none is_empty %b\n%!" (ValueDom.is_empty v); *)
+      ValueDom.is_empty v
+    | _, Some dep ->
+      let l = (get_values t v) in
+      let b = List.for_all ValueDom.is_empty l in
+      (* Printf.printf "rest is_empty %b %i %i\n%!" b (List.length l) (ValSet.cardinal dep); *)
+      b
 
 let reachable t block =
   let rec aux = function
@@ -181,15 +184,20 @@ let eval_term t block term return_val = match term with
   | Const cst ->
     Val (ValueDom.constant cst)
 
-  | Addint (v1,v2) ->
+  | Intbinop(op,v1,v2) ->
     let v1 = get_values t v1 in
     let v2 = get_values t v2 in
-    Val (ValueDom.addint v1 v2)
+    let r = match op with
+      | Addint -> ValueDom.addint v1 v2
+      | Mulint -> ValueDom.mulint v1 v2
+      | _ -> failwith (Printf.sprintf "TODO: intbinop %s" (intbinop_desc op))
+    in
+    Val r
 
-  | Mulint (v1,v2) ->
+  | Cmpint (cmp,v1,v2) ->
     let v1 = get_values t v1 in
     let v2 = get_values t v2 in
-    Val (ValueDom.mulint v1 v2)
+    Val (ValueDom.cmpint cmp v1 v2)
 
   | Makeblock (tag, mut, vl) ->
     Val (ValueDom.makeblock tag mut vl)
@@ -200,6 +208,10 @@ let eval_term t block term return_val = match term with
   | Field (i, v) ->
     let v = get_values t v in
     Both (ValueDom.field i v)
+
+  | Arraylength v ->
+    let v = get_values t v in
+    Val (ValueDom.arraylength v)
 
   | Union l ->
     Set (ValSet.of_list l)
@@ -246,8 +258,8 @@ let do_term t graph v =
   let available_dependencies =
    let needed_dependencies = term_needed_dependencies term in
    match needed_dependencies with
-   | And l -> not (List.exists (is_val_empty t) l)
-   | Or l -> not (List.for_all (is_val_empty t) l)
+   | And l -> not (List.exists (is_not_available t) l)
+   | Or l -> not (List.for_all (is_not_available t) l)
   in
   let reach = reachable t block in
   Printf.printf "eval: %a %s\n%!" ValId.output v (term_desc term);

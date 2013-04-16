@@ -29,20 +29,27 @@ module ValTbl = Flambda.ExtHashtbl(ValId)
 type v = ValId.t
 type funid = Ident.t
 
+type intbinop =
+  | Addint | Mulint | Subint | Divint | Modint | Andint | Orint
+  | Xorint | Lslint | Lsrint | Asrint
+  | Isout
+
 type term =
   | Closure of IdentSet.t * v IdentMap.t
   | Offset of Ident.t * v
+  | Arraylength of v
   | Field of int * v
   | Makeblock_module of v list
   | Makeblock of int * mutable_flag * v list
   | Cmpint of Lambda.comparison * v * v
-  | Addint of v * v
-  | Mulint of v * v
+  | Negint of v
+  | Intbinop of intbinop * v * v
   | Const of Flambda.const
   | FunParam of ValSet.t ref
   | FunReturn
   | Union of v list
   | Apply of v * v list
+  | Other
 
   (* | MutableVar of ValSet.t ref (* ssa phi *) *)
 
@@ -78,16 +85,20 @@ type graph =
     mutable v_location : location ValMap.t;
     mutable term : term ValMap.t;
     flow : ValSet.t ValTbl.t;
-    (* which values depends on that one *)
+    (** which values depends on that one *)
     mutable block : constraints ValMap.t;
     param_dependency : ValSet.t ValTbl.t;
     mutable call_info : call_info IdentMap.t;
     (* TODO: allow specialisation per call site *)
     mutable values : ValSet.t;
     virtual_flow : ValSet.t ValTbl.t;
-    (* which values depends on that one *)
+    (** which values depends on that one *)
     virtual_union : ValSet.t ValTbl.t;
-    functions : ExprId.t ffunction IdentTbl.t; }
+    functions : ExprId.t ffunction IdentTbl.t;
+    mutable ignored_need : ValSet.t;
+    (** which variables are not needed to evaluate their flow:
+        used to start the evaluation of recursive loops *)
+  }
 
 let empty_graph () =
   { locations = LocMap.empty;
@@ -100,7 +111,8 @@ let empty_graph () =
     values = ValSet.empty;
     virtual_flow = ValTbl.create 10;
     virtual_union = ValTbl.create 10;
-    functions = IdentTbl.create 10 }
+    functions = IdentTbl.create 10;
+    ignored_need = ValSet.empty }
 
 let get_flow graph value =
   try ValTbl.find graph.flow value with Not_found -> ValSet.empty
@@ -140,22 +152,11 @@ let add_flow graph src dst =
 let add_flows graph srcs dst =
   ValSet.iter (fun src -> add_flow graph src dst) srcs
 
-(* list of values on wich depends the term *)
-let term_dependencies = function
-  | Closure (_, map) -> List.map snd (IdentMap.bindings map)
-  | Offset (_,v)
-  | Field (_,v) -> [v]
-  | Makeblock (_, _, l) -> l
-  | Cmpint (_,v1,v2)
-  | Addint (v1,v2)
-  | Mulint (v1,v2)
-    -> [v1;v2]
-  | Const _ -> []
-  | FunParam set -> ValSet.elements !set
-  | FunReturn -> []
-  | Makeblock_module l -> l
-  | Union l -> l
-  | Apply (f, params) -> f :: params
+let is_ignored_need graph v =
+  ValSet.mem v graph.ignored_need
+
+let ignore_need graph v =
+  graph.ignored_need <- ValSet.add v graph.ignored_need
 
 (* values needed to evaluate the term: if one is not present the term
    will not be evaluated *)
@@ -166,11 +167,12 @@ type and_or =
 let term_needed_dependencies = function
   | Closure (_, map) -> And (List.map snd (IdentMap.bindings map))
   | Offset (_,v)
+  | Arraylength v
   | Field (_,v) -> And [v]
   | Makeblock (_, _, l) -> And l
+  | Negint v -> And [v]
   | Cmpint (_,v1,v2)
-  | Addint (v1,v2)
-  | Mulint (v1,v2) -> And [v1;v2]
+  | Intbinop (_,v1,v2) -> And [v1;v2]
   | Const _ -> And []
   | Apply (f, params) -> And (f :: params)
 
@@ -180,20 +182,44 @@ let term_needed_dependencies = function
   | Makeblock_module l -> Or l
   | Union l -> Or l
 
+  | Other -> assert false
+
+let term_dependencies term =
+  match term_needed_dependencies term with
+  | And l
+  | Or l -> l
+
+let intbinop_desc = function
+  | Addint -> "addint"
+  | Mulint -> "mulint"
+  | Subint -> "subint"
+  | Divint -> "divint"
+  | Modint -> "modint"
+  | Andint -> "andint"
+  | Orint -> "orint"
+  | Xorint -> "xorint"
+  | Lslint -> "lslint"
+  | Lsrint -> "lsrint"
+  | Asrint -> "asrint"
+  | Isout -> "isout"
+
 let term_desc = function
   | Closure _ -> "closure"
   | Offset _ -> "offset"
+  | Arraylength _ -> "arraylength"
   | Field (i,_) -> Printf.sprintf "field %i" i
   | Makeblock (_, _, l) -> "makeblock"
   | Cmpint _ -> "cmpint"
-  | Addint _ -> "addint"
-  | Mulint _ -> "mulint"
+  | Negint _ -> "negint"
+  | Intbinop (op,_,_) -> intbinop_desc op
   | Const _ -> "constant"
   | FunParam _ -> "fun param"
   | FunReturn -> "fun return"
   | Union _ -> "union"
   | Apply _ -> "apply"
   | Makeblock_module _ -> "makeblock module"
+
+  | Other -> assert false
 
 let equal_constraint (v1,c1) (v2,c2) = ValId.equal v1 v2 && c1 = c2
 

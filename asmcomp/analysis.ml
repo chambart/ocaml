@@ -24,10 +24,9 @@ let run ppf tree =
   let values = Propagate.run_graph base_graph in
   let getter x = Data_dependency.ValTbl.find values x in
   let getter_dep x = Data_dependency.get_virtual_union' base_graph x in
-  Domains.ValueDom.print_value getter getter_dep ppf module_value;
   Domains.ValueDom.print_values getter getter_dep ppf
     base_graph.Data_dependency.values;
   print_flows ppf base_graph;
-
+  Domains.ValueDom.print_value getter getter_dep ppf module_value;
   ignore base_graph;
   ()
