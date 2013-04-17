@@ -205,6 +205,24 @@ let eval_term t block term return_val = match term with
   | Makeblock_module vl ->
     Val (ValueDom.makeblock 0 Asttypes.Immutable vl)
 
+  | Setfield (i, block, v) ->
+    let block' = get_rec_virtual_union t (ValSet.singleton block) in
+    let v' = get_rec_virtual_union t (ValSet.singleton v) in
+    let aux_block b = match get' t b with
+      | None -> ()
+      | Some b' ->
+        let has_other, new_block = ValueDom.setfield i b' v' in
+        (* has_other -> escape !!! *)
+        let value_block = ValueDom.blocks_val new_block in
+        let new_value = ValueDom.union b' value_block in
+        ValTbl.replace t.values b new_value
+        (* TODO: propagate update ! *)
+    in
+    List.iter aux_block (ValSet.elements block');
+    (* TODO: faire ça plus proprement *)
+    (* faire gaffe: si il y a des unknown, les valeurs doivent s'échapper *)
+    Val(ValueDom.unit_val)
+
   | Field (i, v) ->
     let v = get_values t v in
     Both (ValueDom.field i v)
@@ -245,6 +263,10 @@ let eval_term t block term return_val = match term with
       | [] -> Set set
       | _ -> Both (Some (ValueDom.union_list l), set)
     end
+
+  | Unknown_primitive (_, params) ->
+    (* TODO: escape all parameters *)
+    Val ValueDom.unknown_val
 
   | _ ->
     let desc = term_desc term in

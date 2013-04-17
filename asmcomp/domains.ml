@@ -268,6 +268,8 @@ module ValueDom = struct
   let constptr_val i = { empty_val with v_cstptr = IntSet.singleton i }
   let constptrs_val s = { empty_val with v_cstptr = s }
 
+  let unit_val = constptr_val 0
+
   let bool_val b = constptr_val (if b then 1 else 0)
   let any_bool_val = constptrs_val (IntSet.of_list [0;1])
 
@@ -276,6 +278,8 @@ module ValueDom = struct
     let size = List.length fields in
     { empty_val with
       v_block = IntMap.singleton tag (IntMap.singleton size block) }
+
+  let blocks_val v_block = { empty_val with v_block }
 
   let fun_val ident fl cl =
     let fl = List.filter (fun funct -> Idt.equal ident funct.function_id) fl in
@@ -504,6 +508,20 @@ module ValueDom = struct
       else None
     in
     field_v, s
+
+  let setfield n block values =
+    let block = to_block block in
+    let aux_size size block_desc =
+      if size <= n && block_desc.mut = Mutable
+      then block_desc
+      else
+        let fields = Array.of_list block_desc.fields in
+        fields.(n) <- ValSet.union values fields.(n);
+        { block_desc with fields = Array.to_list fields }
+    in
+    let aux_tag map = IntMap.mapi aux_size map in
+    let map = IntMap.map aux_tag block.known in
+    block.has_unknown, map
 
   let arraylength v =
     let v = to_block (union_list v) in

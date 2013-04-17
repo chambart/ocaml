@@ -7,6 +7,8 @@ let basic_graph tree =
 
   let graph = empty_graph () in
   let bindings = IdentTbl.create 10 in
+  let static_fail_bindings = IntTbl.create 10 in
+
   let global_bindings = IntTbl.create 10 in
 
   let unit = Const (Fconst_pointer 0) in
@@ -21,11 +23,22 @@ let basic_graph tree =
       Queue.push (id,ffunc) todo_functions)
       ffunctions.funs in
 
+  let union l =
+    Union (List.fold_left (fun l -> function
+        | None -> l
+        | Some v -> v :: l) [] l)
+  in
+
   let rec aux constr_stack exp =
-    let aux' = aux constr_stack in
-    let new_expr ?new_value term =
+    let aux1 exp = aux constr_stack exp in
+    let aux_ignore exp = let (_:v option) = aux1 exp in () in
+    let aux' exp = match aux1 exp with
+      | None -> failwith "expected data"
+      | Some v -> v in
+    let new_expr' ?new_value term =
       let eid = Flambda.data exp in
-      new_expr ?new_value ~location:([],eid) graph constr_stack term
+      new_expr ?new_value ~location:([],eid) graph constr_stack term in
+    let new_expr ?new_value term = Some (new_expr' ?new_value term)
     in match exp with
     | Fconst (cst,_) ->
       new_expr (Const cst)
@@ -34,7 +47,7 @@ let basic_graph tree =
       assert(str = Strict);
       let v = aux' lam in
       IdentTbl.add bindings id v;
-      aux' body
+      aux1 body
 
     | Fletrec (defs, body, _) ->
       let l = List.map (fun (id,lam) ->
@@ -44,15 +57,29 @@ let basic_graph tree =
           lam,v) defs in
       List.iter (fun (lam,new_value) ->
         let v' = aux' lam in
-        ignore(new_expr ~new_value (Union [v']):v)) l;
-      aux' body
+        ignore(new_expr ~new_value (Union [v']):v option)) l;
+      aux1 body
 
     | Fvar (id, _) ->
-      IdentTbl.find bindings id
+      Some (IdentTbl.find bindings id)
 
     | Fsequence (lam1, lam2, _) ->
-      let _ = aux' lam1 in
-      aux' lam2
+      aux_ignore lam1;
+      aux1 lam2
+
+    | Fprim( Psequand, [arg1;arg2], _, _) ->
+      let v1 = aux' arg1 in
+      let v2 = aux' arg2 in
+      new_expr (Sequand (v1,v2))
+
+    | Fprim( Psequor, [arg1;arg2], _, _) ->
+      let v1 = aux' arg1 in
+      let v2 = aux' arg2 in
+      new_expr (Sequor (v1,v2))
+
+    | Fprim( Pnot, [arg], _, _) ->
+      let v = aux' arg in
+      new_expr (Not v)
 
     | Fprim(( Paddint | Psubint | Pmulint | Pdivint | Pmodint | Pandint
             | Porint  | Pxorint | Plslint | Plsrint | Pasrint ) as op,
@@ -108,12 +135,21 @@ let basic_graph tree =
     | Fprim(Pgetglobal id, [], _, _) ->
       if id.Ident.name = Compilenv.current_unit_name ()
       then (* current module *)
-        global_value
+        Some (global_value)
       else
         failwith "TODO: global not current"
     (*   if Ident.is_predef_exn id *)
     (*   then trivial_expr traces (B.Predef_exn id) bindings *)
     (*   else failwith "TODO" (\* other module *\) *)
+
+    | Fprim( Psetfield(n,_), [arg1;arg2], _, _) ->
+      let v1 = aux' arg1 in
+      let v2 = aux' arg2 in
+      new_expr (Setfield (n,v1,v2))
+
+    | Fprim(Pccall prim_desc, args, _, _) ->
+      let vl = List.map aux' args in
+      new_expr (Unknown_primitive (prim_desc.Primitive.prim_name, vl))
 
     | Fclosure(funct, fv, _) ->
       let fv' = IdentMap.mapi (fun id lam ->
@@ -134,12 +170,57 @@ let basic_graph tree =
       let stack b = (v_cond, Bool b) :: constr_stack in
       let v_ifso = aux (stack true) ifso in
       let v_ifnot = aux (stack false) ifnot in
-      new_expr (Union [v_ifso;v_ifnot])
+      new_expr (union [v_ifso;v_ifnot])
+
+    | Fswitch(cond, sw, _) ->
+      let v_cond = aux' cond in
+      let cst_cases =
+        List.map (fun (tag,lam) ->
+          let stack = (v_cond, SwitchCst tag) :: constr_stack in
+          aux stack lam) sw.fs_consts in
+      let block_cases =
+        List.map (fun (tag,lam) ->
+          let stack = (v_cond, SwitchTag tag) :: constr_stack in
+          aux stack lam) sw.fs_blocks in
+      new_expr (union (cst_cases @ block_cases))
 
     | Fapply(func, params, _, _, _) ->
       let v_func = aux' func in
       let v_params = List.map aux' params in
       new_expr (Apply (v_func, v_params))
+
+    | Fstaticfail(n, args, _) ->
+      let vl = List.map aux' args in
+      let l = try IntTbl.find static_fail_bindings n with
+        | Not_found -> [] in
+      IntTbl.add static_fail_bindings n (vl::l);
+      None
+
+    | Fcatch(n, ids, body, handler, _) ->
+      let previous_bindings = try Some (IntTbl.find static_fail_bindings n) with
+        | Not_found -> None in
+      IntTbl.remove static_fail_bindings n;
+      let v_body = aux1 body in
+      let body_bindings = try IntTbl.find static_fail_bindings n with
+        | Not_found -> [] in
+      let ret = match body_bindings with
+        | [] -> v_body (* this should probably never happen *)
+        | t::q ->
+          let body_bindings = List.fold_left
+              (fun acc l -> List.map2 (fun acc v -> v :: acc) acc l)
+              (List.map (fun _ -> []) t) body_bindings in
+          List.iter2 (fun id vals ->
+            IdentTbl.add bindings id
+              (new_expr' (union (List.map (fun v -> Some v) vals))))
+            ids body_bindings;
+          let v_handler = aux1 handler in
+          new_expr (union [v_body; v_handler])
+      in
+      (match previous_bindings with
+       | None -> IntTbl.remove static_fail_bindings n
+       | Some previous_bindings ->
+         IntTbl.replace static_fail_bindings n previous_bindings);
+      ret
 
     | e ->
       let desc = string_desc e in
@@ -161,9 +242,11 @@ let basic_graph tree =
     let call_info = new_function graph fun_id func.arity in
     List.iter2 (fun id v -> IdentTbl.add bindings id v) func.params
       call_info.parameters;
-    let fun_ret = aux [] func.body in
-    ignore (add_virtual_union graph fun_ret call_info.return:bool);
-    ()
+    match aux [] func.body with
+    | None -> ()
+    | Some fun_ret ->
+      ignore (add_virtual_union graph fun_ret call_info.return:bool);
+      ()
   in
 
   while not (Queue.is_empty todo_functions) do

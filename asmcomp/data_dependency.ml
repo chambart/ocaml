@@ -39,16 +39,25 @@ type term =
   | Offset of Ident.t * v
   | Arraylength of v
   | Field of int * v
+  | Setfield of int * v * v
   | Makeblock_module of v list
   | Makeblock of int * mutable_flag * v list
-  | Cmpint of Lambda.comparison * v * v
+  (* Integer operations *)
   | Negint of v
   | Intbinop of intbinop * v * v
+  | Cmpint of Lambda.comparison * v * v
+  (* Boolean operations *)
+  | Sequand of v * v
+  | Sequor of v * v
+  | Not of v
+  (* constants *)
   | Const of Flambda.const
   | FunParam of ValSet.t ref
   | FunReturn
   | Union of v list
   | Apply of v * v list
+  | Unknown_primitive of string * v list
+        (* C calls (first field is the description) *)
   | Other
 
   (* | MutableVar of ValSet.t ref (* ssa phi *) *)
@@ -78,6 +87,11 @@ type call_info = {
   parameters : v list;
   parameter_sets : ValSet.t ref list;
   return : v;
+}
+
+type block_info = {
+  block_constraints : constraints;
+  block_exception : v;
 }
 
 type graph =
@@ -170,14 +184,18 @@ let term_needed_dependencies = function
   | Arraylength v
   | Field (_,v) -> And [v]
   | Makeblock (_, _, l) -> And l
+  | Not v
   | Negint v -> And [v]
+  | Setfield (_, v1, v2)
+  | Sequand (v1, v2)
+  | Sequor (v1, v2)
   | Cmpint (_,v1,v2)
   | Intbinop (_,v1,v2) -> And [v1;v2]
   | Const _ -> And []
   | Apply (f, params) -> And (f :: params)
 
   | FunReturn -> And []
-
+  | Unknown_primitive (_,l) -> And l
   | FunParam set -> Or (ValSet.elements !set)
   | Makeblock_module l -> Or l
   | Union l -> Or l
@@ -207,17 +225,22 @@ let term_desc = function
   | Closure _ -> "closure"
   | Offset _ -> "offset"
   | Arraylength _ -> "arraylength"
+  | Setfield _ -> "setfield"
   | Field (i,_) -> Printf.sprintf "field %i" i
   | Makeblock (_, _, l) -> "makeblock"
   | Cmpint _ -> "cmpint"
   | Negint _ -> "negint"
   | Intbinop (op,_,_) -> intbinop_desc op
+  | Sequand _ -> "sequand"
+  | Sequor _ -> "sequor"
+  | Not _ -> "not"
   | Const _ -> "constant"
   | FunParam _ -> "fun param"
   | FunReturn -> "fun return"
   | Union _ -> "union"
   | Apply _ -> "apply"
   | Makeblock_module _ -> "makeblock module"
+  | Unknown_primitive (desc,_) -> Printf.sprintf "unknown: %s" desc
 
   | Other -> assert false
 
