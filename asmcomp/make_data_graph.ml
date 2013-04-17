@@ -13,7 +13,7 @@ let basic_graph tree =
 
   let unit = Const (Fconst_pointer 0) in
 
-  let global_value = make_value ~name:"global" graph [] in
+  let global_value = make_value ~name:"global" graph graph.toplevel_block in
 
   let todo_functions = Queue.create () in
 
@@ -29,15 +29,15 @@ let basic_graph tree =
         | Some v -> v :: l) [] l)
   in
 
-  let rec aux constr_stack exp =
-    let aux1 exp = aux constr_stack exp in
+  let rec aux block exp =
+    let aux1 exp = aux block exp in
     let aux_ignore exp = let (_:v option) = aux1 exp in () in
     let aux' exp = match aux1 exp with
       | None -> failwith "expected data"
       | Some v -> v in
     let new_expr' ?new_value term =
       let eid = Flambda.data exp in
-      new_expr ?new_value ~location:([],eid) graph constr_stack term in
+      new_expr ?new_value ~location:([],eid) graph block term in
     let new_expr ?new_value term = Some (new_expr' ?new_value term)
     in match exp with
     | Fconst (cst,_) ->
@@ -51,7 +51,7 @@ let basic_graph tree =
 
     | Fletrec (defs, body, _) ->
       let l = List.map (fun (id,lam) ->
-          let v = make_value ~name:"letrec_union" graph constr_stack in
+          let v = make_value ~name:"letrec_union" graph block in
           IdentTbl.add bindings id v;
           ignore_need graph v;
           lam,v) defs in
@@ -167,21 +167,21 @@ let basic_graph tree =
 
     | Fifthenelse(cond, ifso, ifnot, _) ->
       let v_cond = aux' cond in
-      let stack b = (v_cond, Bool b) :: constr_stack in
-      let v_ifso = aux (stack true) ifso in
-      let v_ifnot = aux (stack false) ifnot in
+      let make_block b = new_block graph block (v_cond, Bool b) in
+      let v_ifso = aux (make_block true) ifso in
+      let v_ifnot = aux (make_block false) ifnot in
       new_expr (union [v_ifso;v_ifnot])
 
     | Fswitch(cond, sw, _) ->
       let v_cond = aux' cond in
       let cst_cases =
         List.map (fun (tag,lam) ->
-          let stack = (v_cond, SwitchCst tag) :: constr_stack in
-          aux stack lam) sw.fs_consts in
+          let branch_block = new_block graph block (v_cond, SwitchCst tag) in
+          aux branch_block lam) sw.fs_consts in
       let block_cases =
         List.map (fun (tag,lam) ->
-          let stack = (v_cond, SwitchTag tag) :: constr_stack in
-          aux stack lam) sw.fs_blocks in
+          let branch_block = new_block graph block (v_cond, SwitchTag tag) in
+          aux branch_block lam) sw.fs_blocks in
       new_expr (union (cst_cases @ block_cases))
 
     | Fapply(func, params, _, _, _) ->
@@ -227,7 +227,7 @@ let basic_graph tree =
       failwith (Printf.sprintf "TODO graph: %s" desc)
   in
 
-  let _ = aux [] tree in
+  let _ = aux graph.toplevel_block tree in
 
   let global_value_term =
     let max_global = IntTbl.fold (fun i _ m -> max i m)
@@ -242,7 +242,7 @@ let basic_graph tree =
     let call_info = new_function graph fun_id func.arity in
     List.iter2 (fun id v -> IdentTbl.add bindings id v) func.params
       call_info.parameters;
-    match aux [] func.body with
+    match aux graph.toplevel_block func.body with
     | None -> ()
     | Some fun_ret ->
       ignore (add_virtual_union graph fun_ret call_info.return:bool);

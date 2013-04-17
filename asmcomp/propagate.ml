@@ -113,7 +113,7 @@ let reachable t block =
         (* TODO *)
         aux q
   in
-  aux block
+  aux block.block_constraints
 
 (* let get_filtered_values t block v = *)
 (*   let rec aux = function *)
@@ -254,6 +254,9 @@ let eval_term t block term return_val = match term with
     Set (!set)
 
   | FunReturn ->
+    Set ValSet.empty
+
+  | Exception_term ->
     Set ValSet.empty
 
   | Apply (func, params) ->
