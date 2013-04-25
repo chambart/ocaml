@@ -864,6 +864,8 @@ let prim p l =
   | Poffsetref _ ->
     value_unit
 
+  | Pphyscomp _ -> assert false
+
   | Prevapply _ | Pdirapply _ | Pgetglobal _ | Psetglobal _
   | Pmakeblock _ | Pfield _ | Psetfield _ | Pduprecord _
   | Plazyforce | Pccall _ | Praise | Pmakearray _ ->

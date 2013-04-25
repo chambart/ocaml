@@ -169,8 +169,8 @@ let primitives_table = create_hashtable 57 [
   "%lslint", Plslint;
   "%lsrint", Plsrint;
   "%asrint", Pasrint;
-  "%eq", Pintcomp Ceq;
-  "%noteq", Pintcomp Cneq;
+  "%eq", Pphyscomp Ceq;
+  "%noteq", Pphyscomp Cneq;
   "%ltint", Pintcomp Clt;
   "%leint", Pintcomp Cle;
   "%gtint", Pintcomp Cgt;

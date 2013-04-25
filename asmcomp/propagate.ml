@@ -109,6 +109,12 @@ let reachable t block =
         if res
         then aux q
         else false
+      | Exists ->
+        let empty = List.for_all ValueDom.is_empty cstr in
+        Printf.printf "reachable %a = empty: %b\n%!" ValId.output cstr_val empty;
+        if not empty
+        then aux q
+        else false
       | _ ->
         (* TODO *)
         aux q
@@ -141,7 +147,8 @@ type ret =
   | Set of ValSet.t
   | Both of (ValueDom.t option * ValSet.t)
 
-let rec eval_apply t func param return_val =
+let rec eval_apply t block func param return_val =
+  (* TODO: propagate exceptions raised by the function *)
   let aux (acc_values, acc_set) = function
     | ValueDom.Unknown_call _ -> failwith "TODO: unknown call"
     | ValueDom.Complete (func,applied_param,over_param) ->
@@ -158,6 +165,7 @@ let rec eval_apply t func param return_val =
         (*    push_work t param) *)
       in
       let l = List.combine call_info.parameters call_info.parameter_sets in
+      add_block_exception t.graph block (get_call_exception t.graph call_info);
       List.iter2 aux_add_virtual l applied_param;
       (match over_param with
        | [] ->
@@ -170,10 +178,14 @@ let rec eval_apply t func param return_val =
            ValId.output call_info.return ValId.output return_val
            ValSet.output returns;
          add_flows t.graph returns return_val;
-         let l, set = eval_apply t (get_values t call_info.return)
+         let l, set = eval_apply t block (get_values t call_info.return)
              over_param return_val in
          l @ acc_values, ValSet.union set acc_set)
-    | ValueDom.Value v -> v :: acc_values, acc_set
+    | ValueDom.Partial v -> v :: acc_values, acc_set
+    | ValueDom.Unknown_function v ->
+      failwith "TODO unknown function"
+        (* should propagate an unknown exception *)
+      (* v :: acc_values, acc_set *)
   in
   let (l,set) = List.fold_left aux ([], ValSet.empty)
       (ValueDom.apply func param) in
@@ -184,12 +196,22 @@ let eval_term t block term return_val = match term with
   | Const cst ->
     Val (ValueDom.constant cst)
 
+  | Predef_exn id ->
+    Val (ValueDom.predef_exn id)
+
+  | Negint v ->
+    let v = get_values t v in
+    Val(ValueDom.negint v)
+
   | Intbinop(op,v1,v2) ->
     let v1 = get_values t v1 in
     let v2 = get_values t v2 in
     let r = match op with
       | Addint -> ValueDom.addint v1 v2
+      | Subint -> ValueDom.subint v1 v2
       | Mulint -> ValueDom.mulint v1 v2
+      | Lslint -> ValueDom.lslint v1 v2
+      | Lsrint -> ValueDom.lsrint v1 v2
       | _ -> failwith (Printf.sprintf "TODO: intbinop %s" (intbinop_desc op))
     in
     Val r
@@ -199,27 +221,58 @@ let eval_term t block term return_val = match term with
     let v2 = get_values t v2 in
     Val (ValueDom.cmpint cmp v1 v2)
 
+  | Cmpphys (cmp,v1,v2) ->
+    let filter = ValSet.filter (fun v -> match get' t v with Some _ -> true | None -> false) in
+    let set1 = filter (get_rec_virtual_union t (ValSet.singleton v1)) in
+    let set2 = filter (get_rec_virtual_union t (ValSet.singleton v2)) in
+    begin match ValSet.cardinal set1, ValSet.cardinal set2 with
+      | 0, _ | _, 0 -> Set ValSet.empty
+      | 1, 1 when ValSet.equal set1 set2 ->
+        (* TODO: is there a way to know when two values are effectively different ? *)
+        begin match cmp with
+        | Lambda.Ceq -> Val (ValueDom.bool_val true)
+        | Lambda.Cneq -> Val (ValueDom.bool_val false)
+        | _ -> Val ValueDom.any_bool_val
+        end
+      | _ -> Val ValueDom.any_bool_val
+    end
+
   | Makeblock (tag, mut, vl) ->
     Val (ValueDom.makeblock tag mut vl)
 
   | Makeblock_module vl ->
     Val (ValueDom.makeblock 0 Asttypes.Immutable vl)
 
-  | Setfield (i, block, v) ->
-    let block' = get_rec_virtual_union t (ValSet.singleton block) in
+  | Setfield (i, v_mut, v) ->
+    let v_mut = get_values t v_mut in
+    (* let v_mut' = get_rec_virtual_union t (ValSet.singleton v_mut) in *)
     let v' = get_rec_virtual_union t (ValSet.singleton v) in
-    let aux_block b = match get' t b with
+    let field_value, field_set = ValueDom.field i v_mut in
+    begin match field_value with
+      | Some _ -> failwith "TODO: escape"
       | None -> ()
-      | Some b' ->
-        let has_other, new_block = ValueDom.setfield i b' v' in
-        (* has_other -> escape !!! *)
-        let value_block = ValueDom.blocks_val new_block in
-        let new_value = ValueDom.union b' value_block in
-        ValTbl.replace t.values b new_value
-        (* TODO: propagate update ! *)
+    end;
+    let f dst =
+      if add_virtual_unions t.graph v' dst
+      then push_work t dst
+      (* TODO: faire ça plus proprement: mettre un cas de plus dans le retour *)
     in
-    List.iter aux_block (ValSet.elements block');
-    (* TODO: faire ça plus proprement *)
+    ValSet.iter f field_set;
+
+    (* let aux_mut b = match get' t b with *)
+    (*   | None -> () *)
+    (*   | Some b' -> *)
+    (*     let has_other, new_block = ValueDom.setfield i b' v' in *)
+    (*     (\* has_other -> escape !!! *\) *)
+    (*     let value_block = ValueDom.blocks_val new_block in *)
+    (*     let new_value = ValueDom.union b' value_block in *)
+    (*     ValTbl.replace t.values b new_value; *)
+
+    (*     (\* if add_virtual_union t.graph v block *\) *)
+    (*     (\* TODO: propagate update ! *\) *)
+    (* in *)
+    (* List.iter aux_mut (ValSet.elements v_mut'); *)
+
     (* faire gaffe: si il y a des unknown, les valeurs doivent s'échapper *)
     Val(ValueDom.unit_val)
 
@@ -230,6 +283,10 @@ let eval_term t block term return_val = match term with
   | Arraylength v ->
     let v = get_values t v in
     Val (ValueDom.arraylength v)
+
+  | Stringlength v ->
+    let v = get_values t v in
+    Val (ValueDom.stringlength v)
 
   | Union l ->
     Set (ValSet.of_list l)
@@ -261,7 +318,7 @@ let eval_term t block term return_val = match term with
 
   | Apply (func, params) ->
     let func = get_values t func in
-    let l, set = eval_apply t func params return_val in
+    let l, set = eval_apply t block func params return_val in
     begin match l with
       | [] -> Set set
       | _ -> Both (Some (ValueDom.union_list l), set)
@@ -269,6 +326,9 @@ let eval_term t block term return_val = match term with
 
   | Unknown_primitive (_, params) ->
     (* TODO: escape all parameters *)
+    Val ValueDom.unknown_val
+
+  | Unknown ->
     Val ValueDom.unknown_val
 
   | _ ->
@@ -328,6 +388,16 @@ let do_term t graph v =
         else true in
 
     Printf.printf "\t\t\t\tsame_val %b\t same_dep %b\n%!" same_val same_val_dep;
+
+    (* add a flow link between all values that produce that one and
+       all values that need that one *)
+    if not (ValSet.is_empty new_set)
+    then begin
+      let flow = get_flow graph v in
+      ValSet.iter (fun dst ->
+        Printf.printf "add flow: %a -> %a\n%!" ValSet.output new_set ValId.output dst;
+        add_flows graph new_set dst) flow
+    end;
 
     if not (same_val_dep && same_val)
     then begin

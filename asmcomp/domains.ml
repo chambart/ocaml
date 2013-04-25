@@ -50,48 +50,7 @@ module CstPtrDom = Set.Make(IntT)
 
 module ValueDom = struct
 
-  type values = ValId.t
-
-  type funct =
-    { function_id : Ident.t;
-      function_kind : Lambda.function_kind;
-      function_param: Ident.t list }
-
-  type partial_parameters =
-    | Known_param of values list
-    | Unknown_param of ValSet.t
-        (* we do not take time to merge that: it is only used for escaping *)
-
-  type intern_funct =
-    { funct : funct;
-      partial_param : partial_parameters;
-      closure : values IdentMap.t }
-
-  type intern_block =
-    { tag : int;
-      fields : ValSet.t list;
-      mut : mutable_flag }
-
-  type other_values =
-    | Value_unoffseted_closure of funct list * values IdentMap.t
-    | Value_mutable
-    | Value_string
-    | Value_floatarray
-    | Value_integer of int
-    | Value_any_integer
-    | Value_float
-    | Value_boxed_int of Lambda.boxed_integer
-    | Value_unknown_not_block (* an unknown value that can't contain any value *)
-    | Value_unknown     (* unknown result *)
-    | Value_none        (* no other case possible *)
-
-  type t = {
-    v_clos : intern_funct IdentMap.t;
-    v_cstptr: IntSet.t;
-    v_block: intern_block IntMap.t IntMap.t;
-    (* tag -> size -> block *)
-    v_other: other_values;
-  }
+  include Domain_type.Make(ValId)
 
   let empty_val = {
     v_clos = IdentMap.empty;
@@ -318,6 +277,8 @@ module ValueDom = struct
 
   type unoffseted_closure_answer = (funct list * values IdentMap.t) option answer
 
+  type string_answer = bool answer
+
   let to_bool v : bool_answer =
     let true_branch, false_branch, has_unknown =
       match v.v_other with
@@ -404,6 +365,27 @@ module ValueDom = struct
       has_unknown;
       has_other }
 
+  let to_string v : string_answer =
+    let known, has_unknown, has_other = match v.v_other with
+      | Value_string -> true, false, false
+      | Value_unknown_not_block
+      | Value_unknown -> false, true, true
+      | Value_any_integer
+      | Value_integer _
+      | Value_mutable
+      | Value_floatarray
+      | Value_float
+      | Value_unoffseted_closure _
+      | Value_boxed_int _ -> false, false, true
+      | Value_none -> false, false, false in
+    let has_other = has_other
+                    || not (IntSet.is_empty v.v_cstptr)
+                    || not (IdentMap.is_empty v.v_clos)
+                    || not (IntMap.is_empty v.v_block) in
+    { known;
+      has_unknown;
+      has_other }
+
   let to_function v : fun_answer =
     let known = List.map snd (IdentMap.bindings v.v_clos) in
     let has_unknown, has_other = match v.v_other with
@@ -434,39 +416,58 @@ module ValueDom = struct
       | 1 -> Singleton (IntSet.choose ans.known)
       | _ -> Multiple
 
-  let addint v1 v2 =
+  let negint v =
+    let v = single_set_int (to_int (union_list v)) in
+    match v with
+    | Empty -> empty_val
+    | Singleton i -> int_val (- i)
+    | Multiple -> any_int_val
+
+  let binopint f v1 v2 =
     let v1 = single_set_int (to_int (union_list v1)) in
     let v2 = single_set_int (to_int (union_list v2)) in
     match v1, v2 with
     | Empty, _ | _, Empty -> empty_val
-    | Singleton i1, Singleton i2 -> int_val (i1 + i2)
+    | Singleton i1, Singleton i2 -> int_val (f i1 i2)
     | Multiple, _ | _, Multiple -> any_int_val
 
+  let lslint v1 v2 =
+    binopint (lsl) v1 v2
+
+  let lsrint v1 v2 =
+    binopint (lsr) v1 v2
+
+  let addint v1 v2 =
+    binopint (+) v1 v2
+
+  let subint v1 v2 =
+    binopint (-) v1 v2
+
   let mulint v1 v2 =
-    let v1 = single_set_int (to_int (union_list v1)) in
-    let v2 = single_set_int (to_int (union_list v2)) in
-    match v1, v2 with
-    | Empty, _ | _, Empty -> empty_val
-    | Singleton i1, Singleton i2 -> int_val (i1 * i2)
-    | Multiple, _ | _, Multiple -> any_int_val
+    binopint ( * ) v1 v2
 
   let cmpint cmp v1 v2 =
     (* TODO: do on the sets rather than on the collapsed sets:
        more precise *)
-    let v1 = single_set_int (to_int (union_list v1)) in
-    let v2 = single_set_int (to_int (union_list v2)) in
-    match v1, v2 with
-    | Empty, _ | _, Empty -> empty_val
-    | Singleton i1, Singleton i2 ->
-      let b = let open Lambda in match cmp with
-        | Ceq -> i1 = i2
-        | Cneq -> i1 <> i2
-        | Clt -> i1 < i2
-        | Cgt -> i1 > i2
-        | Cle -> i1 <= i2
-        | Cge -> i1 >= i2 in
-      bool_val b
-    | Multiple, _ | _, Multiple -> any_bool_val
+    let v1 = to_int (union_list v1) in
+    let v2 = to_int (union_list v2) in
+    if v1.has_other || v2.has_other || v1.has_unknown || v2.has_unknown
+    (* cmpint is used to test things that are not interger (like physical
+       equlality) so we can't assume much on its parameters *)
+    then any_bool_val
+    else
+      match single_set_int v1, single_set_int v2 with
+      | Empty, _ | _, Empty -> empty_val
+      | Singleton i1, Singleton i2 ->
+        let b = let open Lambda in match cmp with
+          | Ceq -> i1 = i2
+          | Cneq -> i1 <> i2
+          | Clt -> i1 < i2
+          | Cgt -> i1 > i2
+          | Cle -> i1 <= i2
+          | Cge -> i1 >= i2 in
+        bool_val b
+      | Multiple, _ | _, Multiple -> any_bool_val
 
   let makeblock tag mut fields =
     block_val tag mut (List.map ValSet.singleton fields)
@@ -485,6 +486,8 @@ module ValueDom = struct
     | Fconst_pointer i -> constptr_val i
     | Fconst_float_array _ -> floatarray_val
     | Fconst_immstring _ -> string_val
+
+  let predef_exn id = string_val
 
   let sets_union l = match l with
     | [] -> ValSet.empty
@@ -537,6 +540,12 @@ module ValueDom = struct
       | [i] -> int_val i
       | _ -> any_int_val
 
+  let stringlength v =
+    let v = to_string (union_list v) in
+    if v.has_unknown || v.known
+    then any_int_val
+    else empty_val
+
   let offset id values =
     let uc = to_unoffseted_closure (union_list values) in
     if uc.has_unknown || uc.has_other
@@ -548,7 +557,8 @@ module ValueDom = struct
   let to_fun func = to_function (union_list func)
 
   type call =
-    | Value of t (* partial call and unknown *)
+    | Partial of t
+    | Unknown_function of t
     | Complete of funct * v list * v list
     | Unknown_call of intern_funct * ValSet.t
 
@@ -572,7 +582,7 @@ module ValueDom = struct
         let param = preapplied @ param in
         if arity > List.length param
         then
-          Value (fun_val' { fn with partial_param = Known_param param })
+          Partial (fun_val' { fn with partial_param = Known_param param })
         else
           let applied, over = splitn arity param in
           Complete (fn.funct,applied,over)
@@ -580,7 +590,7 @@ module ValueDom = struct
     let ret = List.map aux func.known in
     let ret =
       if func.has_other || func.has_unknown
-      then (Value unknown_val) :: ret
+      then (Unknown_function unknown_val) :: ret
       else ret
     in
     ret
@@ -625,13 +635,13 @@ module ValueDom = struct
 
     and print_other ppf = function
       | Value_unoffseted_closure _ -> fprintf ppf "Value_unoffseted_closure"
-      | Value_mutable
-      | Value_string
-      | Value_floatarray -> fprintf ppf "TODO"
+      | Value_mutable -> fprintf ppf "mutable"
+      | Value_string -> fprintf ppf "string"
+      | Value_floatarray -> fprintf ppf "floatarray"
       | Value_integer i -> fprintf ppf "Int %i" i
       | Value_any_integer -> fprintf ppf "any int"
       | Value_float -> fprintf ppf "Float"
-      | Value_boxed_int _  -> fprintf ppf "TODO"
+      | Value_boxed_int _  -> fprintf ppf "boxed_int"
       | Value_unknown_not_block -> fprintf ppf "Unknown not block"
       | Value_unknown -> fprintf ppf "Unknown"
       | Value_none -> ()
@@ -694,5 +704,191 @@ module ValueDom = struct
 
   end
   include Print_values
+
+end
+
+
+module ExternalApprox = struct
+
+  module VId = Domain_type.VId
+  module VMap = Flambda.ExtMap(Domain_type.VId)
+  module VSet = Flambda.ExtSet(Domain_type.VId)
+  module VTbl = Flambda.ExtHashtbl(Domain_type.VId)
+
+  module Domain = Domain_type.UnitT
+
+  (* let create_id ?name () = *)
+  (*   let unit_name = Compilenv.current_unit_name () in *)
+  (*   VId.create ?name unit_name *)
+
+  (* type export_table = { val_mapping : VId.t ValTbl.t } *)
+
+  (* let export_v tbl v = *)
+  (*   try ValTbl.find tbl.val_mapping v with *)
+  (*     Not_found -> *)
+  (*     let v' = create_id ?name:(ValId.name v) () in *)
+  (*     ValTbl.add tbl.val_mapping v v'; *)
+  (*     v' *)
+
+  (* let export_vset tbl s = *)
+  (*   VSet.of_list (List.map (export_v tbl) (ValSet.elements s)) *)
+
+  (* let export_clos tbl m = *)
+  (*   let aux_funct f = *)
+  (*     { Domain.function_id = f.ValueDom.function_id; *)
+  (*       Domain.function_kind = f.ValueDom.function_kind; *)
+  (*       Domain.function_param = f.ValueDom.function_param } *)
+  (*   in *)
+  (*   let aux_partial_param = function *)
+  (*     | ValueDom.Known_param l -> *)
+  (*       Domain.Known_param (List.map (export_v tbl) l) *)
+  (*     | ValueDom.Unknown_param s -> *)
+  (*       Domain.Unknown_param (export_vset tbl s) *)
+  (*   in *)
+  (*   let aux_clos c = *)
+  (*     { Domain.funct = aux_funct c.ValueDom.funct; *)
+  (*       Domain.partial_param = aux_partial_param c.ValueDom.partial_param; *)
+  (*       Domain.closure = IdentMap.map (export_v tbl) c.ValueDom.closure } *)
+  (*   in *)
+  (*   IdentMap.map aux_clos m *)
+
+  (* let export_block tbl m = *)
+  (*   let aux_intern_block b = *)
+  (*     { Domain.fields = List.map (export_vset tbl) b.ValueDom.fields; *)
+  (*       tag = b.ValueDom.tag; *)
+  (*       mut = b.ValueDom.mut } in *)
+  (*   IntMap.map (IntMap.map aux_intern_block) m *)
+
+  (* let export_other tbl = function *)
+  (*   | ValueDom.Value_any_integer -> Domain.Value_any_integer *)
+  (*   | ValueDom.Value_unknown_not_block -> Domain.Value_unknown_not_block *)
+  (*   | ValueDom.Value_unknown -> Domain.Value_unknown *)
+  (*   | ValueDom.Value_integer i -> Domain.Value_integer i *)
+  (*   | ValueDom.Value_mutable -> Domain.Value_mutable *)
+  (*   | ValueDom.Value_string -> Domain.Value_string *)
+  (*   | ValueDom.Value_floatarray -> Domain.Value_floatarray *)
+  (*   | ValueDom.Value_float -> Domain.Value_float *)
+  (*   | ValueDom.Value_boxed_int bi -> Domain.Value_boxed_int bi *)
+  (*   | ValueDom.Value_none -> Domain.Value_none *)
+  (*   | ValueDom.Value_unoffseted_closure _ -> *)
+  (*     failwith "TODO: export unoffseted" *)
+  (*     (\* Domain.Value_unoffseted_closure _ *\) *)
+
+  (* let export tbl v = *)
+  (*   { Domain.v_clos = export_clos tbl v.ValueDom.v_clos; *)
+  (*     v_cstptr = v.ValueDom.v_cstptr; *)
+  (*     v_block = export_block tbl v.ValueDom.v_block; *)
+  (*     v_other = export_other tbl v.ValueDom.v_other } *)
+
+  (* let export_all tbl get v = *)
+  (*   let added = ref ValSet.empty in *)
+  (*   let todo = Queue.create () in *)
+  (*   let add v = *)
+  (*     if not (ValSet.mem v !added) *)
+  (*     then begin *)
+  (*       Queue.push v todo; *)
+  (*       added := ValSet.add v !added *)
+  (*     end *)
+  (*   in *)
+  (*   add v; *)
+  (*   let rec loop acc = *)
+  (*     if Queue.is_empty todo *)
+  (*     then acc *)
+  (*     else *)
+  (*       let v = Queue.pop todo in *)
+  (*       let r = export tbl (get v) in *)
+  (*       loop (r::acc) *)
+  (*   in *)
+  (*   loop [] *)
+
+  type import_table = {
+    mapping_val : ValId.t VTbl.t;
+    mapping_ident : Ident.t IdentTbl.t;
+  }
+
+  let empty_import_table () = {
+    mapping_val = VTbl.create 10;
+    mapping_ident = IdentTbl.create 10;
+  }
+
+  let import_id tbl id =
+    try IdentTbl.find tbl.mapping_ident id with
+      Not_found ->
+      let id' = Ident.create (Ident.name id) in
+      IdentTbl.add tbl.mapping_ident id id';
+      id'
+
+  let import_v tbl v =
+    try VTbl.find tbl.mapping_val v with
+      Not_found ->
+      let v' = ValId.create ?name:(VId.name v) () in
+      VTbl.add tbl.mapping_val v v';
+      v'
+
+  let import_vset tbl s =
+    ValSet.of_list (List.map (import_v tbl) (VSet.elements s))
+
+  let import_identmap tbl m f =
+    let aux key v map =
+      let key' = import_id tbl key in
+      IdentMap.add key' (f tbl v) map in
+    IdentMap.fold aux m IdentMap.empty
+
+  let import_clos tbl m =
+    let aux_funct f =
+      { ValueDom.function_id = import_id tbl f.Domain.function_id;
+        ValueDom.function_kind = f.Domain.function_kind;
+        ValueDom.function_param = f.Domain.function_param }
+    in
+    let aux_partial_param = function
+      | Domain.Known_param l ->
+        ValueDom.Known_param (List.map (import_v tbl) l)
+      | Domain.Unknown_param s ->
+        ValueDom.Unknown_param (import_vset tbl s)
+    in
+    let aux_clos tbl c =
+      { ValueDom.funct = aux_funct c.Domain.funct;
+        ValueDom.partial_param = aux_partial_param c.Domain.partial_param;
+        ValueDom.closure = import_identmap tbl c.Domain.closure import_v }
+    in
+    import_identmap tbl m aux_clos
+
+  let import_block tbl m =
+    let aux_intern_block b =
+      { ValueDom.fields = List.map (import_vset tbl) b.Domain.fields;
+        tag = b.Domain.tag;
+        mut = b.Domain.mut } in
+    IntMap.map (IntMap.map aux_intern_block) m
+
+  let import_other tbl = function
+    | Domain.Value_any_integer -> ValueDom.Value_any_integer
+    | Domain.Value_unknown_not_block -> ValueDom.Value_unknown_not_block
+    | Domain.Value_unknown -> ValueDom.Value_unknown
+    | Domain.Value_integer i -> ValueDom.Value_integer i
+    | Domain.Value_mutable -> ValueDom.Value_mutable
+    | Domain.Value_string -> ValueDom.Value_string
+    | Domain.Value_floatarray -> ValueDom.Value_floatarray
+    | Domain.Value_float -> ValueDom.Value_float
+    | Domain.Value_boxed_int bi -> ValueDom.Value_boxed_int bi
+    | Domain.Value_none -> ValueDom.Value_none
+    | Domain.Value_unoffseted_closure _ ->
+      failwith "TODO: import unoffseted"
+      (* ValueDom.Value_unoffseted_closure _ *)
+
+  let import tbl v =
+    { ValueDom.v_clos = import_clos tbl v.Domain.v_clos;
+      v_cstptr = v.Domain.v_cstptr;
+      v_block = import_block tbl v.Domain.v_block;
+      v_other = import_other tbl v.Domain.v_other }
+
+  let global_import exported : Data_dependency.ValId.t * ValueDom.t Data_dependency.ValMap.t =
+    let tbl = empty_import_table () in
+    let map = VTbl.fold (fun key v map ->
+        let key' = import_v tbl key in
+        let v' = import tbl v in
+        ValMap.add key' v' map)
+        exported.Domain.exp_table ValMap.empty in
+    import_v tbl exported.Domain.exp_global,
+    map
 
 end

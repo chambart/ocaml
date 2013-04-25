@@ -21,7 +21,11 @@ open Asttypes
 (* open Misc *)
 open Flambda
 
-module ValId : Id = Id(Flambda.Empty)
+(* module UnitName = struct *)
+(*   let unit_name () = Compilenv.current_unit_name () *)
+(* end *)
+
+module ValId : Id = Flambda.Id(Flambda.Empty)
 module ValMap = Flambda.ExtMap(ValId)
 module ValSet = Flambda.ExtSet(ValId)
 module ValTbl = Flambda.ExtHashtbl(ValId)
@@ -37,6 +41,9 @@ type intbinop =
 type term =
   | Closure of IdentSet.t * v IdentMap.t
   | Offset of Ident.t * v
+  | Identity of v
+  | Stringlength of v
+  | Stringget of bool * v * v (* safe * string * index *)
   | Arraylength of v
   | Field of int * v
   | Setfield of int * v * v
@@ -45,6 +52,7 @@ type term =
   (* Integer operations *)
   | Negint of v
   | Intbinop of intbinop * v * v
+  | Cmpphys of Lambda.comparison * v * v
   | Cmpint of Lambda.comparison * v * v
   (* Boolean operations *)
   | Sequand of v * v
@@ -56,9 +64,12 @@ type term =
   | FunParam of ValSet.t ref
   | FunReturn
   | Union of v list
+  | Interval of v * v
   | Apply of v * v list
   | Unknown_primitive of string * v list
         (* C calls (first field is the description) *)
+  | Predef_exn of Ident.t
+  | Unknown
   | Other
 
   (* | MutableVar of ValSet.t ref (* ssa phi *) *)
@@ -84,16 +95,18 @@ module Location = struct
 end
 module LocMap = Map.Make(Location)
 
+type block_info = {
+  block_desc : string;
+  block_constraints : constraints;
+  mutable block_exception : v option;
+  block_parent : block_info option;
+}
+
 type call_info = {
   parameters : v list;
   parameter_sets : ValSet.t ref list;
   return : v;
-}
-
-type block_info = {
-  block_constraints : constraints;
-  block_exception : v;
-  block_parent : block_info option;
+  call_block : block_info;
 }
 
 type graph =
@@ -114,18 +127,24 @@ type graph =
     mutable ignored_need : ValSet.t;
     (** which variables are not needed to evaluate their flow:
         used to start the evaluation of recursive loops *)
-    toplevel_block : block_info;
-  }
+    toplevel_block : block_info; }
 
 let toplevel_block () =
-  { block_constraints = [];
-    block_exception = ValId.create ~name:"toplevel_exception" ();
+  { block_desc = "toplevel";
+    block_constraints = [];
+    block_exception = None;
     block_parent = None }
 
-let add_block_exception graph block =
-  graph.values <- ValSet.add block.block_exception graph.values;
-  graph.term <- ValMap.add block.block_exception Exception_term graph.term;
-  graph.block <- ValMap.add block.block_exception block graph.block
+let get_block_exception graph block =
+  match block.block_exception with
+  | Some exn -> exn
+  | None ->
+    let exn = ValId.create ~name:("exception_" ^ block.block_desc) () in
+    block.block_exception <- Some exn;
+    graph.values <- ValSet.add exn graph.values;
+    graph.term <- ValMap.add exn Exception_term graph.term;
+    graph.block <- ValMap.add exn block graph.block;
+    exn
 
 let empty_graph () =
   let toplevel_block = toplevel_block () in
@@ -143,7 +162,6 @@ let empty_graph () =
       functions = IdentTbl.create 10;
       ignored_need = ValSet.empty;
       toplevel_block = toplevel_block } in
-  add_block_exception graph toplevel_block;
   graph
 
 let get_flow graph value =
@@ -176,7 +194,8 @@ let get_call_info graph f =
 
 let add_flow graph src dst =
   let flow = get_flow graph src in
-  if not (ValSet.mem dst flow)
+  let virtual_flow = get_virtual_flow graph src in
+  if not (ValSet.mem dst flow || ValSet.mem dst virtual_flow)
   then
     let flow = ValSet.add dst flow in
     ValTbl.replace graph.flow src flow
@@ -190,6 +209,9 @@ let is_ignored_need graph v =
 let ignore_need graph v =
   graph.ignored_need <- ValSet.add v graph.ignored_need
 
+let get_call_exception graph call =
+  get_block_exception graph call.call_block
+
 (* values needed to evaluate the term: if one is not present the term
    will not be evaluated *)
 type and_or =
@@ -199,18 +221,25 @@ type and_or =
 let term_needed_dependencies = function
   | Closure (_, map) -> And (List.map snd (IdentMap.bindings map))
   | Offset (_,v)
+  | Identity v
+  | Stringlength v
   | Arraylength v
   | Field (_,v) -> And [v]
   | Makeblock (_, _, l) -> And l
   | Not v
   | Negint v -> And [v]
+  | Stringget (_,v1,v2)
   | Setfield (_, v1, v2)
   | Sequand (v1, v2)
   | Sequor (v1, v2)
+  | Cmpphys (_,v1,v2)
   | Cmpint (_,v1,v2)
   | Intbinop (_,v1,v2) -> And [v1;v2]
+  | Predef_exn _
   | Const _ -> And []
   | Apply (f, params) -> And (f :: params)
+
+  | Interval (v1,v2) -> And [v1;v2]
 
   | Exception_term -> And []
   | FunReturn -> And []
@@ -219,6 +248,7 @@ let term_needed_dependencies = function
   | Makeblock_module l -> Or l
   | Union l -> Or l
 
+  | Unknown -> And []
   | Other -> assert false
 
 let term_dependencies term =
@@ -242,26 +272,33 @@ let intbinop_desc = function
 
 let term_desc = function
   | Closure _ -> "closure"
+  | Identity _ -> "identity"
   | Offset _ -> "offset"
+  | Stringlength _ -> "stringlength"
+  | Stringget _ -> "stringget"
   | Arraylength _ -> "arraylength"
   | Setfield _ -> "setfield"
   | Field (i,_) -> Printf.sprintf "field %i" i
   | Makeblock (_, _, l) -> "makeblock"
+  | Cmpphys _ -> "cmpphys"
   | Cmpint _ -> "cmpint"
   | Negint _ -> "negint"
   | Intbinop (op,_,_) -> intbinop_desc op
   | Sequand _ -> "sequand"
   | Sequor _ -> "sequor"
   | Not _ -> "not"
+  | Predef_exn id -> Printf.sprintf "exn_%s" (Ident.unique_name id)
   | Const _ -> "constant"
   | Exception_term -> "exception"
   | FunParam _ -> "fun param"
   | FunReturn -> "fun return"
+  | Interval _ -> "interval"
   | Union _ -> "union"
   | Apply _ -> "apply"
   | Makeblock_module _ -> "makeblock module"
   | Unknown_primitive (desc,_) -> Printf.sprintf "unknown: %s" desc
 
+  | Unknown -> "unknown"
   | Other -> assert false
 
 let equal_constraint (v1,c1) (v2,c2) = ValId.equal v1 v2 && c1 = c2
@@ -302,25 +339,6 @@ let new_expr ?name ?(new_value=ValId.create ?name ()) ?location graph
   graph.term <- ValMap.add new_value term graph.term;
   new_value
 
-let rec (-->) i j =
-  if i > j
-  then []
-  else i :: ((i+1) --> j)
-
-let new_function graph funid arity =
-  let new_param i =
-    let name = Printf.sprintf "arg_%i" i in
-    let set = ref ValSet.empty in
-    let expr = new_expr ~name graph graph.toplevel_block (FunParam set) in
-    expr, set
-  in
-  let l = List.map new_param (1 --> arity) in
-  let parameters, parameter_sets = List.split l in
-  let return = new_expr ~name:"return" graph graph.toplevel_block FunReturn in
-  let call_info = { parameters; parameter_sets; return } in
-  graph.call_info <- IdentMap.add funid call_info graph.call_info;
-  call_info
-
 (* let add_call_link graph funid constraints_stack parameters = *)
 (*   let fun_param = IdentMap.find funid graph.fun_parameters in *)
 (*   let changed = ref false in *)
@@ -354,17 +372,36 @@ let add_virtual_union graph src dst =
 let add_virtual_unions graph srcs dst =
   ValSet.fold (fun src acc -> add_virtual_union graph src dst || acc) srcs false
 
-let new_block graph parent added_constraint =
+let new_block graph parent desc added_constraint =
   let block =
-    { block_constraints = added_constraint :: parent.block_constraints;
-      block_exception = ValId.create ~name:"exception" ();
+    { block_desc = desc;
+      block_constraints = added_constraint @ parent.block_constraints;
+      block_exception = None;
       block_parent = Some parent } in
-  add_block_exception graph block;
   block
 
-(* let link_constraint graph block v = *)
-(*   let bsrc = ValMap.find v graph.block in *)
-(*   added_constraints bsrc block *)
+let add_block_exception graph block v =
+  ignore(add_virtual_union graph v (get_block_exception graph block):bool)
+
+let rec (-->) i j =
+  if i > j
+  then []
+  else i :: ((i+1) --> j)
+
+let new_function graph funid arity =
+  let new_param i =
+    let name = Printf.sprintf "arg_%i" i in
+    let set = ref ValSet.empty in
+    let expr = new_expr ~name graph graph.toplevel_block (FunParam set) in
+    expr, set
+  in
+  let l = List.map new_param (1 --> arity) in
+  let parameters, parameter_sets = List.split l in
+  let return = new_expr ~name:"return" graph graph.toplevel_block FunReturn in
+  let call_block = new_block graph graph.toplevel_block (Ident.unique_name funid) [] in
+  let call_info = { parameters; parameter_sets; return; call_block } in
+  graph.call_info <- IdentMap.add funid call_info graph.call_info;
+  call_info
 
 let escape graph v =
   failwith "TODO"

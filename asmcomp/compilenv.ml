@@ -31,6 +31,9 @@ let structured_constants = ref ([] : (string * bool * Clambda.ustructured_consta
 
 let symbol_alias : (string,string list) Hashtbl.t = Hashtbl.create 10
 
+type v = Data_dependency.ValId.t * Domain_type.UnitT.t Data_dependency.ValMap.t
+let global_ai : v Flambda.IdentTbl.t = Flambda.IdentTbl.create 10
+
 let current_unit =
   { ui_name = "";
     ui_symbol = "";
@@ -41,7 +44,8 @@ let current_unit =
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
-    ui_force_link = false }
+    ui_force_link = false;
+    ui_ai_result = None }
 
 let symbolname_for_pack pack name =
   match pack with
@@ -148,7 +152,8 @@ let cache_unit_info ui =
 let toplevel_approx = Hashtbl.create 16
 
 let record_global_approx_toplevel id =
-  Hashtbl.add toplevel_approx current_unit.ui_name current_unit.ui_approx
+  failwith "TODO: toplevel"
+  (* Hashtbl.add toplevel_approx current_unit.ui_name current_unit.ui_approx *)
 
 let global_approx id =
   if Ident.is_predef_exn id then Value_unknown
@@ -157,6 +162,17 @@ let global_approx id =
     match get_global_info id with
       | None -> Value_unknown
       | Some ui -> ui.ui_approx
+
+let global_ai id =
+  match get_global_info id with
+  | None -> None
+  | Some ui ->
+    match ui.ui_ai_result with
+    | None -> None
+    | Some ai -> Some (Domains.ExternalApprox.global_import ai)
+
+let set_global_ai v =
+  current_unit.ui_ai_result <- Some v
 
 (* Return the symbol used to refer to a global identifier *)
 

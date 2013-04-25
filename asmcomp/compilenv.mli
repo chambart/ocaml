@@ -41,6 +41,12 @@ val set_global_approx: Clambda.value_approximation -> unit
 val record_global_approx_toplevel: unit -> unit
         (* Record the current approximation for the current toplevel phrase *)
 
+val global_ai: Ident.t ->
+  (Data_dependency.ValId.t * Domains.ValueDom.t Data_dependency.ValMap.t) option
+        (* Return the approximation for the given global identifier *)
+val set_global_ai: Domain_type.UnitT.exported -> unit
+        (* Record the approximation of the unit being compiled *)
+
 
 val need_curry_fun: int -> unit
 val need_apply_fun: int -> unit
