@@ -77,19 +77,12 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
 ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
   asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/proc.cmo \
+  asmcomp/ext_types.cmo \
   asmcomp/flambda.cmo asmcomp/printflambda.cmo \
   asmcomp/values.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/flambdagen.cmo \
   asmcomp/flambdautils.cmo \
-  asmcomp/branching.cmo \
-  asmcomp/run_branching.cmo \
-  asmcomp/data_dependency.cmo \
-  asmcomp/make_data_graph.cmo \
-  asmcomp/domains.cmo \
-  asmcomp/propagate.cmo \
-  asmcomp/analysis.cmo \
-  asmcomp/absint.cmo \
   asmcomp/purity.cmo \
   asmcomp/constants.cmo \
   asmcomp/cleaner.cmo \

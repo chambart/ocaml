@@ -5,53 +5,6 @@ module ValMap = ExtMap(ValId)
 module ValSet = ExtSet(ValId)
 module ValTbl = ExtHashtbl(ValId)
 
-module CallId : Id = Id(Empty)
-
-type 'a binding =
-  | Unbound
-  | Bound of 'a
-  | Weak_unbound
-
-type bindings =
-  { const_binding : Ident.t binding;
-    global_binding : (Ident.t * int option) binding;
-    local_binding : (Ident.t * CallId.t) binding }
-
-let empty_binding =
-  { const_binding = Weak_unbound
-  ; global_binding = Weak_unbound
-  ; local_binding = Weak_unbound }
-
-let unknown_binding =
-  { const_binding = Unbound
-  ; global_binding = Unbound
-  ; local_binding = Unbound }
-
-let union_const_binding b1 b2 = match b1, b2 with
-  | Weak_unbound, a | a, Weak_unbound -> a
-  | Unbound, _ | _, Unbound -> Unbound
-  | Bound a, Bound b -> if Ident.same a b then b1 else Unbound
-
-let union_global_binding b1 b2 = match b1, b2 with
-  | Weak_unbound, a | a, Weak_unbound -> a
-  | Unbound, _ | _, Unbound -> Unbound
-  | Bound (i1,p1), Bound (i2,p2) ->
-    if p1 = p2 && Ident.same i1 i2 then b1 else Unbound
-
-let union_local_binding b1 b2 = match b1, b2 with
-  | Weak_unbound, a | a, Weak_unbound -> a
-  | Unbound, _ | _, Unbound -> Unbound
-  | Bound (i1,p1), Bound (i2,p2) ->
-    if CallId.equal p1 p2 && Ident.same i1 i2 then b1 else Unbound
-
-let union_binding v1 v2 =
-  { const_binding = union_const_binding v1.const_binding v2.const_binding
-  ; global_binding = union_global_binding v1.global_binding v2.global_binding
-  ; local_binding = union_local_binding v1.local_binding v2.local_binding }
-
-let set_global_binding v id =
-  { v with global_binding = Bound (id,None) }
-
 type partial_parameters =
   | Known of (ValSet.t * ExprSet.t) list
   | Unknown of ValSet.t
@@ -89,7 +42,6 @@ type other_values =
 let unspecified_closure = Ident.create_persistent "unspecified closure"
 
 type values = {
-  v_binding : bindings;
   v_clos : function_description IdentMap.t FunMap.t;
   v_cstptr: IntSet.t;
   v_block: block_description IntMap.t;
@@ -144,8 +96,8 @@ let equal v1 v2 =
   && v1.v_other = v2.v_other
 
 let empty_value = {
-  v_binding = unknown_binding;
-  v_clos = FunMap.empty; v_cstptr = IntSet.empty;
+  v_clos = FunMap.empty;
+  v_cstptr = IntSet.empty;
   v_block = IntMap.empty;
   v_other = Value_none
 }
@@ -212,7 +164,7 @@ let set_closure_funid value fun_id fun_map =
     | Value_unknown -> Value_unknown
     | _ -> Value_none
   in
-  { v_binding = unknown_binding; v_clos; v_block; v_other; v_cstptr }
+  { v_clos; v_block; v_other; v_cstptr }
 
 let value_unit = value_constptr 0
 
@@ -323,8 +275,7 @@ let union_other o1 o2 = match o1, o2 with
 
 
 let union v1 v2 =
-  { v_binding = union_binding v1.v_binding v2.v_binding;
-    v_clos = union_closure v1.v_clos v2.v_clos;
+  { v_clos = union_closure v1.v_clos v2.v_clos;
     v_cstptr = union_cstptr v1.v_cstptr v2.v_cstptr;
     v_block = union_block v1.v_block v2.v_block;
     v_other = union_other v1.v_other v2.v_other }
