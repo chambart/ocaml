@@ -815,7 +815,8 @@ let prim p l =
   | Poffsetref _ ->
     value_unit
 
-  | Pphyscomp _ -> assert false
+  | Pphyscomp _ ->
+    value_any_bool
 
   | Prevapply _ | Pdirapply _ | Pgetglobal _ | Psetglobal _
   | Pmakeblock _ | Pfield _ | Psetfield _ | Pduprecord _

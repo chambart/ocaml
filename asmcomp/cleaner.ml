@@ -42,22 +42,17 @@ module Cleaner(Param:CleanerParam) = struct
       let kinds = array_kind_intersection elt_kinds arr_kinds in
       match kinds with
       | { int_kind = true; block_kind = false; float_kind = false } ->
-        Printf.printf "int kind\n%!";
         Pintarray
       | { int_kind = false; block_kind = true; float_kind = false } ->
-        Printf.printf "block kind\n%!";
         Paddrarray
       | { int_kind = false; block_kind = false; float_kind = true } ->
-        Printf.printf "float kind\n%!";
         Pfloatarray
       | { int_kind = false; block_kind = false; float_kind = false } ->
         (* arg raise an exception or couldn't be reached: should
            remove completely that: for that, need to know
            wether arg, index or array is evaluated first *)
-        (* Printf.printf "genkind none\n%!"; *)
         Pgenarray
       | _ ->
-        (* Printf.printf "genkind\n%!"; *)
         Pgenarray
 
   let array_ref_kind kind array =
