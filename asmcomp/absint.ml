@@ -212,9 +212,15 @@ module Run(Param:Fparam) = struct
   and aux' = function
     | Fvar (id,_) -> Old (find_var id)
     | Fconst (cst,_) -> New (Values.const cst)
+
     | Flet(str, id, lam, body, _) ->
       aux lam;
-      bind id (mu lam);
+      (match str with
+       | Variable ->
+         (* BOF *)
+         bind id (ValSet.singleton external_val)
+       | Strict | Alias | StrictOpt ->
+         bind id (mu lam));
       aux body;
       Old (mu body)
 
@@ -311,7 +317,9 @@ module Run(Param:Fparam) = struct
       New value_unit
 
     | Fclosure (functions,fv,eid) ->
-      IdentMap.iter (fun _ lam -> aux lam) fv;
+      IdentMap.iter (fun id lam ->
+          aux lam;
+          bind id (mu lam)) fv;
       New (value_unoffseted_closure functions.ident (IdentMap.map mu fv))
 
     | Fapply ( func, args, _, dbg, eid) ->

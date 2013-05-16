@@ -90,7 +90,8 @@ let rec lam ppf = function
     fprintf ppf
       "@[<1>(%s(%i,%i) %a@ @[<v 0>%a@])@]"
       (match sw.fs_failaction with None -> "switch*" | _ -> "switch")
-      sw.fs_numconsts sw.fs_numblocks
+      (IntSet.cardinal sw.fs_numconsts)
+      (IntSet.cardinal sw.fs_numblocks)
       lam larg switch sw
   | Fstaticfail (i, ls,_)  ->
     let lams ppf largs =

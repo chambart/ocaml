@@ -97,20 +97,33 @@ module Cleaner(Param:CleanerParam) = struct
 
     | Fswitch(arg,sw,eid) ->
       let sw_val = switch_value (expr_value arg) in
-      let fs_consts = match sw_val.consts with
-        | All_cases -> sw.fs_consts
-        | Some_cases cases ->
-          List.filter (fun (i,_) -> IntSet.mem i cases) sw.fs_consts in
 
-      let fs_blocks = match sw_val.blocks with
-        | All_cases -> sw.fs_blocks
+      let aux branches cases_set = function
+        | All_cases -> branches, cases_set, true
         | Some_cases cases ->
-          List.filter (fun (i,_) -> IntSet.mem i cases) sw.fs_blocks in
+          let cases_set = IntSet.filter (fun i -> IntSet.mem i cases) cases_set in
+          let kept = List.filter (fun (i,_) -> IntSet.mem i cases) branches in
+          let branch_set = List.fold_left (fun set (i,_) -> IntSet.add i set)
+              cases_set branches in
+          let need_failaction = not (IntSet.subset cases branch_set) in
+          kept, cases_set, need_failaction in
 
-      begin match sw.fs_failaction, fs_consts, fs_blocks with
-        | Some _ , _, _ ->
-          (* need to check what to do when there is a failaction *)
-          tree
+      let fs_consts, fs_numconsts, need_failaction_const =
+        aux sw.fs_consts sw.fs_numconsts sw_val.consts in
+
+      let fs_blocks, fs_numblocks, need_failaction_block =
+        aux sw.fs_blocks sw.fs_numblocks sw_val.blocks in
+
+      let need_failaction = need_failaction_const || need_failaction_block in
+
+      let fs_failaction =
+        if need_failaction
+        then sw.fs_failaction
+        else None in
+
+      begin match fs_failaction, fs_consts, fs_blocks with
+        | Some failaction, [], [] ->
+          fsequence(arg, failaction, eid)
         | None, [], [] ->
           arg
         | None, [_, branch], []
@@ -119,15 +132,12 @@ module Cleaner(Param:CleanerParam) = struct
              it provides informations about the tag that are maybe not
              known in the abstraction *)
           fsequence(arg, branch, eid)
-        | None, consts, blocks ->
-          let max_case l =
-            1 +
-            List.fold_left (fun v (i,_) -> max v i) (-1) l in
+        | _, consts, blocks ->
           Fswitch(arg,
-              { fs_failaction = sw.fs_failaction;
-                fs_numconsts = max_case fs_consts;
+              { fs_failaction;
+                fs_numconsts;
                 fs_consts;
-                fs_numblocks = max_case fs_blocks;
+                fs_numblocks;
                 fs_blocks; },
               eid)
       end
@@ -154,15 +164,19 @@ module Cleaner(Param:CleanerParam) = struct
           let fun_id = f.fun_id in
           let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
-          let closed = IdentSet.is_empty ffunction.closure_params
-                       && f.partial_application = Known [] in
-          let closed = if closed then Closed else NotClosed in
-          let direct = Some(ffunction.label,closed) in
-          Fapply(funct, args, direct, dbg, eid)
+          if ffunction.arity = List.length args
+          then
+            let closed = IdentSet.is_empty ffunction.closure_params
+                         && f.partial_application = Known [] in
+            let closed = if closed then Closed else NotClosed in
+            let direct = Some(ffunction.label,closed) in
+            Fapply(funct, args, direct, dbg, eid)
+          else tree
         | No_function ->
           (* Don't know what to do here *)
           tree
       end
+
     | e -> e
 
   let mapper tree =

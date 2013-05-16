@@ -769,7 +769,6 @@ let prim p l =
     value_any_bool
 
   | Pbigarrayref (_,_,kind,_) ->
-    assert(plen = 2);
     (match kind with
      | Pbigarray_unknown -> value_unknown_not_block
      | Pbigarray_float32 | Pbigarray_float64 -> value_float
@@ -782,7 +781,6 @@ let prim p l =
      | Pbigarray_complex32 | Pbigarray_complex64 -> value_floatarray)
 
   | Pbigarrayset _ ->
-    assert(plen = 3);
     value_unit
 
   | Pbigarraydim _ ->

@@ -205,6 +205,10 @@ module Conv(P:Param) = struct
     else lbl ^ "_" ^ string_of_int offset
 
   and conv_switch sb cm cases num_keys default =
+    let num_keys =
+      if IntSet.cardinal num_keys = 0
+      then 0
+      else IntSet.max_elt num_keys in
     let index = Array.create num_keys 0
     and store = mk_store Flambda.same in
 

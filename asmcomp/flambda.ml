@@ -219,9 +219,9 @@ and const =
   | Fconst_immstring of string
 
 and 'a flambda_switch =
-  { fs_numconsts: int;                  (* Number of integer cases *)
+  { fs_numconsts: IntSet.t;               (* integer cases *)
     fs_consts: (int * 'a flambda) list;    (* Integer cases *)
-    fs_numblocks: int;                  (* Number of tag block cases *)
+    fs_numblocks: IntSet.t;               (* Number of tag block cases *)
     fs_blocks: (int * 'a flambda) list;    (* Tag block cases *)
     fs_failaction : 'a flambda option }    (* Action to take if failure *)
 

@@ -109,7 +109,7 @@ let compile_genfuns ppf f =
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
 let optimise ppf flambda =
-  if (* !Clflags.enable_optim *) true
+  if not !Clflags.enable_optim (* true *)
   then
     let val_result = Absint.analyse flambda in
     let pure_result = Purity.unpure_expressions flambda in
