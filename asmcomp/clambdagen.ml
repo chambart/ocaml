@@ -130,6 +130,8 @@ module Conv(P:Param) = struct
 
     | Fapply(funct, args, Some (direct_func,closed), dbg, _) ->
       let args = match closed with Closed -> args | NotClosed -> args @ [funct] in
+      (* If usefull things are in ufunct they are eliminated: TODO
+         replace funct field by an ident field *)
       Udirect_apply((direct_func:>string), conv_list sb cm args, dbg)
 
     | Fapply(funct, args, None, dbg, _) ->
@@ -208,7 +210,7 @@ module Conv(P:Param) = struct
     let num_keys =
       if IntSet.cardinal num_keys = 0
       then 0
-      else IntSet.max_elt num_keys in
+      else IntSet.max_elt num_keys + 1 in
     let index = Array.create num_keys 0
     and store = mk_store Flambda.same in
 
@@ -278,7 +280,9 @@ module Conv(P:Param) = struct
       let pos = env_pos + 1 in
       let env_pos = env_pos + 1 +
           (if func.arity <> 1 then 3 else 2) in
-      assert(not (IdentMap.mem id map));
+      (* if IdentMap.mem id map *)
+      (* then Printf.printf "seen offset %s\n%!" (Ident.unique_name id); *)
+      (* assert(not (IdentMap.mem id map)); *)
       let map = IdentMap.add id pos map in
       (map,env_pos)
     in
@@ -290,7 +294,7 @@ module Conv(P:Param) = struct
        substituted here. But if the function is inlined, it is
        possible that the closure is accessed from outside its body. *)
     let aux_fv_offset (map,pos) (id, _) =
-      assert(not (IdentMap.mem id map));
+      (* assert(not (IdentMap.mem id map)); *)
       let map = IdentMap.add id pos map in
       (map,pos + 1)
     in
