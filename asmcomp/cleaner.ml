@@ -196,10 +196,147 @@ module Cleaner(Param:CleanerParam) = struct
 
 end
 
+module Rebinder(Param:CleanerParam) = struct
+  let analysis = Param.analysis
+
+  let is_pure expr =
+    let eid = Flambda.data expr in
+    not (ExprSet.mem eid Param.unpure_expr)
+
+  let fsequence (e1, e2, eid) =
+    if is_pure e1
+    then e2
+    else Fsequence(e1,e2,eid)
+
+  let find_binding id =
+    try Some (IdentMap.find id analysis.bindings) with Not_found -> None
+
+  let find_values expr =
+    let eid = data expr in
+    try Some (ExprMap.find eid analysis.expr) with Not_found -> None
+
+  let recover_binding map v =
+    try Some (ValMap.find v map) with Not_found -> None
+
+  let add map id =
+    match find_binding id with
+    | None -> map
+    | Some set ->
+      ValSet.fold (fun elt map ->
+          if ValMap.mem elt map
+          then map
+          else ValMap.add elt id map) set map
+
+  let map tree =
+    let simplif map tree =
+      match find_values tree with
+      | None -> tree
+      | Some v ->
+        match ValSet.elements v with
+        | [] | _::_::_ -> tree
+        | [v] -> match recover_binding map v with
+          | None -> tree
+          | Some id ->
+            match tree with
+            | Fvar (id,data) ->
+              (* Printf.printf "\n\ncas redir\n\n%!"; *)
+              Fvar (id,data)
+            | _ ->
+              (* Printf.printf "\n\ncas utile\n\n%!"; *)
+              let eid1 = ExprId.create () in
+              let eid2 = ExprId.create () in
+              fsequence (tree,Fvar (id,eid1),eid2)
+    in
+    let rec aux map tree =
+      let exp = match tree with
+        | Fvar (id,annot) -> tree
+        | Fconst (cst,annot) -> tree
+        | Fapply (funct, args, direc, dbg, annot) ->
+          Fapply ((aux map) funct, List.map (aux map) args, direc, dbg, annot)
+        | Fclosure (ffuns, fv, annot) ->
+          let ffuns =
+            { ffuns with
+              funs = IdentMap.map
+                  (fun ffun -> { ffun with body = (aux ValMap.empty) ffun.body })
+                  ffuns.funs } in
+          let fv = IdentMap.map (aux map) fv in
+          Fclosure (ffuns, fv, annot)
+        | Foffset (flam, off, annot) ->
+          Foffset ((aux map) flam, off, annot)
+        | Fenv_field (fenv_field, annot) ->
+          Fenv_field ({ fenv_field with env = (aux map) fenv_field.env }, annot)
+        | Flet(str, id, lam, body, annot) ->
+          let lam = (aux map) lam in
+          let map = add map id in
+          let body = (aux map) body in
+          Flet (str, id, lam, body, annot)
+        | Fletrec(defs, body, annot) ->
+          let defs = List.map (fun (id,lam) -> id,(aux map) lam) defs in
+          let body = (aux map) body in
+          Fletrec (defs, body, annot)
+        | Fprim(p, args, dbg, annot) ->
+          let args = List.map (aux map) args in
+          Fprim (p, args, dbg, annot)
+        | Fstaticfail(i, args, annot) ->
+          let args = List.map (aux map) args in
+          Fstaticfail (i, args, annot)
+        | Fcatch (i, vars, body, handler, annot) ->
+          let body = (aux map) body in
+          let handler = (aux map) handler in
+          Fcatch (i, vars, body, handler, annot)
+        | Ftrywith(body, id, handler, annot) ->
+          let body = (aux map) body in
+          let handler = (aux map) handler in
+          Ftrywith(body, id, handler, annot)
+        | Fifthenelse(arg, ifso, ifnot, annot) ->
+          let arg = (aux map) arg in
+          let ifso = (aux map) ifso in
+          let ifnot = (aux map) ifnot in
+          Fifthenelse(arg, ifso, ifnot, annot)
+        | Fsequence(lam1, lam2, annot) ->
+          let lam1 = (aux map) lam1 in
+          let lam2 = (aux map) lam2 in
+          Fsequence(lam1, lam2, annot)
+        | Fwhile(cond, body, annot) ->
+          let cond = (aux map) cond in
+          let body = (aux map) body in
+          Fwhile(cond, body, annot)
+        | Fsend(kind, met, obj, args, dbg, annot) ->
+          let met = (aux map) met in
+          let obj = (aux map) obj in
+          let args = List.map (aux map) args in
+          Fsend(kind, met, obj, args, dbg, annot)
+        | Ffor(id, lo, hi, dir, body, annot) ->
+          let lo = (aux map) lo in
+          let hi = (aux map) hi in
+          let body = (aux map) body in
+          Ffor(id, lo, hi, dir, body, annot)
+        | Fassign(id, lam, annot) ->
+          let lam = (aux map) lam in
+          Fassign(id, lam, annot)
+        | Fswitch(arg, sw, annot) ->
+          let arg = (aux map) arg in
+          let sw =
+            { sw with
+              fs_failaction = Misc.may_map (aux map) sw.fs_failaction;
+              fs_consts = List.map (fun (i,v) -> i, (aux map) v) sw.fs_consts;
+              fs_blocks = List.map (fun (i,v) -> i, (aux map) v) sw.fs_blocks; } in
+          Fswitch(arg, sw, annot)
+      in
+      simplif map exp
+    in
+    aux ValMap.empty tree
+
+  let rebind = map
+
+end
+
+
 let clean analysis unpure_expr tree =
   let module P = struct
     let analysis = analysis
     let unpure_expr = unpure_expr
   end in
-  let module C = Cleaner(P) in
-  C.clean tree
+  let module C1 = Cleaner(P) in
+  let module C2 = Rebinder(P) in
+  C2.rebind (C1.clean tree)
