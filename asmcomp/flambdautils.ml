@@ -41,7 +41,10 @@ let iter_flambda f t =
     | Fswitch (arg,sw,_) ->
       aux arg;
       List.iter (fun (_,l) -> aux l) sw.fs_consts;
-      List.iter (fun (_,l) -> aux l) sw.fs_blocks
+      List.iter (fun (_,l) -> aux l) sw.fs_blocks;
+      (match sw.fs_failaction with
+       | None -> ()
+       | Some f -> aux f)
     | Fsend (_,f1,f2,fl,_,_) ->
       iter_list (f1::f2::fl)
 

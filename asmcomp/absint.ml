@@ -105,6 +105,8 @@ module Run(Param:Fparam) = struct
 
   let fun_call_count : int IdentTbl.t = IdentTbl.create 100
 
+  let closures = Queue.create ()
+
   let value v =
     try ValTbl.find val_tbl v with
     | Not_found -> empty_value
@@ -310,21 +312,17 @@ module Run(Param:Fparam) = struct
 
     | Fclosure (functions,fv,eid) ->
       IdentMap.iter (fun _ lam -> aux lam) fv;
-      New (value_closure
-          { fun_id = None;
-            closure_funs = functions.ident;
-            closure_vars = IdentMap.map mu fv;
-            partial_application = Known []})
+      New (value_unoffseted_closure functions.ident (IdentMap.map mu fv))
 
     | Fapply ( func, args, _, dbg, eid) ->
       aux func;
-      List.iter (aux) args;
-      let fun_value = val_union func in
-      aux_apply1 fun_value
+      List.iter aux args;
+      New unknown_value
 
     | Foffset(lam, id, eid) ->
       aux lam;
       let c = Values.set_closure_funid (val_union lam) id info.functions in
+      Queue.push c closures;
       New (c)
 
     | Fenv_field({env; env_var}, _) ->
@@ -389,15 +387,23 @@ module Run(Param:Fparam) = struct
     let aux_funmap _ map acc =
       IdentMap.fold (fun _ f acc -> f :: acc) map acc in
     let functions = FunMap.fold aux_funmap fun_value.v_clos [] in
-
-    List.iter aux_apply functions;
-
-    New unknown_value
+    List.iter aux_apply functions
 
   and aux_apply func =
 
-    let ffunctions = FunMap.find func.closure_funs info.functions in
-    let fun_id = match func.fun_id with None -> assert false | Some i -> i in
+    let ffunctions =
+      try FunMap.find func.closure_funs info.functions
+      with
+      | Not_found as e ->
+        Printf.printf "not_found %a %a\n%!"
+          FunId.output func.closure_funs
+          Idt.output func.fun_id;
+        raise e
+    in
+    let fun_id = func.fun_id in
+
+    (* TODO: faire quelquechose avec la cloture *)
+
     let ffunction = IdentMap.find fun_id ffunctions.funs in
 
     List.iter (fun id -> bind id (ValSet.singleton external_val))
@@ -424,8 +430,17 @@ module Run(Param:Fparam) = struct
       external_val;
     }
 
+  let rec loop_closures () =
+    if not (Queue.is_empty closures)
+    then begin
+      let c = Queue.pop closures in
+      aux_apply1 c;
+      loop_closures ()
+    end
+
   let res =
     aux Param.tree;
+    loop_closures ();
     result ()
 
 end

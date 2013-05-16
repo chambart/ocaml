@@ -108,10 +108,15 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
-let optimise flambda =
-  let val_result = Absint.analyse flambda in
-  let pure_result = Purity.unpure_expressions flambda in
-  Cleaner.clean val_result pure_result flambda
+let optimise ppf flambda =
+  if (* !Clflags.enable_optim *) true
+  then
+    let val_result = Absint.analyse flambda in
+    let pure_result = Purity.unpure_expressions flambda in
+    Cleaner.clean val_result pure_result flambda
+    ++ flambda_dump_if ppf
+    (* ++ Flambdautils.stupid_clean *)
+  else flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
@@ -124,8 +129,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     Emit.begin_assembly();
     Flambdagen.intro size lam
     ++ flambda_dump_if ppf
-    ++ optimise
-    ++ flambda_dump_if ppf
+    ++ optimise ppf
     ++ Clambdagen.convert
     ++ clambda_dump_if ppf
     ++ Cmmgen.compunit size

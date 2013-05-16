@@ -151,9 +151,7 @@ module Cleaner(Param:CleanerParam) = struct
       begin match possible_closure (expr_value funct) with
         | Many_functions -> tree
         | One_function f ->
-          let fun_id = match f.fun_id with
-            | None -> assert false
-            | Some id -> id in
+          let fun_id = f.fun_id in
           let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
           let closed = IdentSet.is_empty ffunction.closure_params

@@ -12,7 +12,7 @@ type partial_parameters =
          we fuse all the parameter as this one *)
 
 type function_description =
-  { fun_id: Ident.t option;
+  { fun_id: Ident.t;
     closure_funs: FunId.t;
     (* !!! -> This ident must include current module name to avoid
        conflict with function imported from other modules *)
@@ -26,6 +26,7 @@ type block_description =
     fields : ValSet.t array }
 
 type other_values =
+  | Value_unoffseted_closure of (FunId.t * ValSet.t IdentMap.t)
   | Value_mutable
   | Value_string
   | Value_floatarray
@@ -37,9 +38,6 @@ type other_values =
   | Value_unknown_not_block (* an unknown value that can't contain any value *)
   | Value_unknown     (* unknown result *)
   | Value_none        (* no other case possible *)
-
-(* This is the ident used to name closures with None in the fun_id field *)
-let unspecified_closure = Ident.create_persistent "unspecified closure"
 
 type values = {
   v_clos : function_description IdentMap.t FunMap.t;
@@ -78,7 +76,7 @@ let equal_partial_appl v1 v2 = match v1, v2 with
   | _, _ -> false
 
 let equal_fundesc fd1 fd2 =
-  equal_option Ident.same fd1.fun_id fd2.fun_id
+  Ident.same fd1.fun_id fd2.fun_id
   && FunId.equal fd1.closure_funs fd2.closure_funs
   && IdentMap.equal ValSet.equal fd1.closure_vars fd2.closure_vars
   && equal_partial_appl fd1.partial_application fd2.partial_application
@@ -102,10 +100,6 @@ let empty_value = {
   v_other = Value_none
 }
 
-let fun_desc_id fun_desc = match fun_desc.fun_id with
-  | None -> unspecified_closure
-  | Some i -> i
-
 let unknown_value = { empty_value with v_other = Value_unknown }
 
 let value_unknown_not_block =
@@ -128,50 +122,40 @@ let value_block tag fields =
 let value_bool b = let i = if b then 1 else 0 in
   value_constptr i
 
+let value_unoffseted_closure fid clos =
+  { empty_value with v_other = Value_unoffseted_closure (fid, clos) }
+
 let empty_block tag length =
   value_block tag (Array.init length (fun _ -> ValSet.empty))
 
 let value_closure clos_info =
-  let fun_id = fun_desc_id clos_info in
+  let fun_id = clos_info.fun_id in
   { empty_value with
     v_clos = FunMap.singleton clos_info.closure_funs
         (IdentMap.singleton fun_id clos_info) }
 
 (* apply an offset to a closure returning an offseted closure *)
 let set_closure_funid value fun_id fun_map =
-  let aux _ fun_desc_map =
-    if IdentMap.mem unspecified_closure fun_desc_map
-    then
-      let fun_desc = IdentMap.find unspecified_closure fun_desc_map in
-      let ffunctions = try
-        FunMap.find fun_desc.closure_funs fun_map
-      with Not_found as e ->
-        Printf.printf "set_closure_funid %a\n%!" FunId.output fun_desc.closure_funs;
-        raise e
-      in
-      assert(fun_desc.fun_id = None);
-      assert(fun_desc.partial_application = Known []);
-      if IdentMap.mem fun_id ffunctions.funs
-      then Some (IdentMap.singleton fun_id
-            { fun_desc with fun_id = Some fun_id })
-      else None
-    else None (* probably an impossible case... *)
+  let aux fun_id closure_funs closure_vars =
+    let v = { fun_id;
+              closure_funs;
+              closure_vars;
+              partial_application = Known [] } in
+    FunMap.singleton closure_funs (IdentMap.singleton fun_id v)
   in
-  let v_clos = FunMap.map_option aux value.v_clos in
   let v_block = IntMap.empty in
   let v_cstptr = IntSet.empty in
-  let v_other = match value.v_other with
-    | Value_unknown -> Value_unknown
-    | _ -> Value_none
+  let v_other, v_clos = match value.v_other with
+    | Value_unoffseted_closure ( closure_funs, closure_vars ) ->
+      Value_none, aux fun_id closure_funs closure_vars
+    | Value_unknown -> Value_unknown, FunMap.empty
+    | _ -> Value_none, FunMap.empty
   in
   { v_clos; v_block; v_other; v_cstptr }
 
 let value_unit = value_constptr 0
 
 let union_fundesc id f1 f2 =
-  let id = if Ident.same id unspecified_closure
-    then None
-    else Some id in
   assert(f1.fun_id = id);
   assert(f2.fun_id = id);
   assert(f1.closure_funs = f2.closure_funs);
@@ -234,11 +218,22 @@ let union_block b1 b2 =
       Some { tag; fields } in
   IntMap.merge aux_tag b1 b2
 
+let union_unoffseted_closure (fid1, clos1) (fid2, clos2) =
+  assert(fid1 = fid2);
+  let clos =
+    IdentMap.merge (fun _ s1 s2 -> match s1, s2 with
+      | None, s | s, None -> s
+      | Some s1, Some s2 -> Some (ValSet.union s1 s2)) clos1 clos2 in
+  Value_unoffseted_closure (fid1, clos)
+
 let union_other o1 o2 = match o1, o2 with
-  (* | Value_unoffseted_closure f1, Value_unoffseted_closure f2 *)
-  (*   -> Value_unoffseted_closure (union_fundesc None f1 f2) *)
-  (* | Value_unoffseted_closure _, _ *)
-  (* | _, Value_unoffseted_closure _ -> assert false *)
+  | Value_none, o
+  | o, Value_none -> o
+  | Value_unoffseted_closure (fid1, clos1),
+    Value_unoffseted_closure (fid2, clos2) ->
+    union_unoffseted_closure (fid1, clos1) (fid2, clos2)
+  | Value_unoffseted_closure _,  _ | _, Value_unoffseted_closure _ ->
+    assert false
   | Value_mutable, Value_mutable -> Value_mutable
   | Value_string, Value_string -> Value_string
   | Value_floatarray, Value_floatarray -> Value_floatarray
@@ -252,8 +247,6 @@ let union_other o1 o2 = match o1, o2 with
   | Value_boxed_int bi1, Value_boxed_int bi2 when bi1 = bi2 ->
     Value_boxed_int bi1
 
-  | Value_none, o
-  | o, Value_none -> o
   | Value_bottom, o
   | o, Value_bottom -> o
 
@@ -340,7 +333,8 @@ let possible_bool_values v =
     | Value_string
     | Value_floatarray
     | Value_float
-    | Value_boxed_int _ -> true, false
+    | Value_boxed_int _
+    | Value_unoffseted_closure _ -> true, false
     | Value_bottom
     | Value_none -> false, false
   in
@@ -384,10 +378,12 @@ let possible_constptrs v =
   | Value_float
   | Value_boxed_int _
   | Value_bottom
+  | Value_unoffseted_closure _
   | Value_none -> Some_cases v.v_cstptr
 
 let possible_block_tags v =
   match v.v_other with
+  | Value_unoffseted_closure _
   | Value_mutable
   | Value_string
   | Value_floatarray
@@ -413,6 +409,7 @@ type simple_constant =
 
 let simple_constant v =
   match v.v_other with
+  | Value_unoffseted_closure _
   | Value_any_integer
   | Value_unknown_not_block
   | Value_unknown
@@ -442,6 +439,7 @@ type possible_closure =
 let possible_closure v =
   match v.v_other with
   | Value_unknown -> Many_functions
+  | Value_unoffseted_closure _
   | Value_any_integer
   | Value_unknown_not_block
   | Value_mutable
@@ -456,8 +454,7 @@ let possible_closure v =
     | 0 -> No_function
     | 1 ->
       let _, clos_map = FunMap.choose v.v_clos in
-      let functions = List.filter (fun (_,f) -> f.fun_id <> None)
-          (IdentMap.bindings clos_map) in
+      let functions = IdentMap.bindings clos_map in
       begin match functions with
         | [] -> No_function
         | [_, f] -> One_function f
@@ -478,6 +475,7 @@ let no_kind =
 
 let array_kind_of_element v =
   let kind = match v.v_other with
+    | Value_unoffseted_closure _
     | Value_unknown_not_block
     | Value_unknown ->
       { int_kind = true; block_kind = true; float_kind = true }
@@ -510,6 +508,7 @@ let array_kind_of_element v =
 let array_kind_of_array v =
   (* WARNING: !!! if in absint mutable are analysed as blocks this must change !!! *)
   match v.v_other with
+  | Value_unoffseted_closure _
   | Value_unknown ->
     { int_kind = true; block_kind = true; float_kind = true }
   | Value_mutable ->
@@ -624,6 +623,7 @@ let isint l = match l with
       | Value_integer _ -> true, false
       | Value_unknown_not_block
       | Value_unknown -> true, true
+      | Value_unoffseted_closure _
       | Value_mutable
       | Value_string
       | Value_floatarray
