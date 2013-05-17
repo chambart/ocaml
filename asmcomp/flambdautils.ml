@@ -663,6 +663,17 @@ let reindex (type t) t =
   let module F = Fold(Setter(S)) in
   F.fold t
 
+let reindex' t =
+  let module S = struct
+    type annot = ExprId.t
+    type data = ExprId.t
+    let merge _ prev_id =
+      let name = ExprId.name prev_id in
+      ExprId.create ?name ()
+  end in
+  let module F = Fold(Merger(S)) in
+  F.fold t
+
 (* variable assignation tracking *)
 
 let assigned_var tree =

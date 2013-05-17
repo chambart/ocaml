@@ -129,7 +129,10 @@ module NotConstants(P:Param) = struct
       (* a closure is constant if its free variables are constants. *)
       IdentMap.iter (fun inner_id lam ->
         mark_loop [Closure funcs.ident; Var inner_id] lam) fv;
-      IdentMap.iter (fun _ ffunc ->
+      IdentMap.iter (fun fun_id ffunc ->
+        (* for each function f in a closure c 'c in NC => f' *)
+        add_depend [Var fun_id] (Closure funcs.ident);
+        (* function parameters are in NC *)
         List.iter (fun id -> mark_curr [Var id]) ffunc.params;
         mark_loop [] ffunc.body) funcs.funs
 

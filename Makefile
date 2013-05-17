@@ -86,6 +86,7 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/absint.cmo \
   asmcomp/purity.cmo \
   asmcomp/constants.cmo \
+  asmcomp/flambdasubst.cmo \
   asmcomp/cleaner.cmo \
   asmcomp/clambdagen.cmo \
   asmcomp/cmmgen.cmo \

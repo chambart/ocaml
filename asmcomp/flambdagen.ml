@@ -100,9 +100,9 @@ let rec close sb = function
     let rec set n = if n < 0 then IntSet.empty
       else IntSet.add n (set (n-1)) in
     Fswitch(close sb arg,
-      { fs_numconsts = set sw.sw_numconsts;
+      { fs_numconsts = set (sw.sw_numconsts - 1);
         fs_consts = List.map aux sw.sw_consts;
-        fs_numblocks = set sw.sw_numblocks;
+        fs_numblocks = set (sw.sw_numblocks - 1);
         fs_blocks = List.map aux sw.sw_blocks;
         fs_failaction = may_map (close sb) sw.sw_failaction },
       nid ~name:"switch" ())

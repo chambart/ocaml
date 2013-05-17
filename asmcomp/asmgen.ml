@@ -47,8 +47,8 @@ let clambda_dump_if ppf ulambda =
   ulambda
 
 let flambda_dump_if ppf flambda =
+  if !dump_flambda then (Printflambda.flambda ppf flambda; Format.fprintf ppf "@.");
   Flambda.check flambda;
-  if !dump_flambda then Printflambda.flambda ppf flambda;
   flambda
 
 let rec regalloc ppf round fd =
@@ -108,15 +108,25 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
-let optimise ppf flambda =
+let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
     let val_result = Absint.analyse flambda in
     let pure_result = Purity.unpure_expressions flambda in
     Cleaner.clean val_result pure_result flambda
     ++ flambda_dump_if ppf
+    ++ Cleaner.inlining val_result
+    ++ flambda_dump_if ppf
+    ++ Flambdautils.reindex'
     (* ++ Flambdautils.stupid_clean *)
   else flambda
+
+let optimise ppf flambda =
+  let rec aux n flambda =
+    if n <= 0 then flambda else
+      aux (n-1) (optimise_one ppf flambda)
+  in
+  aux 1 flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =

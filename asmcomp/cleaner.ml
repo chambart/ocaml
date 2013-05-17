@@ -244,12 +244,12 @@ module Rebinder(Param:CleanerParam) = struct
             | Fvar (id',data) ->
               if not (Ident.same id id')
               then begin
-                Printf.printf "\n\ncas redir\n\n%!";
+                (* Printf.printf "\n\ncas redir\n\n%!"; *)
                 Fvar (id,data)
               end
               else tree
             | _ ->
-              Printf.printf "\n\ncas utile\n\n%!";
+              (* Printf.printf "\n\ncas utile\n\n%!"; *)
               if is_pure tree
               then Fvar (id,data tree)
               else tree
@@ -346,6 +346,86 @@ module Rebinder(Param:CleanerParam) = struct
 
 end
 
+(* BAAAAAAD ! *)
+let fun_size ffun =
+  (* check also that some parameters are constants *)
+  let count = ref 0 in
+  Flambdautils.iter_flambda (fun _ -> incr count) ffun.body;
+  !count
+
+let should_inline ffun = fun_size ffun < 30
+
+let inline_simple ffun args =
+  (* Printf.printf "inline simple %s\n%!" (ffun.label:>string); *)
+  let sb, params = List.fold_right (fun id (sb,params) ->
+
+      (* TODO: substitution for closure parameters ! *)
+
+      let id' = Ident.rename id in
+      let sb = IdentMap.add id id' sb in
+      let params = id'::params in
+      (sb,params)) ffun.params (IdentMap.empty,[]) in
+  let body, _ = Flambdasubst.substitute sb ffun.body in
+  let body =
+    List.fold_right2 (fun id arg body ->
+      Flet(Strict,id,arg,body,ExprId.create ()))
+      params args body in
+  body
+
+let inlining analysis lam =
+  let module IdentityOpt = struct
+    type annot = ExprId.t
+    type data = ExprId.t
+  end in
+  let module IdentityInst = struct
+
+    let get_val_id v =
+      try ValMap.find v analysis.values with
+      | Not_found -> empty_value
+
+    let value eid =
+      if ExprMap.mem eid analysis.expr
+      then
+        let ids = ExprMap.find eid analysis.expr in
+        let l = ValSet.elements ids in
+        let vl = List.map get_val_id l in
+        Values.list_union vl
+      else
+        Values.empty_value
+
+    let expr_value exp =
+      value (Flambda.data exp)
+
+    include Flambdautils.Identity(IdentityOpt)
+    let apply ~func ~args ~direct ~dbg node_data =
+      match direct with
+      | None -> Flambdautils.Data node_data
+      | Some (fun_label,closed) ->
+        begin match possible_closure (expr_value func) with
+          | Many_functions -> Flambdautils.Data node_data
+          | No_function -> Flambdautils.Data node_data
+          | One_function f ->
+            begin match closed with
+              | Closed ->
+                let fun_id = f.fun_id in
+                let ffunctions = FunMap.find f.closure_funs
+                    analysis.info.functions in
+                let ffunction = IdentMap.find
+                    fun_id ffunctions.funs in
+                if not ffunctions.recursives &&
+                   should_inline ffunction
+                then
+                  let body = inline_simple ffunction args in
+                  Flambdautils.Node body
+                else Flambdautils.Data node_data
+
+              | NotClosed -> Flambdautils.Data node_data
+            end
+        end
+  end in
+  let module Folder=Flambdautils.Fold(IdentityInst) in
+  Folder.fold lam
+
 
 let clean analysis unpure_expr tree =
   let module P = struct
@@ -353,5 +433,9 @@ let clean analysis unpure_expr tree =
     let unpure_expr = unpure_expr
   end in
   let module C1 = Cleaner(P) in
+  let tree = C1.clean tree in
   let module C2 = Rebinder(P) in
-  C2.rebind (C1.clean tree)
+  let tree = C2.rebind tree in
+  tree
+
+
