@@ -5,7 +5,16 @@ open Flambdautils
 let pure_prim = function
     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
     Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
-    Parraysetu _ | Parraysets _ | Pbigarrayset _ -> false
+    Parraysetu _ | Parraysets _ | Pbigarrayset _
+
+  | Pstringrefs | Parrayrefs _ | Pbigarrayref (false,_,_,_)
+
+  | Pstring_load_16 false | Pstring_load_32 false | Pstring_load_64 false
+
+  | Pbigstring_load_16 false | Pbigstring_load_32 false
+  | Pbigstring_load_64 false
+
+    -> false
   | _ -> true (* TODO: exhaustive list *)
 
 let unpure_expressions t : ExprSet.t =

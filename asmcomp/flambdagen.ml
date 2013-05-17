@@ -148,6 +148,9 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
         IdentMap.add id' (Fvar (id, nid ())) clos_var))
       (sb,IdentMap.empty)
       (IdentSet.elements fv) in
+  let closure_params =
+    IdentMap.fold (fun id _ set -> IdentSet.add id set)
+      clos_var IdentSet.empty in
   let close_one = function
     | (id, Lfunction(kind, params, body)) ->
       let dbg = match body with
@@ -158,7 +161,7 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
         kind;
         arity = List.length params;
         params;
-        closure_params = fv;
+        closure_params;
         body = close sb body;
         dbg }
     | (_, _) -> fatal_error "Flambdagen.close_functions"

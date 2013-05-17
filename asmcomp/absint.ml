@@ -69,6 +69,9 @@ type analysis_result = {
   (* when an expression can produce a value it is here *)
   expr_val : ValId.t ExprMap.t;
 
+  (* values created for identifiers *)
+  var_val : ValId.t IdentMap.t;
+
   (* values potentially returned by static fails *)
   staticfails : ValSet.t list IntMap.t;
 
@@ -100,6 +103,9 @@ module Run(Param:Fparam) = struct
 
   let expr_val : ValId.t ExprTbl.t = ExprTbl.create 1000
   (* value constructed by an expression *)
+
+  let var_val : ValId.t IdentTbl.t = IdentTbl.create 1000
+  (* value constructed by an id *)
 
   let staticfails : ValSet.t list IntTbl.t = IntTbl.create 20
 
@@ -135,6 +141,19 @@ module Run(Param:Fparam) = struct
     let l = ValSet.elements ids in
     let vl = List.map value l in
     Values.list_union vl
+
+  (* create a value associated to a variable:
+     'for' 'try' 'closure' variables *)
+  let var_vid id =
+    let desc = Ident.name id in
+    try IdentTbl.find var_val id with
+    | Not_found ->
+      let vid = ValId.create ~name:desc () in
+      IdentTbl.add var_val id vid;
+      (* set an unknown value
+         TODO use type to refine it *)
+      ValTbl.replace val_tbl vid unknown_value;
+      vid
 
   let expr_vid exp =
     let eid = data exp in
@@ -359,8 +378,8 @@ module Run(Param:Fparam) = struct
     | Ffor(id, lo, hi, dir, body, _) ->
       aux lo;
       aux hi;
-      (* BOF *)
-      bind id (ValSet.union (mu lo) (mu hi));
+      let vid = var_vid id in
+      bind id (ValSet.singleton vid);
       aux body;
       New value_unit
 
@@ -381,7 +400,8 @@ module Run(Param:Fparam) = struct
 
     | Ftrywith(body, id, handler, _) ->
       aux body;
-      bind id (ValSet.singleton external_val);
+      let vid = var_vid id in
+      bind id (ValSet.singleton vid);
       aux handler;
       Old (ValSet.union (mu body) (mu handler))
 
@@ -414,7 +434,9 @@ module Run(Param:Fparam) = struct
 
     let ffunction = IdentMap.find fun_id ffunctions.funs in
 
-    List.iter (fun id -> bind id (ValSet.singleton external_val))
+    List.iter (fun id ->
+      let vid = var_vid id in
+      bind id (ValSet.singleton vid))
       ffunction.params;
     aux_count ffunction.body fun_id
 
@@ -432,6 +454,7 @@ module Run(Param:Fparam) = struct
       values = ValTbl.to_map val_tbl;
       expr = ExprTbl.to_map expr;
       expr_val = ExprTbl.to_map expr_val;
+      var_val = IdentTbl.to_map var_val;
       staticfails = IntTbl.to_map staticfails;
 
       global_val;

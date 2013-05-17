@@ -198,6 +198,7 @@ end
 
 module Rebinder(Param:CleanerParam) = struct
   let analysis = Param.analysis
+  let external_val = analysis.external_val
 
   let is_pure expr =
     let eid = Flambda.data expr in
@@ -223,7 +224,9 @@ module Rebinder(Param:CleanerParam) = struct
     | None -> map
     | Some set ->
       ValSet.fold (fun elt map ->
-          if ValMap.mem elt map
+          if (ValId.equal elt external_val) ||
+             (* if the value is the external val we can't do anything with it *)
+             (ValMap.mem elt map)
           then map
           else ValMap.add elt id map) set map
 
@@ -238,14 +241,22 @@ module Rebinder(Param:CleanerParam) = struct
           | None -> tree
           | Some id ->
             match tree with
-            | Fvar (id,data) ->
-              (* Printf.printf "\n\ncas redir\n\n%!"; *)
-              Fvar (id,data)
+            | Fvar (id',data) ->
+              if not (Ident.same id id')
+              then begin
+                Printf.printf "\n\ncas redir\n\n%!";
+                Fvar (id,data)
+              end
+              else tree
             | _ ->
-              (* Printf.printf "\n\ncas utile\n\n%!"; *)
-              let eid1 = ExprId.create () in
-              let eid2 = ExprId.create () in
-              fsequence (tree,Fvar (id,eid1),eid2)
+              Printf.printf "\n\ncas utile\n\n%!";
+              if is_pure tree
+              then Fvar (id,data tree)
+              else tree
+              (* let eid1 = ExprId.create () in *)
+              (* let eid2 = ExprId.create () in *)
+              (* fsequence (tree,Fvar (id,eid1),eid2) *)
+              (* tree *)
     in
     let rec aux map tree =
       let exp = match tree with
@@ -257,7 +268,11 @@ module Rebinder(Param:CleanerParam) = struct
           let ffuns =
             { ffuns with
               funs = IdentMap.map
-                  (fun ffun -> { ffun with body = (aux ValMap.empty) ffun.body })
+                  (fun ffun ->
+                    let map = IdentSet.fold (fun id map -> add map id)
+                        ffun.closure_params ValMap.empty in
+                    let map = List.fold_left add map ffun.params in
+                    { ffun with body = (aux map) ffun.body })
                   ffuns.funs } in
           let fv = IdentMap.map (aux map) fv in
           Fclosure (ffuns, fv, annot)
