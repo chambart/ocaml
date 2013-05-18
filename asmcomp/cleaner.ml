@@ -474,6 +474,7 @@ let clean analysis unpure_expr tree =
   let tree = C1.clean tree in
   let module C2 = Rebinder(P) in
   let tree = C2.rebind tree in
-  remove_unused_closure_param tree
+  (* remove_unused_closure_param tree *)
+  tree
 
 
