@@ -356,8 +356,14 @@ let fun_size ffun =
 
 let should_inline ffun = fun_size ffun < 30
 
-let inline_simple ffun args =
+let inline_simple func fun_id ffun args =
   (* Printf.printf "inline simple %s\n%!" (ffun.label:>string); *)
+  let sb, free_vars = IdentSet.fold (fun id (sb,free_vars) ->
+      let id' = Ident.rename id in
+      let sb = IdentMap.add id id' sb in
+      let free_vars = (id,id')::free_vars in
+      (sb, free_vars)) ffun.closure_params (IdentMap.empty,[]) in
+
   let sb, params = List.fold_right (fun id (sb,params) ->
 
       (* TODO: substitution for closure parameters ! *)
@@ -365,13 +371,22 @@ let inline_simple ffun args =
       let id' = Ident.rename id in
       let sb = IdentMap.add id id' sb in
       let params = id'::params in
-      (sb,params)) ffun.params (IdentMap.empty,[]) in
+      (sb,params)) ffun.params (sb,[]) in
   let body, _ = Flambdasubst.substitute sb ffun.body in
   let body =
     List.fold_right2 (fun id arg body ->
       Flet(Strict,id,arg,body,ExprId.create ()))
       params args body in
-  body
+  let func_var = Ident.create "inlined_closure" in
+  let body =
+    List.fold_right (fun (id,id') body ->
+      let field =
+        { env = Fvar(func_var,ExprId.create ());
+          env_fun_id = fun_id;
+          env_var = id } in
+      Flet(Strict,id',Fenv_field(field,ExprId.create ()),body,ExprId.create ()))
+      free_vars body in
+  Flet(Strict,func_var,func,body,ExprId.create ())
 
 let inlining analysis lam =
   let module IdentityOpt = struct
@@ -407,7 +422,8 @@ let inlining analysis lam =
           | No_function -> Flambdautils.Data node_data
           | One_function f ->
             begin match closed with
-              | Closed ->
+              | NotClosed | Closed ->
+
                 let fun_id = f.fun_id in
                 let ffunctions = FunMap.find f.closure_funs
                     analysis.info.functions in
@@ -416,11 +432,11 @@ let inlining analysis lam =
                 if not ffunctions.recursives &&
                    should_inline ffunction
                 then
-                  let body = inline_simple ffunction args in
+                  let body = inline_simple func fun_id ffunction args in
                   Flambdautils.Node body
                 else Flambdautils.Data node_data
 
-              | NotClosed -> Flambdautils.Data node_data
+              (* | NotClosed -> Flambdautils.Data node_data *)
             end
         end
   end in
