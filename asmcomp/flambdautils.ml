@@ -597,7 +597,7 @@ let dead_code_elimination t =
       let kept, kept_for_effect = List.fold_left aux ([],[]) defs in
       let kept_body = match kept with
         | [] -> body
-        | _ -> Fletrec(kept,body,annot)
+        | _ -> Fletrec(List.rev kept,body,annot)
       in
       (* There shouldn't be any code executed in the definitions of a
          letrec so if kept_for_effect is not empty, we are seriously
