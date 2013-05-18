@@ -179,7 +179,9 @@ module Conv(P:Param) = struct
     | Fifthenelse(arg, ifso, ifnot, _) ->
       Uifthenelse(conv sb cm arg, conv sb cm ifso, conv sb cm ifnot)
     | Fsequence(lam1, lam2, _) ->
-      Usequence(conv sb cm lam1, conv sb cm lam2)
+      let ulam1 = conv sb cm lam1 in
+      let ulam2 = conv sb cm lam2 in
+      Usequence(ulam1, ulam2)
     | Fwhile(cond, body, _) ->
       Uwhile(conv sb cm cond, conv sb cm body)
     | Ffor(id, lo, hi, dir, body, _) ->
