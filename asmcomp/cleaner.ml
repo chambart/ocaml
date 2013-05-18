@@ -427,6 +427,27 @@ let inlining analysis lam =
   let module Folder=Flambdautils.Fold(IdentityInst) in
   Folder.fold lam
 
+(* WRONG: a closure param could be used at inline points! Verify that
+   this is not the case before removing it (a priori it should also be
+   eliminated, but who known... )
+
+   TODO: FIX !
+ *)
+let remove_unused_closure_param tree =
+  let mapper tree = match tree with
+
+    | Fclosure(ffunctions,fv,eid) ->
+
+      let free_vars = IdentMap.fold (fun _ ffun set ->
+          IdentSet.union (Flambdautils.free_variables ffun.body) set)
+          ffunctions.funs IdentSet.empty
+      in
+      let fv = IdentMap.filter (fun id _ -> IdentSet.mem id free_vars) fv in
+      Fclosure(ffunctions,fv,eid)
+
+    | _ -> tree
+  in
+  Flambdautils.map mapper tree
 
 let clean analysis unpure_expr tree =
   let module P = struct
@@ -437,6 +458,6 @@ let clean analysis unpure_expr tree =
   let tree = C1.clean tree in
   let module C2 = Rebinder(P) in
   let tree = C2.rebind tree in
-  tree
+  remove_unused_closure_param tree
 
 
