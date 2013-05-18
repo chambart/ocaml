@@ -348,7 +348,7 @@ module Run(Param:Fparam) = struct
 
     | Foffset(lam, id, eid) ->
       aux lam;
-      let c = Values.set_closure_funid (val_union lam) id info.functions in
+      let c = Values.set_closure_funid (val_union lam) id in
       Queue.push c closures;
       New (c)
 

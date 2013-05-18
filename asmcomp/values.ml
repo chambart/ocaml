@@ -128,14 +128,14 @@ let value_unoffseted_closure fid clos =
 let empty_block tag length =
   value_block tag (Array.init length (fun _ -> ValSet.empty))
 
-let value_closure clos_info =
-  let fun_id = clos_info.fun_id in
-  { empty_value with
-    v_clos = FunMap.singleton clos_info.closure_funs
-        (IdentMap.singleton fun_id clos_info) }
+(* let value_closure clos_info = *)
+(*   let fun_id = clos_info.fun_id in *)
+(*   { empty_value with *)
+(*     v_clos = FunMap.singleton clos_info.closure_funs *)
+(*         (IdentMap.singleton fun_id clos_info) } *)
 
 (* apply an offset to a closure returning an offseted closure *)
-let set_closure_funid value fun_id fun_map =
+let set_closure_funid value fun_id =
   let aux fun_id closure_funs closure_vars =
     let v = { fun_id;
               closure_funs;
