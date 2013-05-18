@@ -108,17 +108,22 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
+let inlining ppf flambda =
+  let val_result = Absint.analyse flambda in
+  Cleaner.inlining val_result flambda
+  ++ flambda_dump_if ppf
+
 let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
+    let flambda = inlining ppf flambda in
     let val_result = Absint.analyse flambda in
     let pure_result = Purity.unpure_expressions flambda in
     Cleaner.clean val_result pure_result flambda
     ++ flambda_dump_if ppf
-    ++ Cleaner.inlining val_result
+    ++ Flambdautils.stupid_clean
     ++ flambda_dump_if ppf
-    ++ Flambdautils.reindex'
-    (* ++ Flambdautils.stupid_clean *)
+    ++ Flambdautils.reindex
   else flambda
 
 let optimise ppf flambda =

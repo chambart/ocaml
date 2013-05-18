@@ -443,24 +443,33 @@ let inlining analysis lam =
   let module Folder=Flambdautils.Fold(IdentityInst) in
   Folder.fold lam
 
-(* WRONG: a closure param could be used at inline points! Verify that
-   this is not the case before removing it (a priori it should also be
-   eliminated, but who known... )
+let used_variables_and_offsets tree =
+  let vars = ref IdentSet.empty in
+  let rec aux = function
+    | Fenv_field({env_var = id}, _) (* env_fun_id also ? *)
+    | Foffset(_, id, _)
+    | Fvar (id,_) ->
+      if not (IdentSet.mem id !vars) then vars := IdentSet.add id !vars
+    | Fclosure (funcs,_,_) ->
+      IdentMap.iter (fun _ ffunc -> Flambdautils.iter_flambda aux ffunc.body)
+        funcs.funs
+    | _ -> ()
+  in
+  Flambdautils.iter_flambda aux tree;
+  !vars
 
-   TODO: FIX !
- *)
 let remove_unused_closure_param tree =
+  let used = used_variables_and_offsets tree in
   let mapper tree = match tree with
-
     | Fclosure(ffunctions,fv,eid) ->
-
-      let free_vars = IdentMap.fold (fun _ ffun set ->
-          IdentSet.union (Flambdautils.free_variables ffun.body) set)
-          ffunctions.funs IdentSet.empty
-      in
-      let fv = IdentMap.filter (fun id _ -> IdentSet.mem id free_vars) fv in
+      let fv = IdentMap.filter (fun id _ -> IdentSet.mem id used) fv in
+      let ffunctions =
+        { ffunctions with
+          funs = IdentMap.map (fun ffun ->
+              { ffun with closure_params =
+                            IdentSet.inter ffun.closure_params used })
+              ffunctions.funs } in
       Fclosure(ffunctions,fv,eid)
-
     | _ -> tree
   in
   Flambdautils.map mapper tree
@@ -474,7 +483,6 @@ let clean analysis unpure_expr tree =
   let tree = C1.clean tree in
   let module C2 = Rebinder(P) in
   let tree = C2.rebind tree in
-  (* remove_unused_closure_param tree *)
-  tree
+  remove_unused_closure_param tree
 
 
