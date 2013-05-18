@@ -241,6 +241,7 @@ module Rebinder(Param:CleanerParam) = struct
           | None -> tree
           | Some id ->
             match tree with
+            | Fconst _ -> tree
             | Fvar (id',data) ->
               if not (Ident.same id id')
               then begin
