@@ -113,6 +113,8 @@ type primitive =
   (* byte swap *)
   | Pbswap16
   | Pbbswap of boxed_integer
+  (* physical comparison *)
+  | Pphyscomp of comparison
 
 and comparison =
     Ceq | Cneq | Clt | Cgt | Cle | Cge
