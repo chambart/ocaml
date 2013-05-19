@@ -112,6 +112,7 @@ let compile_genfuns ppf f =
 let inlining ppf flambda =
   let val_result = Flambdainfo.analyse flambda in
   Cleaner.inlining val_result flambda
+  ++ Flambdautils.reindex'
   ++ flambda_dump_if ppf
 
 let optimise_one ppf flambda =
