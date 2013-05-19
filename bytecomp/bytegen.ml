@@ -289,6 +289,7 @@ let comp_primitive p args =
   match p with
     Pgetglobal id -> Kgetglobal id
   | Psetglobal id -> Ksetglobal id
+  | Pphyscomp cmp
   | Pintcomp cmp -> Kintcomp cmp
   | Pmakeblock(tag, mut) -> Kmakeblock(List.length args, tag)
   | Pfield n -> Kgetfield n
