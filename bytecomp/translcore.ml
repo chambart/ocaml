@@ -169,8 +169,8 @@ let primitives_table = create_hashtable 57 [
   "%lslint", Plslint;
   "%lsrint", Plsrint;
   "%asrint", Pasrint;
-  "%eq", Pintcomp Ceq;
-  "%noteq", Pintcomp Cneq;
+  "%eq", Pphyscomp Ceq;
+  "%noteq", Pphyscomp Cneq;
   "%ltint", Pintcomp Clt;
   "%leint", Pintcomp Cle;
   "%gtint", Pintcomp Cgt;
@@ -859,7 +859,7 @@ and transl_exp0 e =
       (* other cases compile to a lazy block holding a function *)
       | _ ->
           let fn = Lfunction (Curried, [Ident.create "param"], transl_exp e) in
-          Lprim(Pmakeblock(Config.lazy_tag, Immutable), [fn])
+          Lprim(Pmakeblock(Config.lazy_tag, Mutable), [fn])
       end
   | Texp_object (cs, meths) ->
       let cty = cs.cstr_type in

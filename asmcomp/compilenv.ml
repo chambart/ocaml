@@ -27,7 +27,9 @@ exception Error of error
 let global_infos_table =
   (Hashtbl.create 17 : (string, unit_infos option) Hashtbl.t)
 
-let structured_constants = ref ([] : (string * bool * Lambda.structured_constant) list)
+let structured_constants = ref ([] : (string * bool * Clambda.ustructured_constant) list)
+
+let symbol_alias : (string,string list) Hashtbl.t = Hashtbl.create 10
 
 let current_unit =
   { ui_name = "";
@@ -68,7 +70,8 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
-  structured_constants := []
+  structured_constants := [];
+  Hashtbl.clear symbol_alias
 
 let current_unit_infos () =
   current_unit
@@ -145,7 +148,8 @@ let cache_unit_info ui =
 let toplevel_approx = Hashtbl.create 16
 
 let record_global_approx_toplevel id =
-  Hashtbl.add toplevel_approx current_unit.ui_name current_unit.ui_approx
+  failwith "TODO: toplevel"
+  (* Hashtbl.add toplevel_approx current_unit.ui_name current_unit.ui_approx *)
 
 let global_approx id =
   if Ident.is_predef_exn id then Value_unknown
@@ -212,12 +216,24 @@ let new_const_symbol () =
   incr const_label;
   make_symbol (Some (string_of_int !const_label))
 
+let add_structured_constant lbl cst global =
+  structured_constants := (lbl, global, cst) :: !structured_constants
+
 let new_structured_constant cst global =
   let lbl = new_const_symbol() in
-  structured_constants := (lbl, global, cst) :: !structured_constants;
+  add_structured_constant lbl cst global;
   lbl
 
+let clear_structured_constants () = structured_constants := []
+
 let structured_constants () = !structured_constants
+
+let new_symbol_alias ~orig ~alias =
+  let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
+  Hashtbl.replace symbol_alias orig (alias::l)
+
+let symbol_alias s =
+  try Hashtbl.find symbol_alias s with Not_found -> []
 
 (* Error report *)
 

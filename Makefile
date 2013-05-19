@@ -15,8 +15,8 @@
 include config/Makefile
 include stdlib/StdlibModules
 
-CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
-CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLC=boot/ocamlrun boot/ocamlc -g -nostdlib -I boot
+CAMLOPT=boot/ocamlrun ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 COMPFLAGS=-strict-sequence -w +33..39 -warn-error A $(INCLUDES)
 LINKFLAGS=
 
@@ -77,8 +77,18 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
 ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
   asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/proc.cmo \
+  asmcomp/flambda.cmo asmcomp/printflambda.cmo \
+  asmcomp/values.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
-  asmcomp/closure.cmo asmcomp/cmmgen.cmo \
+  asmcomp/flambdagen.cmo \
+  asmcomp/flambdautils.cmo \
+  asmcomp/flambdainfo.cmo \
+  asmcomp/purity.cmo \
+  asmcomp/constants.cmo \
+  asmcomp/flambdasubst.cmo \
+  asmcomp/cleaner.cmo \
+  asmcomp/clambdagen.cmo \
+  asmcomp/cmmgen.cmo \
   asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/selection.cmo \
   asmcomp/comballoc.cmo asmcomp/liveness.cmo \
   asmcomp/spill.cmo asmcomp/split.cmo \
