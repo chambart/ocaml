@@ -132,7 +132,7 @@ let optimise ppf flambda =
     if n <= 0 then flambda else
       aux (n-1) (optimise_one ppf flambda)
   in
-  aux 1 flambda
+  aux 2 flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
