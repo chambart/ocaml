@@ -268,13 +268,16 @@ let same f1 f2 =
 
 module StringSet = Set.Make(String)
 
-type env = {
+type 'a env = {
   bound_variables : IdentSet.t;
   seen_variables : IdentSet.t ref;
   seen_fun_label : StringSet.t ref;
   seen_static_catch : IntSet.t ref;
+  seen_env_var : IdentSet.t ref;
+  need_env_var : IdentSet.t ref;
   caught_static_exceptions : IntSet.t;
-  closure_variables : IdentSet.t;
+  closure_variables : ('a ffunctions * 'a flambda IdentMap.t) IdentMap.t;
+  (* variables bound to a closure *)
 }
 
 let add_check_env id env =
@@ -288,8 +291,9 @@ let add_check_env id env =
 let bind_var id lam env =
   let env = add_check_env id env in
   match lam with
-  | Fclosure _ ->
-    { env with closure_variables = IdentSet.add id env.closure_variables }
+  | Fclosure (ffun,fv,_) ->
+    { env with closure_variables =
+                 IdentMap.add id (ffun,fv) env.closure_variables }
   | _ -> env
 
 (* Adds without checks: the variable of the closure was already
@@ -330,23 +334,54 @@ let rec check env = function
     List.iter (fun (_,def) -> check env def) defs;
     check env body
   | Fclosure(funct, fv,_) ->
-    List.iter (fun (_, l) -> check env l) (IdentMap.bindings fv);
+    List.iter (fun (id, l) ->
+        if IdentSet.mem id !(env.seen_env_var)
+        then fatal_error (Printf.sprintf "Flambda.check: closure variable %s \
+                                          bound in multiple closures"
+              (Ident.unique_name id))
+        else env.seen_env_var := IdentSet.add id !(env.seen_env_var);
+        check env l) (IdentMap.bindings fv);
     check_closure env funct fv
   | Foffset(lam,id,_) ->
     check env lam;
-    begin match lam with
-      | Fclosure _ -> ()
+    let (ffun,fv) = match lam with
+      | Fclosure (ffun,fv,_) -> ffun,fv
       | Fvar(id,_) ->
-        if not (IdentSet.mem id env.closure_variables)
-        then
+        (try IdentMap.find id env.closure_variables
+        with Not_found ->
           fatal_error (Printf.sprintf "Flambda.check: Foffset on a variable \
                                        not bound to a closure: %s"
-              (Ident.unique_name id))
+                (Ident.unique_name id)))
       | _ ->
         fatal_error (Printf.sprintf "Flambda.check: Foffset on neither a \
                                      variable nor a closure")
-    end
+    in
+    (* TODO: also check the recursive flag *)
+    if not (IdentMap.mem id ffun.funs)
+    then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \
+                                      present in the closure"
+          (Ident.unique_name id))
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
+    env.need_env_var := IdentSet.add env_var !(env.need_env_var);
+    let closure = match env_lam with
+      | Fclosure (ffun,fv,_) -> Some (ffun,fv)
+      | Fvar(id,_) ->
+        (try Some (IdentMap.find id env.closure_variables)
+        with Not_found -> None)
+      | _ -> None
+    in
+    begin match closure with
+      | None -> ()
+      | Some (ffun,fv) ->
+        if not (IdentMap.mem env_var fv)
+        then fatal_error (Printf.sprintf "Flambda.check: Fenv_field var %s not \
+                                          present in the closure"
+              (Ident.unique_name env_var));
+        if not (IdentMap.mem env_fun_id ffun.funs)
+        then fatal_error (Printf.sprintf "Flambda.check: Fenv_field function %s \
+                                          not present in the closure"
+              (Ident.unique_name env_fun_id))
+    end;
     check env env_lam
   | Fapply(funct, args, _, _,_) ->
     check env funct;
@@ -392,12 +427,18 @@ let rec check env = function
   | Fassign(id, lam,_) ->
     check env lam
 
-and check_closure orig_env funct fv =
-  let fv = List.map fst (IdentMap.bindings fv) in
+and check_closure orig_env funct fv' =
+  let fv = List.map fst (IdentMap.bindings fv') in
   let funs = List.map fst (IdentMap.bindings funct.funs) in
   let env = List.fold_right add_check_env fv (empty_env orig_env) in
   let env = List.fold_right add_rec_closure funs env in
   IdentMap.iter (fun _ func ->
+    IdentSet.iter (fun id ->
+      if not (IdentMap.mem id fv')
+      then
+        fatal_error (Printf.sprintf "Flambda.check: variable %s not in \
+                                     the closure" (Ident.unique_name id)))
+      func.closure_params;
     let env = List.fold_right add_check_env func.params env in
     check env func.body) funct.funs
 
@@ -406,9 +447,18 @@ let check flam =
               seen_variables = ref IdentSet.empty;
               seen_fun_label = ref StringSet.empty;
               seen_static_catch = ref IntSet.empty;
+              seen_env_var = ref IdentSet.empty;
+              need_env_var = ref IdentSet.empty;
               caught_static_exceptions = IntSet.empty;
-              closure_variables = IdentSet.empty } in
-  check env flam
+              closure_variables = IdentMap.empty } in
+  check env flam;
+  if not (IdentSet.subset !(env.need_env_var) !(env.seen_env_var))
+  then
+    let diff = IdentSet.diff !(env.need_env_var) !(env.seen_env_var) in
+    IdentSet.iter (fun id ->
+      fatal_error (Printf.sprintf "Flambda.check: var offset %s is needed \
+                                   but not provided" (Ident.unique_name id)))
+      diff
 
 let data = function
   | Fvar (id,data) -> data
