@@ -1102,7 +1102,7 @@ let transl_exception path decl =
     match path with
       None -> Ident.name decl.cd_id
     | Some p -> Path.name p in
-  Lprim(Pmakeblock(0, Immutable),
+  Lprim(Pmakeblock(0, Mutable),
         [Lconst(Const_base(Const_string (name,None)))])
 
 (* Error report *)
