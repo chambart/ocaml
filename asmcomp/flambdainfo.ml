@@ -224,7 +224,11 @@ module Run(Param:Fparam) = struct
     | Not_found -> ExprTbl.replace expr eid vids
 
   and aux' = function
-    | Fvar (id,_) -> Old (find_var id)
+    | Fvar (id,_) ->
+      (try Old (IdentTbl.find bindings id) with
+       | Not_found -> New unknown_value)
+        (* TODO: forbid Not_found case *)
+
     | Fconst (cst,_) -> New (Values.const cst)
 
     | Flet(str, id, lam, body, _) ->
@@ -334,7 +338,9 @@ module Run(Param:Fparam) = struct
       IdentMap.iter (fun id lam ->
           aux lam;
           bind id (mu lam)) fv;
-      New (value_unoffseted_closure functions.ident (IdentMap.map mu fv))
+      let fv' = IdentMap.map mu fv in
+      Queue.push (functions.ident,fv') closures;
+      New (value_unoffseted_closure functions.ident fv')
 
     | Fapply ( func, args, _, dbg, eid) ->
       aux func;
@@ -344,7 +350,7 @@ module Run(Param:Fparam) = struct
     | Foffset(lam, id, eid) ->
       aux lam;
       let c = Values.set_closure_funid (val_union lam) id in
-      Queue.push c closures;
+      (* Queue.push c closures; *)
       New (c)
 
     | Fenv_field({env; env_var}, _) ->
@@ -405,34 +411,24 @@ module Run(Param:Fparam) = struct
       List.iter (aux) exprs;
       New (unknown_value)
 
-  and aux_apply1 fun_value =
-
-    let aux_funmap _ map acc =
-      IdentMap.fold (fun _ f acc -> f :: acc) map acc in
-    let functions = FunMap.fold aux_funmap fun_value.v_clos [] in
-    List.iter aux_apply functions
-
-  and aux_apply func =
+  and aux_apply1' (clos_id, free_vars) =
 
     let ffunctions =
-      try FunMap.find func.closure_funs info.functions
+      try FunMap.find clos_id info.functions
       with
       | Not_found as e ->
-        Printf.printf "not_found %a %a\n%!"
-          FunId.output func.closure_funs
-          Idt.output func.fun_id;
+        Printf.printf "not_found %a\n%!"
+          FunId.output clos_id;
         raise e
     in
-    let fun_id = func.fun_id in
+    IdentMap.iter (aux_apply' free_vars) ffunctions.funs
 
-    (* TODO: faire quelquechose avec la cloture *)
+  and aux_apply' free_vars fun_id ffunction =
 
-    let ffunction = IdentMap.find fun_id ffunctions.funs in
-
-    List.iter (fun id ->
+    IdentMap.iter (fun id _ ->
       let vid = var_vid id in
       bind id (ValSet.singleton vid))
-      ffunction.params;
+      free_vars;
     aux_count ffunction.body fun_id
 
   and aux_count lam fun_id =
@@ -460,7 +456,7 @@ module Run(Param:Fparam) = struct
     if not (Queue.is_empty closures)
     then begin
       let c = Queue.pop closures in
-      aux_apply1 c;
+      aux_apply1' c;
       loop_closures ()
     end
 
