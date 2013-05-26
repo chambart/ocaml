@@ -16,9 +16,73 @@ open Flambda
 
    For everything else, it is basically the identity.
 *)
-module type Param = sig
+
+module type Param1 = sig
   type t
   val expr : t Flambda.flambda
+end
+
+module Offsets(P:Param1) = struct
+
+  (* The offset table associate a function label to its offset
+     inside a closure *)
+  let offset_table = ref IdentMap.empty
+  (* table associating closures to the first free variable offset in
+     the closure *)
+  let fv_pos_table = ref FunMap.empty
+
+  let rec iter = function
+    | Fclosure(funct, fv, _) ->
+      iter_closure funct fv
+    | _ -> ()
+
+  and iter_closure functs fv =
+
+    let funct = IdentMap.bindings functs.funs in
+    let fv = IdentMap.bindings fv in
+
+    (* build the table mapping the function to the offset of its code
+       pointer inside the closure value *)
+    let aux_fun_offset (map,env_pos) (id, func) =
+      let pos = env_pos + 1 in
+      let env_pos = env_pos + 1 +
+          (if func.arity <> 1 then 3 else 2) in
+      (* if IdentMap.mem id map *)
+      (* then Printf.printf "seen offset %s\n%!" (Ident.unique_name id); *)
+      (* assert(not (IdentMap.mem id map)); *)
+      let map = IdentMap.add id pos map in
+      (map,env_pos)
+    in
+    let offset, fv_pos =
+      List.fold_left aux_fun_offset (!offset_table, -1) funct in
+
+    (* Adds the mapping of free variables to their offset. It is not
+       used inside the body of the function: it is directly
+       substituted here. But if the function is inlined, it is
+       possible that the closure is accessed from outside its body. *)
+    let aux_fv_offset (map,pos) (id, _) =
+      (* assert(not (IdentMap.mem id map)); *)
+      let map = IdentMap.add id pos map in
+      (map,pos + 1)
+    in
+    let offset, _ = List.fold_left aux_fv_offset (offset, fv_pos) fv in
+
+    offset_table := offset;
+    fv_pos_table := FunMap.add functs.ident fv_pos !fv_pos_table;
+
+    List.iter (fun (_,{body}) -> Flambdautils.iter_flambda iter body) funct
+
+  let res =
+    Flambdautils.iter_flambda iter P.expr;
+    !offset_table, !fv_pos_table
+
+end
+
+module type Param2 = sig
+  type t
+  val expr : t Flambda.flambda
+  val offset_table : int IdentMap.t
+  val fv_pos_table : int FunMap.t
 end
 
 type const_lbl =
@@ -26,11 +90,12 @@ type const_lbl =
   | No_lbl
   | Not_const
 
-module Conv(P:Param) = struct
+module Conv(P:Param2) = struct
 
   (* The offset table associate a function label to its offset
      inside a closure *)
-  let offset_table = ref IdentMap.empty
+  let offset_table = P.offset_table
+  let fv_pos_table = P.fv_pos_table
 
   let not_constants = Constants.not_constants P.expr
 
@@ -114,17 +179,22 @@ module Conv(P:Param) = struct
          applied to a variable or the closure on which we can recover the
          original label. *)
       let ulam = conv sb cm lam in
-      if not (IdentMap.mem id !offset_table)
+      if not (IdentMap.mem id offset_table)
       then fatal_error (Printf.sprintf "missing offset %s" (Ident.unique_name id));
-      let offset = IdentMap.find id !offset_table in
+      let offset = IdentMap.find id offset_table in
       make_offset ulam offset
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv sb cm lam in
-      assert(IdentMap.mem env_var !offset_table);
-      assert(IdentMap.mem env_fun_id !offset_table);
-      let fun_offset = IdentMap.find env_fun_id !offset_table in
-      let var_offset = IdentMap.find env_var !offset_table in
+      assert(IdentMap.mem env_var offset_table);
+      if not (IdentMap.mem env_fun_id offset_table)
+      then begin
+        Printf.printf "fun_var not found: %s (when looking for %s)\n%!"
+          (Ident.unique_name env_fun_id) (Ident.unique_name env_var);
+        assert false
+      end;
+      let fun_offset = IdentMap.find env_fun_id offset_table in
+      let var_offset = IdentMap.find env_var offset_table in
       let pos = var_offset - fun_offset in
       Uprim(Pfield pos, [ulam], Debuginfo.none)
 
@@ -276,41 +346,14 @@ module Conv(P:Param) = struct
     (* the label used for constant closures *)
     let closure_lbl = Compilenv.new_const_symbol () in
 
-    (* build the table mapping the function to the offset of its code
-       pointer inside the closure value *)
-    let aux_fun_offset (map,env_pos) (id, func) =
-      let pos = env_pos + 1 in
-      let env_pos = env_pos + 1 +
-          (if func.arity <> 1 then 3 else 2) in
-      (* if IdentMap.mem id map *)
-      (* then Printf.printf "seen offset %s\n%!" (Ident.unique_name id); *)
-      (* assert(not (IdentMap.mem id map)); *)
-      let map = IdentMap.add id pos map in
-      (map,env_pos)
-    in
-    let offset, fv_pos =
-      List.fold_left aux_fun_offset (!offset_table, -1) funct in
-
-    (* Adds the mapping of free variables to their offset. It is not
-       used inside the body of the function: it is directly
-       substituted here. But if the function is inlined, it is
-       possible that the closure is accessed from outside its body. *)
-    let aux_fv_offset (map,pos) (id, _) =
-      (* assert(not (IdentMap.mem id map)); *)
-      let map = IdentMap.add id pos map in
-      (map,pos + 1)
-    in
-    let offset, _ =
-      List.fold_left aux_fv_offset (offset, fv_pos) fv in
-
-    offset_table := offset;
+    let fv_pos = FunMap.find functs.ident fv_pos_table in
 
     let fv_ulam = List.map (fun (id,lam) -> id,conv sb cm lam) fv in
 
     let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
 
-      let fun_offset = IdentMap.find id offset in
+      let fun_offset = IdentMap.find id offset_table in
 
       let env_param =
         if closed
@@ -352,7 +395,7 @@ module Conv(P:Param) = struct
          * If the function is closed, we use a global variable named
            'closure_lbl_offset' defined. *)
         let add_offset_subst pos (sb,cm) (id,_) =
-          let offset = IdentMap.find id !offset_table in
+          let offset = IdentMap.find id offset_table in
           if closed
           then
             let lbl = offset_label closure_lbl offset in
@@ -430,6 +473,13 @@ module Conv(P:Param) = struct
 end
 
 let convert (type a) (expr:a Flambda.flambda) =
-  let module P = struct type t = a let expr = expr end in
-  let module C = Conv(P) in
+  let module P1 = struct type t = a let expr = expr end in
+  let offset_table, fv_pos_table =
+    let module O = Offsets(P1) in
+    O.res
+  in
+  let module P2 = struct include P1
+    let offset_table = offset_table
+    let fv_pos_table = fv_pos_table end in
+  let module C = Conv(P2) in
   C.res
