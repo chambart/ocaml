@@ -275,6 +275,8 @@ type 'a env = {
   seen_static_catch : IntSet.t ref;
   seen_env_var : IdentSet.t ref;
   need_env_var : IdentSet.t ref;
+  seen_env_fun : IdentSet.t ref;
+  need_env_fun : IdentSet.t ref;
   caught_static_exceptions : IntSet.t;
   closure_variables : ('a ffunctions * 'a flambda IdentMap.t) IdentMap.t;
   (* variables bound to a closure *)
@@ -363,6 +365,7 @@ let rec check env = function
           (Ident.unique_name id))
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
     env.need_env_var := IdentSet.add env_var !(env.need_env_var);
+    env.need_env_fun := IdentSet.add env_fun_id !(env.need_env_fun);
     let closure = match env_lam with
       | Fclosure (ffun,fv,_) -> Some (ffun,fv)
       | Fvar(id,_) ->
@@ -449,6 +452,8 @@ let check flam =
               seen_static_catch = ref IntSet.empty;
               seen_env_var = ref IdentSet.empty;
               need_env_var = ref IdentSet.empty;
+              seen_env_fun = ref IdentSet.empty;
+              need_env_fun = ref IdentSet.empty;
               caught_static_exceptions = IntSet.empty;
               closure_variables = IdentMap.empty } in
   check env flam;
@@ -457,6 +462,13 @@ let check flam =
     let diff = IdentSet.diff !(env.need_env_var) !(env.seen_env_var) in
     IdentSet.iter (fun id ->
       fatal_error (Printf.sprintf "Flambda.check: var offset %s is needed \
+                                   but not provided" (Ident.unique_name id)))
+      diff;
+  if not (IdentSet.subset !(env.need_env_fun) !(env.seen_env_fun))
+  then
+    let diff = IdentSet.diff !(env.need_env_fun) !(env.seen_env_fun) in
+    IdentSet.iter (fun id ->
+      fatal_error (Printf.sprintf "Flambda.check: fun offset %s is needed \
                                    but not provided" (Ident.unique_name id)))
       diff
 
