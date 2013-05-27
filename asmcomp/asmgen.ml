@@ -109,23 +109,44 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
+let check flambda =
+  Flambda.check flambda;
+  flambda
+
+let cleaning ppf flambda =
+  let val_result = Flambdainfo.analyse flambda in
+  let pure_result = Purity.unpure_expressions flambda in
+  Cleaner.specialise val_result pure_result flambda
+  ++ check
+  (* ++ flambda_dump_if ppf *)
+  ++ Cleaner.rebind val_result pure_result
+  ++ check
+  (* ++ flambda_dump_if ppf *)
+  ++ Cleaner.remove_unused_closure_param
+  ++ check
+  (* ++ flambda_dump_if ppf *)
+  ++ Flambdautils.stupid_clean
+  ++ check
+  (* ++ flambda_dump_if ppf *)
+  ++ Flambdautils.reindex
+  ++ check
+
 let inlining ppf flambda =
   let val_result = Flambdainfo.analyse flambda in
-  Cleaner.inlining val_result flambda
+  Cleaner.inlining Cleaner.Minimal val_result flambda
   ++ Flambdautils.reindex'
-  ++ flambda_dump_if ppf
+  ++ check
+  (* ++ flambda_dump_if ppf *)
 
 let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
-    let flambda = inlining ppf flambda in
-    let val_result = Flambdainfo.analyse flambda in
-    let pure_result = Purity.unpure_expressions flambda in
-    Cleaner.clean val_result pure_result flambda
+    cleaning ppf flambda
     ++ flambda_dump_if ppf
-    ++ Flambdautils.stupid_clean
+    ++ inlining ppf
     ++ flambda_dump_if ppf
-    ++ Flambdautils.reindex
+    ++ cleaning ppf
+    ++ flambda_dump_if ppf
   else flambda
 
 let optimise ppf flambda =
@@ -133,7 +154,7 @@ let optimise ppf flambda =
     if n <= 0 then flambda else
       aux (n-1) (optimise_one ppf flambda)
   in
-  aux 1 flambda
+  aux 3 flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
