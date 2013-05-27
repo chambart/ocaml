@@ -425,10 +425,13 @@ module Run(Param:Fparam) = struct
 
   and aux_apply' free_vars fun_id ffunction =
 
-    IdentMap.iter (fun id _ ->
+    List.iter (fun id ->
       let vid = var_vid id in
       bind id (ValSet.singleton vid))
-      free_vars;
+      ffunction.params;
+
+    IdentMap.iter bind free_vars;
+
     aux_count ffunction.body fun_id
 
   and aux_count lam fun_id =
