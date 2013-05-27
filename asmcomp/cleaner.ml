@@ -91,6 +91,7 @@ module Cleaner(Param:CleanerParam) = struct
         | True -> fsequence(arg,ifso,eid)
         | False -> fsequence(arg,ifnot,eid)
         | Neither ->
+          Printf.printf "\n\n\n\nneither\n\n\n\n%!";
           (* happens when arg never returns *)
           arg
       end
@@ -356,8 +357,15 @@ let fun_size ffun =
 
 let should_inline ffun = fun_size ffun < 30
 
+let should_inline_minimal ffun =
+  let max_size = 10 in
+  let count = ref 0 in
+  Flambdautils.iter_flambda (function
+    | Fclosure _ -> count := !count + max_size
+    | _ -> incr count) ffun.body;
+  !count < max_size
+
 let inline_simple func fun_id ffun args =
-  (* Printf.printf "inline simple %s\n%!" (ffun.label:>string); *)
   let sb, free_vars = IdentSet.fold (fun id (sb,free_vars) ->
       let id' = Ident.rename id in
       let sb = IdentMap.add id id' sb in
@@ -365,9 +373,6 @@ let inline_simple func fun_id ffun args =
       (sb, free_vars)) ffun.closure_params (IdentMap.empty,[]) in
 
   let sb, params = List.fold_right (fun id (sb,params) ->
-
-      (* TODO: substitution for closure parameters ! *)
-
       let id' = Ident.rename id in
       let sb = IdentMap.add id id' sb in
       let params = id'::params in
@@ -388,12 +393,18 @@ let inline_simple func fun_id ffun args =
       free_vars body in
   Flet(Strict,func_var,func,body,ExprId.create ())
 
-let inlining analysis lam =
+type inlining_kind =
+  | Minimal
+  | With_local_functions
+
+let inlining inlining_kind analysis lam =
   let module IdentityOpt = struct
     type annot = ExprId.t
     type data = ExprId.t
   end in
   let module IdentityInst = struct
+
+    let functions_map = ref analysis.info.functions
 
     let get_val_id v =
       try ValMap.find v analysis.values with
@@ -413,6 +424,11 @@ let inlining analysis lam =
       value (Flambda.data exp)
 
     include Flambdautils.Identity(IdentityOpt)
+    let closure ffunctions fv data =
+      (* update functions body for further inlining *)
+      functions_map := FunMap.add ffunctions.ident ffunctions !functions_map;
+      Flambdautils.Data data
+
     let apply ~func ~args ~direct ~dbg node_data =
       match direct with
       | None -> Flambdautils.Data node_data
@@ -426,11 +442,13 @@ let inlining analysis lam =
 
                 let fun_id = f.fun_id in
                 let ffunctions = FunMap.find f.closure_funs
-                    analysis.info.functions in
-                let ffunction = IdentMap.find
-                    fun_id ffunctions.funs in
-                if not ffunctions.recursives &&
-                   should_inline ffunction
+                    !functions_map in
+                let ffunction = IdentMap.find fun_id ffunctions.funs in
+                let should_go = match inlining_kind with
+                  | Minimal -> should_inline_minimal ffunction
+                  | With_local_functions -> should_inline ffunction
+                in
+                if not ffunctions.recursives && should_go
                 then
                   let body = inline_simple func fun_id ffunction args in
                   Flambdautils.Node body
@@ -485,4 +503,18 @@ let clean analysis unpure_expr tree =
   let tree = C2.rebind tree in
   remove_unused_closure_param tree
 
+let specialise analysis unpure_expr tree =
+  let module P = struct
+    let analysis = analysis
+    let unpure_expr = unpure_expr
+  end in
+  let module C1 = Cleaner(P) in
+  C1.clean tree
 
+let rebind analysis unpure_expr tree =
+  let module P = struct
+    let analysis = analysis
+    let unpure_expr = unpure_expr
+  end in
+  let module C2 = Rebinder(P) in
+  C2.rebind tree
