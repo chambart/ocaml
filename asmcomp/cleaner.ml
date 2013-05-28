@@ -492,6 +492,106 @@ let remove_unused_closure_param tree =
   in
   Flambdautils.map mapper tree
 
+let remove_function_variables used fun_id ffunction =
+  match ffunction.kind with
+  | Lambda.Tupled ->
+    (* Not sure how to do it correctly with tupled functions *)
+    None
+  | Lambda.Curried ->
+    let new_ident = Ident.rename fun_id in
+    let indent_in_closure = Ident.rename fun_id in
+    let new_label = Flambdagen.make_function_lbl new_ident in
+
+    let aux map id = IdentMap.add id (Ident.rename id) map in
+
+    let subst = List.fold_left aux IdentMap.empty ffunction.params in
+    let subst = List.fold_left aux subst
+        (IdentSet.elements ffunction.closure_params) in
+
+    let filter_used l = List.filter (fun id -> IdentSet.mem id used) l in
+
+    let kept_params = filter_used ffunction.params in
+    let kept_closure_params = filter_used
+        (IdentSet.elements ffunction.closure_params) in
+    let cleaned_params = kept_params @ kept_closure_params in
+
+    let map_params l = List.map (fun id -> IdentMap.find id subst) l in
+
+    let cleaned_ffunction =
+      { label = new_label;
+        kind = ffunction.kind;
+        arity = List.length cleaned_params;
+        params = cleaned_params;
+        closure_params = IdentSet.empty;
+        body = ffunction.body;
+        dbg = ffunction.dbg; } in
+
+    let eid = ExprId.create in
+    let body =
+      let apply_params = List.map (fun id -> Fvar(id,eid ()))
+          (map_params cleaned_params) in
+      Fapply(
+        Fvar (indent_in_closure, eid ()),
+        apply_params,
+        None,
+        Debuginfo.none,
+        eid ()) in
+
+    let params = map_params ffunction.params in
+    let closure_params = IdentSet.fold (fun id set ->
+        IdentSet.add (IdentMap.find id subst) set)
+        ffunction.closure_params IdentSet.empty in
+
+    let new_ffunction =
+      { ffunction with
+        params;
+        closure_params = IdentSet.add indent_in_closure closure_params;
+        dbg = Debuginfo.none;
+        body } in
+    Some (new_ident, indent_in_closure, new_ffunction, cleaned_ffunction)
+
+let remove_unused_function_param tree =
+  let used = used_variables_and_offsets tree in
+  let mapper tree = match tree with
+    | Fclosure(ffunctions,fv,eid) ->
+      if ffunctions.recursives
+      then tree
+      else begin
+        let l = IdentMap.bindings ffunctions.funs in
+        match l with
+        | [] | _::_::_ -> assert false
+        | [fun_id, ffunction] ->
+          if List.for_all (fun id -> IdentSet.mem id used) ffunction.params
+          then tree
+          else
+            match remove_function_variables used fun_id ffunction with
+            | None -> tree
+            | Some (new_ident, indent_in_closure,
+                    new_ffunction, cleaned_ffunction) ->
+              let cleaned_ffunctions =
+                { ident = FunId.create ();
+                  funs = IdentMap.singleton new_ident cleaned_ffunction;
+                  recursives = false } in
+              let new_ffunctions =
+                { ident = ffunctions.ident;
+                  funs = IdentMap.singleton fun_id new_ffunction;
+                  recursives = false } in
+              let cleaned_closure =
+                Fclosure(cleaned_ffunctions,IdentMap.empty,ExprId.create ()) in
+              let fv = IdentMap.add indent_in_closure
+                  (Fvar(new_ident,ExprId.create ())) fv in
+              let new_closure = Fclosure(new_ffunctions,fv,ExprId.create ()) in
+              let ret = Flet
+                  (Strict,new_ident,
+                   Foffset(cleaned_closure, new_ident, ExprId.create ()),
+                   new_closure,
+                   eid) in
+              ret
+      end
+    | _ -> tree
+  in
+  Flambdautils.map mapper tree
+
 let clean analysis unpure_expr tree =
   let module P = struct
     let analysis = analysis
