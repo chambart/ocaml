@@ -517,19 +517,32 @@ let remove_function_variables used fun_id ffunction =
 
     let map_params l = List.map (fun id -> IdentMap.find id subst) l in
 
+    (* TODO: if arity = 0 ajouter un paramêtre unit *)
+
+    let empty_params = cleaned_params = [] in
+
     let cleaned_ffunction =
       { label = new_label;
         kind = ffunction.kind;
-        arity = List.length cleaned_params;
-        params = cleaned_params;
+        arity =
+          if empty_params
+          then 1
+          else List.length cleaned_params;
+        params =
+          if empty_params
+          then [Ident.create "unit_param"]
+          else cleaned_params;
         closure_params = IdentSet.empty;
         body = ffunction.body;
         dbg = ffunction.dbg; } in
 
     let eid = ExprId.create in
     let body =
-      let apply_params = List.map (fun id -> Fvar(id,eid ()))
-          (map_params cleaned_params) in
+      let apply_params =
+        if empty_params
+        then [Fconst (Fconst_pointer 0,ExprId.create ())]
+        else List.map (fun id -> Fvar(id,eid ()))
+            (map_params cleaned_params) in
       Fapply(
         Fvar (indent_in_closure, eid ()),
         apply_params,
@@ -561,7 +574,8 @@ let remove_unused_function_param tree =
         match l with
         | [] | _::_::_ -> assert false
         | [fun_id, ffunction] ->
-          if List.for_all (fun id -> IdentSet.mem id used) ffunction.params
+          if List.length ffunction.params = 1 ||
+             List.for_all (fun id -> IdentSet.mem id used) ffunction.params
           then tree
           else
             match remove_function_variables used fun_id ffunction with
