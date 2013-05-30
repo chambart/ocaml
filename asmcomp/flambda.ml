@@ -346,18 +346,21 @@ let rec check env = function
     check_closure env funct fv
   | Foffset(lam,id,_) ->
     check env lam;
-    let (ffun,fv) = match lam with
+    let rec find_var_offset = function
       | Fclosure (ffun,fv,_) -> ffun,fv
       | Fvar(id,_) ->
         (try IdentMap.find id env.closure_variables
-        with Not_found ->
-          fatal_error (Printf.sprintf "Flambda.check: Foffset on a variable \
-                                       not bound to a closure: %s"
-                (Ident.unique_name id)))
+         with Not_found ->
+           fatal_error (Printf.sprintf "Flambda.check: Foffset on a variable \
+                                        not bound to a closure: %s"
+                          (Ident.unique_name id)))
+      | Flet(_,_,_,body,_) -> find_var_offset body
       | _ ->
         fatal_error (Printf.sprintf "Flambda.check: Foffset on neither a \
                                      variable nor a closure")
     in
+    let (ffun,fv) = find_var_offset lam in
+
     (* TODO: also check the recursive flag *)
     if not (IdentMap.mem id ffun.funs)
     then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \
