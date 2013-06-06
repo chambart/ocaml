@@ -13,7 +13,9 @@ let check dependencies =
   IdentMap.iter (fun _ set ->
       IdentSet.iter (fun v ->
           if not (IdentMap.mem v dependencies)
-          then fatal_error "Flambdasort.check: the graph has external dependencies")
+          then fatal_error
+              (Printf.sprintf "Flambdasort.check: the graph has external \
+                               dependencies (%s)" (Ident.unique_name v)))
         set)
     dependencies
 
@@ -114,14 +116,17 @@ let rebuild_sorted_expr bindings body =
   let deps = dependencies bindings in
   check deps;
   let scc = topological_sort deps in
-  let aux set body =
+  let aux body set =
     match IdentSet.elements set with
     | [] -> assert false
     | [id] ->
+      (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
       let expr = IdentMap.find id bindings in
-      Flet(Lambda.Strict,id,expr,body, ExprId.create ())
+      if IdentSet.mem id (IdentMap.find id deps)
+      then Fletrec([id,expr],body, ExprId.create ())
+      else Flet(Lambda.Strict,id,expr,body, ExprId.create ())
     | elts ->
       let vars = List.map (fun id -> id, IdentMap.find id bindings) elts in
       Fletrec(vars,body, ExprId.create ())
   in
-  Array.fold_right aux scc body
+  Array.fold_left aux body scc

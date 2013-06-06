@@ -138,14 +138,26 @@ let inlining ppf flambda =
   ++ check
   (* ++ flambda_dump_if ppf *)
 
+let extract_constant ppf flambda =
+  let not_const = Constants.not_constants flambda in
+  Cleaner.extract_constants not_const flambda
+
 let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
-    cleaning ppf flambda
+    flambda
+    ++ Flambdautils.anf
     ++ flambda_dump_if ppf
-    ++ inlining ppf
-    ++ flambda_dump_if ppf
-    ++ cleaning ppf
+    (* ++ extract_constant ppf *)
+    (* ++ flambda_dump_if ppf *)
+    (* ++ Cleaner.remove_unused_closure_param *)
+    (* ++ Cleaner.remove_unused_function_param *)
+    (* ++ flambda_dump_if ppf *)
+    (* ++ cleaning ppf *)
+    (* ++ flambda_dump_if ppf *)
+    (* ++ inlining ppf *)
+    (* ++ flambda_dump_if ppf *)
+    (* ++ cleaning ppf *)
     ++ flambda_dump_if ppf
   else flambda
 
@@ -154,7 +166,7 @@ let optimise ppf flambda =
     if n <= 0 then flambda else
       aux (n-1) (optimise_one ppf flambda)
   in
-  aux 3 flambda
+  aux 1 flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
