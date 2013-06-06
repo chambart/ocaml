@@ -148,7 +148,7 @@ let optimise_one ppf flambda =
     flambda
     ++ Flambdautils.anf
     ++ flambda_dump_if ppf
-    (* ++ extract_constant ppf *)
+    ++ extract_constant ppf
     (* ++ flambda_dump_if ppf *)
     (* ++ Cleaner.remove_unused_closure_param *)
     (* ++ Cleaner.remove_unused_function_param *)
