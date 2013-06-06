@@ -597,6 +597,14 @@ let rec decompose binds = function
   | Fletrec (defs, body, _) ->
     let binds = Rec defs :: binds in
     decompose binds body
+  | Fprim(Psequand | Psequor as prim, [arg1; arg2], dbg, eid) ->
+    (* seqand and seqor have a different evaluation order,
+       to keep it correct: convert to ifthenelse *)
+    let binds, arg1 = decompose_tovar binds arg1 in
+    let ifso, ifnot = match prim with
+      | Psequand -> anf arg2, Fconst (Fconst_pointer 0, ExprId.create ())
+      | _ -> Fconst (Fconst_pointer 1, ExprId.create ()), anf arg2 in
+    binds, Fifthenelse(arg1, ifso, ifnot, eid)
   | Fprim(prim, args, dbg, eid) ->
     let binds, args = decompose_tovar_list binds args in
     binds, Fprim(prim, args, dbg, eid)
