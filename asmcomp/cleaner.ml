@@ -632,3 +632,118 @@ let rebind analysis unpure_expr tree =
   end in
   let module C2 = Rebinder(P) in
   C2.rebind tree
+
+let extract_constants (constants:Constants.constant_result) tree =
+
+  (* constants extracted *)
+  let bindings = ref [] in
+  let renaming = IdentTbl.create 10 in
+
+  (* constant variables extracted in the current closure *)
+  let current_acc = ref [] in
+
+  let add_binding id lam =
+    bindings := (id, lam) :: !bindings;
+    current_acc := id :: !current_acc in
+
+  let rec mapper tree = match tree with
+    | Flet ( (StrictOpt|Strict|Alias) , id, lam, body, eid) ->
+      if IdentSet.mem id constants.Constants.not_constant_id
+      then tree
+      else begin
+        (* Printf.printf "let %s\n%!" (Ident.unique_name id); *)
+        add_binding id lam;
+        body
+      end
+
+    | Fletrec (defs, body, eid) ->
+      let (not_const_defs,const_defs) =
+        List.partition (fun (id,_) ->
+            IdentSet.mem id constants.Constants.not_constant_id) defs in
+      let aux_const (id,lam) =
+        (* Printf.printf "let rec %s\n%!" (Ident.unique_name id); *)
+        add_binding id lam
+      in
+      List.iter aux_const const_defs;
+      begin match not_const_defs with
+        | [] -> body
+        | _::_ -> Fletrec (not_const_defs, body, eid)
+      end
+    | Fclosure( ffunctions, fv, eid ) ->
+      let previous_acc = !current_acc in
+      current_acc := [];
+
+      let ffunctions =
+        { ffunctions with
+          funs = IdentMap.map
+              (fun ffun ->
+                 (* Printf.printf "start %s\n%!" (ffun.label:>string); *)
+                 let v = { ffun with body = Flambdautils.map_no_closure mapper ffun.body } in
+                 (* Printf.printf "end %s\n%!" (ffun.label:>string); *)
+                 v
+              )
+              ffunctions.funs } in
+
+      let renamed_fv id expr =
+        if not (IdentSet.mem id constants.Constants.not_constant_id)
+        then begin
+          (* si la variable libre est une constante, alors elle
+             elle doit être renomée dans les bindings *)
+          match expr with
+          | Fvar(external_var,_) ->
+            (* Printf.printf "rename %s => %s\n%!" *)
+            (*   (Ident.unique_name id) (Ident.unique_name external_var); *)
+            IdentTbl.add renaming id external_var
+          | _ -> failwith "TODO quand la variable libre n'est pas directement une variable"
+        end
+      in
+      IdentMap.iter renamed_fv fv;
+
+      let add_var fv var =
+        let renamed = Ident.rename var in
+        IdentTbl.add renaming var renamed;
+        (* Printf.printf "rename add %s => %s\n%!" *)
+        (* (Ident.unique_name var) (Ident.unique_name renamed); *)
+        IdentMap.add var (Fvar(renamed,ExprId.create ())) fv in
+
+      let fv = List.fold_left add_var fv !current_acc in
+      (* TODO: se démerder pour qu'il n'y ait pas de problème quand le
+         code des clotures sont constants *)
+
+      let local_acc = ref [] in
+
+      let res =
+        if FunSet.mem ffunctions.ident constants.Constants.not_constant_closure
+        then Fclosure( ffunctions, fv, eid )
+        else begin
+          let new_id = Ident.create "constant_closure" in
+          bindings := (new_id, Fclosure( ffunctions, fv, ExprId.create () )) ::
+                        !bindings;
+          local_acc := new_id :: !local_acc;
+          Fvar(new_id, eid)
+        end
+      in
+
+      current_acc := !local_acc @ previous_acc;
+      res
+
+    | _ -> tree
+  in
+  let rec rename id =
+    try rename (IdentTbl.find renaming id)
+    with Not_found -> id in
+  let renaming tree =
+    match tree with
+    | Fvar(var,eid) ->
+      (* let ren = rename var in *)
+      (* Printf.printf "rebind %s => %s\n%!" *)
+      (*   (Ident.unique_name var) (Ident.unique_name ren); *)
+      Fvar(rename var,eid)
+    | _ -> tree in
+  let tree = Flambdautils.map_no_closure mapper tree in
+  let bindings = List.fold_left (fun map (v,expr) ->
+      let v = rename v in
+      let expr = Flambdautils.map_no_closure renaming expr in
+      IdentMap.add v expr map)
+      IdentMap.empty !bindings in
+  Flambdasort.rebuild_sorted_expr bindings tree
