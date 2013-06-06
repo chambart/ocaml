@@ -21,3 +21,7 @@ val rebind : Flambdainfo.analysis_result ->
 val remove_unused_closure_param : 'a flambda -> 'a flambda
 
 val remove_unused_function_param : ExprId.t flambda -> ExprId.t flambda
+
+val extract_constants : Constants.constant_result ->
+  ExprId.t flambda -> ExprId.t flambda
+

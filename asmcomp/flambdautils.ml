@@ -351,9 +351,83 @@ let set_tree (type a) (type d) (tree:a flambda) (d:unit -> d) : d flambda =
   let module F = Fold(Setter(MySetter)) in
   F.fold tree
 
-
 (* TODO: try to ensure that if the values are equal they should be
    physically equal ? *)
+let map_no_closure f tree =
+  let rec aux tree =
+    let exp = match tree with
+      | Fvar (id,annot) -> tree
+      | Fconst (cst,annot) -> tree
+      | Fapply (funct, args, direc, dbg, annot) ->
+        Fapply (aux funct, List.map aux args, direc, dbg, annot)
+      | Fclosure (ffuns, fv, annot) ->
+        let fv = IdentMap.map aux fv in
+        Fclosure (ffuns, fv, annot)
+      | Foffset (flam, off, annot) ->
+        Foffset (aux flam, off, annot)
+      | Fenv_field (fenv_field, annot) ->
+        Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot)
+      | Flet(str, id, lam, body, annot) ->
+        let lam = aux lam in
+        let body = aux body in
+        Flet (str, id, lam, body, annot)
+      | Fletrec(defs, body, annot) ->
+        let defs = List.map (fun (id,lam) -> id,aux lam) defs in
+        let body = aux body in
+        Fletrec (defs, body, annot)
+      | Fprim(p, args, dbg, annot) ->
+        let args = List.map aux args in
+        Fprim (p, args, dbg, annot)
+      | Fstaticfail(i, args, annot) ->
+        let args = List.map aux args in
+        Fstaticfail (i, args, annot)
+      | Fcatch (i, vars, body, handler, annot) ->
+        let body = aux body in
+        let handler = aux handler in
+        Fcatch (i, vars, body, handler, annot)
+      | Ftrywith(body, id, handler, annot) ->
+        let body = aux body in
+        let handler = aux handler in
+        Ftrywith(body, id, handler, annot)
+      | Fifthenelse(arg, ifso, ifnot, annot) ->
+        let arg = aux arg in
+        let ifso = aux ifso in
+        let ifnot = aux ifnot in
+        Fifthenelse(arg, ifso, ifnot, annot)
+      | Fsequence(lam1, lam2, annot) ->
+        let lam1 = aux lam1 in
+        let lam2 = aux lam2 in
+        Fsequence(lam1, lam2, annot)
+      | Fwhile(cond, body, annot) ->
+        let cond = aux cond in
+        let body = aux body in
+        Fwhile(cond, body, annot)
+      | Fsend(kind, met, obj, args, dbg, annot) ->
+        let met = aux met in
+        let obj = aux obj in
+        let args = List.map aux args in
+        Fsend(kind, met, obj, args, dbg, annot)
+      | Ffor(id, lo, hi, dir, body, annot) ->
+        let lo = aux lo in
+        let hi = aux hi in
+        let body = aux body in
+        Ffor(id, lo, hi, dir, body, annot)
+      | Fassign(id, lam, annot) ->
+        let lam = aux lam in
+        Fassign(id, lam, annot)
+      | Fswitch(arg, sw, annot) ->
+        let arg = aux arg in
+        let sw =
+          { sw with
+            fs_failaction = Misc.may_map aux sw.fs_failaction;
+            fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
+            fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
+        Fswitch(arg, sw, annot)
+    in
+    f exp
+  in
+  aux tree
+
 let map f tree =
   let rec aux tree =
     let exp = match tree with
@@ -432,6 +506,228 @@ let map f tree =
     f exp
   in
   aux tree
+
+let map2 f tree =
+  let rec aux1 tree = match tree with
+    | Fvar (id,annot) -> tree
+    | Fconst (cst,annot) -> tree
+    | Fapply (funct, args, direc, dbg, annot) ->
+      Fapply (aux funct, List.map aux args, direc, dbg, annot)
+    | Fclosure (ffuns, fv, annot) ->
+      let fv = IdentMap.map aux fv in
+      Fclosure (ffuns, fv, annot)
+    | Foffset (flam, off, annot) ->
+      Foffset (aux flam, off, annot)
+    | Fenv_field (fenv_field, annot) ->
+      Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot)
+    | Flet(str, id, lam, body, annot) ->
+      let lam = aux lam in
+      let body = aux body in
+      Flet (str, id, lam, body, annot)
+    | Fletrec(defs, body, annot) ->
+      let defs = List.map (fun (id,lam) -> id,aux lam) defs in
+      let body = aux body in
+      Fletrec (defs, body, annot)
+    | Fprim(p, args, dbg, annot) ->
+      let args = List.map aux args in
+      Fprim (p, args, dbg, annot)
+    | Fstaticfail(i, args, annot) ->
+      let args = List.map aux args in
+      Fstaticfail (i, args, annot)
+    | Fcatch (i, vars, body, handler, annot) ->
+      let body = aux body in
+      let handler = aux handler in
+      Fcatch (i, vars, body, handler, annot)
+    | Ftrywith(body, id, handler, annot) ->
+      let body = aux body in
+      let handler = aux handler in
+      Ftrywith(body, id, handler, annot)
+    | Fifthenelse(arg, ifso, ifnot, annot) ->
+      let arg = aux arg in
+      let ifso = aux ifso in
+      let ifnot = aux ifnot in
+      Fifthenelse(arg, ifso, ifnot, annot)
+    | Fsequence(lam1, lam2, annot) ->
+      let lam1 = aux lam1 in
+      let lam2 = aux lam2 in
+      Fsequence(lam1, lam2, annot)
+    | Fwhile(cond, body, annot) ->
+      let cond = aux cond in
+      let body = aux body in
+      Fwhile(cond, body, annot)
+    | Fsend(kind, met, obj, args, dbg, annot) ->
+      let met = aux met in
+      let obj = aux obj in
+      let args = List.map aux args in
+      Fsend(kind, met, obj, args, dbg, annot)
+    | Ffor(id, lo, hi, dir, body, annot) ->
+      let lo = aux lo in
+      let hi = aux hi in
+      let body = aux body in
+      Ffor(id, lo, hi, dir, body, annot)
+    | Fassign(id, lam, annot) ->
+      let lam = aux lam in
+      Fassign(id, lam, annot)
+    | Fswitch(arg, sw, annot) ->
+      let arg = aux arg in
+      let sw =
+        { sw with
+          fs_failaction = Misc.may_map aux sw.fs_failaction;
+          fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
+          fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
+      Fswitch(arg, sw, annot)
+  and aux tree =
+    f aux1 tree
+  in
+  aux tree
+
+(****** ANF transformation *******)
+
+type 'a binds =
+  | Simple of let_kind * Ident.t * 'a flambda
+  | Rec of (Ident.t * 'a flambda) list
+
+let rec decompose binds = function
+  | Fvar _ as expr -> binds, expr
+  | Fconst _ as expr -> binds, expr
+  | Flet (kind, id, lam, body, _) ->
+    let binds_lam, elam = decompose binds lam in
+    let binds = Simple (kind,id,elam) :: binds_lam in
+    decompose binds body
+  | Fletrec (defs, body, _) ->
+    let binds = Rec defs :: binds in
+    decompose binds body
+  | Fprim(prim, args, dbg, eid) ->
+    let binds, args = decompose_tovar_list binds args in
+    binds, Fprim(prim, args, dbg, eid)
+  | Fsequence(e1,e2,eid) ->
+    let b1, ex1 = decompose binds e1 in
+    let b2, ex2 = decompose_tovar [] e2 in
+    let e2 = recompose b2 ex2 in
+    b1, Fsequence (ex1, e2, eid)
+  | Fapply (func, args, direct, dbg, eid) ->
+    let binds, func = decompose_tovar binds func in
+    let binds, args = decompose_tovar_list binds args in
+    binds, Fapply (func, args, direct, dbg, eid)
+  | Fclosure (ffuns, fv, eid) ->
+    let binds, fv = decompose_tovar_idmap binds fv in
+    let ffuns =
+      { ffuns with
+        funs = IdentMap.map
+            (fun ffun -> { ffun with body = anf ffun.body }) ffuns.funs } in
+    binds, Fclosure (ffuns, fv, eid)
+  | Foffset(expr, id, eid) ->
+    let binds, expr = decompose_tovar binds expr in
+    binds, Foffset(expr, id, eid)
+  | Fenv_field ({ env; env_fun_id; env_var }, eid) ->
+    let binds, env = decompose_tovar binds env in
+    binds, Fenv_field ({ env; env_fun_id; env_var }, eid)
+  | Fstaticfail (i, args, eid) ->
+    let binds, args = decompose_tovar_list binds args in
+    binds, Fstaticfail (i, args, eid)
+  | Fifthenelse (econd, eso, enot, eid) ->
+    let binds, econd = decompose_tovar binds econd in
+    binds, Fifthenelse (econd, anf eso, anf enot, eid)
+  | Fswitch (econd, sw, eid) ->
+    let binds, econd = decompose_tovar binds econd in
+    let sw = { sw with
+               fs_consts = List.map (fun (i,e) -> i, anf e) sw.fs_consts;
+               fs_blocks = List.map (fun (i,e) -> i, anf e) sw.fs_blocks;
+               fs_failaction = Misc.may_map anf sw.fs_failaction } in
+    binds, Fswitch (econd, sw, eid)
+  | Fcatch (i, ids, body, handler, eid) ->
+    binds, Fcatch (i, ids, anf body, anf handler, eid)
+  | Ftrywith (body, id, handler, eid) ->
+    binds, Ftrywith (anf body, id, anf handler, eid)
+  | Fwhile (cond, body, eid) ->
+    binds, Fwhile (anf cond, anf body, eid)
+  | Ffor (id, lo_expr, hi_expr, dir, body, eid) ->
+    let binds, lo_expr = decompose_tovar binds lo_expr in
+    let binds, hi_expr = decompose_tovar binds hi_expr in
+    binds, Ffor (id, lo_expr, hi_expr, dir, anf body, eid)
+  | Fassign (id, expr, eid) ->
+    let binds, expr = decompose_tovar binds expr in
+    binds, Fassign (id, expr, eid)
+  | Fsend (kind, meth, obj, args, dbg, eid) ->
+    (* TODO: check evaluation order ! *)
+    let binds, meth = decompose_tovar binds meth in
+    let binds, obj = decompose_tovar binds obj in
+    let binds, args = decompose_tovar_list binds args in
+    binds, Fsend (kind, meth, obj, args, dbg, eid)
+
+and tovar ?(id="anf") binds = function
+  | (Fvar _ | Fconst _) as expr -> binds, expr
+  | expr ->
+    let id = Ident.create id in
+    Simple(Strict, id, expr) :: binds, Fvar(id, ExprId.create ())
+
+and decompose_tovar ?id binds expr =
+  let binds, expr = decompose binds expr in
+  tovar ?id binds expr
+
+and decompose_tovar_list binds l =
+  let aux expr (binds,exprs) =
+    let binds, expr = decompose_tovar binds expr in
+    binds, expr :: exprs
+  in
+  List.fold_right aux l (binds, [])
+
+and decompose_tovar_idmap binds m =
+  let aux id expr (binds,exprs) =
+    let binds, expr = decompose_tovar ~id:(Ident.name id) binds expr in
+    binds, IdentMap.add id expr exprs
+  in
+  IdentMap.fold aux m (binds, IdentMap.empty)
+
+and recompose binds body =
+  let aux body = function
+    | Simple (kind, id, lam) ->
+      Flet (kind, id, lam, body, ExprId.create ())
+    | Rec defs ->
+      Fletrec (defs, body, ExprId.create ())
+  in
+  List.fold_left aux body binds
+
+and anf expr =
+  let binds, body = decompose [] expr in
+  recompose binds body
+
+(* let rec anf expr = *)
+(*   let r = ref [] in *)
+(*   let add_lets defs body = *)
+(*     List.fold_left (fun body (kind,id,lam) -> *)
+(*         Flet(kind,id,lam,body,ExprId.create ())) body defs in *)
+(*   let mapper iter tree : ExprId.t flambda = match tree with *)
+(*     | Fvar (_,_) -> tree *)
+(*     | Fsequence(e1,e2,eid) -> *)
+(*       Fsequence(anf e1, anf e2, eid) *)
+(*     (\* | Fifthenelse(econd, eso, enot, eid) -> *\) *)
+(*     (\*   let saved = !r in *\) *)
+(*     (\*   r := []; *\) *)
+(*     (\*   let cond = iter econd in *\) *)
+(*     (\*   let added = !r in *\) *)
+(*     (\*   let v = Ident.create "anf" in *\) *)
+(*     (\*   let expr = *\) *)
+(*     (\*     Fifthenelse(Fvar(v,ExprId.create ()), anf eso, anf enot, eid) in *\) *)
+(*     (\*   let ret = add_lets added expr in *\) *)
+(*     (\*   r := saved; *\) *)
+(*     (\*   ret *\) *)
+
+(*     | Flet (kind,id,lam,body,eid) -> *)
+(*       r := (kind,id,anf lam) :: !r; *)
+(*       iter body *)
+(*     | _ -> *)
+(*       let saved = !r in *)
+(*       r := []; *)
+(*       let tree = iter tree in *)
+(*       let added = !r in *)
+(*       let ret = add_lets added tree in *)
+(*       let v = Ident.create "anf" in *)
+(*       r := (Strict,v,ret) :: saved; *)
+(*       Fvar (v, ExprId.create ()) *)
+(*   in *)
+(*   let res = map2 mapper expr in *)
+(*   add_lets !r res *)
 
 (* dead code elimination *)
 

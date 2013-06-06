@@ -293,6 +293,13 @@ let add_check_env id env =
 let bind_var id lam env =
   let env = add_check_env id env in
   match lam with
+  | Fvar (var,_) ->
+    if IdentMap.mem var env.closure_variables
+    then
+      let closure_var = IdentMap.find var env.closure_variables in
+      { env with closure_variables =
+                   IdentMap.add id closure_var env.closure_variables }
+    else env
   | Fclosure (ffun,fv,_) ->
     { env with closure_variables =
                  IdentMap.add id (ffun,fv) env.closure_variables }
