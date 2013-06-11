@@ -125,7 +125,8 @@ let cleaning ppf flambda =
   ++ Cleaner.remove_unused_closure_param
   ++ check
   (* ++ flambda_dump_if ppf *)
-  ++ Flambdautils.stupid_clean
+  (* ++ Flambdautils.stupid_clean *)
+  ++ Dead_code.eliminate_dead_code
   ++ check
   (* ++ flambda_dump_if ppf *)
   ++ Flambdautils.reindex
