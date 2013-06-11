@@ -34,7 +34,7 @@ let iter_flambda f t =
     | Fapply (f1,fl,_,_,_) ->
       iter_list (f1::fl)
     | Fclosure (funcs,fv,_) ->
-      IdentMap.iter (fun _ v -> f v) fv
+      IdentMap.iter (fun _ v -> aux v) fv
     | Fletrec (defs, body,_) ->
       List.iter (fun (_,l) -> aux l) defs;
       aux body
