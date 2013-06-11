@@ -86,6 +86,7 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/flambdasort.cmo \
   asmcomp/flambdainfo.cmo \
   asmcomp/purity.cmo \
+  asmcomp/dead_code.cmo \
   asmcomp/constants.cmo \
   asmcomp/flambdasubst.cmo \
   asmcomp/cleaner.cmo \
