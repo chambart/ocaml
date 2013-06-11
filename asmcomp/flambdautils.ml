@@ -51,6 +51,52 @@ let iter_flambda f t =
   and iter_list l = List.iter aux l in
   aux t
 
+let iter2_flambda (f: ('env -> 'a flambda -> unit) -> 'env -> 'a flambda -> unit) init_env t =
+  let rec aux2 env = function
+    | Fvar _
+    | Fconst _ -> ()
+
+    | Fassign (_,f1,_)
+    | Foffset (f1, _,_)
+    | Fenv_field ({env = f1},_) ->
+      aux env f1
+
+    | Flet ( _, _, f1, f2,_)
+    | Ftrywith (f1,_,f2,_)
+    | Fsequence (f1,f2,_)
+    | Fwhile (f1,f2,_)
+    | Fcatch (_,_,f1,f2,_) ->
+      aux env f1; aux env f2;
+
+    | Ffor (_,f1,f2,_,f3,_)
+    | Fifthenelse (f1,f2,f3,_) ->
+      aux env f1;aux env f2;aux env f3
+
+    | Fstaticfail (_,l,_)
+    | Fprim (_,l,_,_) ->
+      iter_list env l
+
+    | Fapply (f1,fl,_,_,_) ->
+      iter_list env (f1::fl)
+    | Fclosure (funcs,fv,_) ->
+      IdentMap.iter (fun _ v -> aux env v) fv
+    | Fletrec (defs, body,_) ->
+      List.iter (fun (_,l) -> aux env l) defs;
+      aux env body
+    | Fswitch (arg,sw,_) ->
+      aux env arg;
+      List.iter (fun (_,l) -> aux env l) sw.fs_consts;
+      List.iter (fun (_,l) -> aux env l) sw.fs_blocks;
+      (match sw.fs_failaction with
+       | None -> ()
+       | Some f -> aux env f)
+    | Fsend (_,f1,f2,fl,_,_) ->
+      iter_list env (f1::f2::fl)
+
+  and iter_list env l = List.iter (aux env) l
+  and aux env t = f aux2 env t in
+  aux init_env t
+
 type 'a return =
   | Data of 'a
   | Node of 'a flambda
