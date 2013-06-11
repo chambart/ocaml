@@ -680,8 +680,7 @@ let extract_constants (constants:Constants.constant_result) tree =
                  (* Printf.printf "start %s\n%!" (ffun.label:>string); *)
                  let v = { ffun with body = Flambdautils.map_no_closure mapper ffun.body } in
                  (* Printf.printf "end %s\n%!" (ffun.label:>string); *)
-                 v
-              )
+                 v)
               ffunctions.funs } in
 
       let renamed_fv id expr =
@@ -699,9 +698,12 @@ let extract_constants (constants:Constants.constant_result) tree =
       in
       IdentMap.iter renamed_fv fv;
 
+      let local_acc = ref [] in
+
       let add_var fv var =
         let renamed = Ident.rename var in
         IdentTbl.add renaming var renamed;
+        local_acc := renamed :: !local_acc;
         (* Printf.printf "rename add %s => %s\n%!" *)
         (* (Ident.unique_name var) (Ident.unique_name renamed); *)
         IdentMap.add var (Fvar(renamed,ExprId.create ())) fv in
@@ -709,8 +711,6 @@ let extract_constants (constants:Constants.constant_result) tree =
       let fv = List.fold_left add_var fv !current_acc in
       (* TODO: se démerder pour qu'il n'y ait pas de problème quand le
          code des clotures sont constants *)
-
-      let local_acc = ref [] in
 
       let res =
         if FunSet.mem ffunctions.ident constants.Constants.not_constant_closure
