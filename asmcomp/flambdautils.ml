@@ -609,10 +609,9 @@ let rec decompose binds = function
     let binds, args = decompose_tovar_list binds args in
     binds, Fprim(prim, args, dbg, eid)
   | Fsequence(e1,e2,eid) ->
-    let b1, ex1 = decompose binds e1 in
-    let b2, ex2 = decompose_tovar [] e2 in
-    let e2 = recompose b2 ex2 in
-    b1, Fsequence (ex1, e2, eid)
+    let binds = ignore_val binds e1 in
+    let binds, ex2 = decompose_tovar binds e2 in
+    binds, ex2
   | Fapply (func, args, direct, dbg, eid) ->
     let binds, func = decompose_tovar binds func in
     let binds, args = decompose_tovar_list binds args in
@@ -669,6 +668,18 @@ and tovar ?(id="anf") binds = function
     let id = Ident.create id in
     Simple(Strict, id, expr) :: binds, Fvar(id, ExprId.create ())
 
+and ignore_val binds expr =
+  let binds, _ = decompose_tovar ~id:"ignore" binds expr in
+  binds
+
+and simple_expr_tovar ?id binds expr = match expr with
+  (* control expression are kept as is, var and const also, everything
+     else is converted to var *)
+  | Fswitch _ | Fstaticfail _ | Fcatch _ | Ftrywith _
+  | Fifthenelse _ | Fwhile _ | Ffor _
+  | Fprim (Praise, _,_,_) -> binds, expr
+  | _ -> tovar ?id binds expr
+
 and decompose_tovar ?id binds expr =
   let binds, expr = decompose binds expr in
   tovar ?id binds expr
@@ -698,6 +709,7 @@ and recompose binds body =
 
 and anf expr =
   let binds, body = decompose [] expr in
+  let binds, body = simple_expr_tovar binds body in
   recompose binds body
 
 (* let rec anf expr = *)
