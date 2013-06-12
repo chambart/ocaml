@@ -835,3 +835,48 @@ let const = function
   | Fconst_pointer i -> value_constptr i
   | Fconst_float_array _ -> value_floatarray
   | Fconst_immstring _ -> value_string
+
+
+let rec print ppf {
+    v_clos;
+    v_cstptr;
+    v_block;
+    v_other
+  } =
+  Format.fprintf ppf "(@[";
+  if not (FunMap.is_empty v_clos)
+  then print_clos ppf v_clos;
+  if not (IntSet.is_empty v_cstptr)
+  then print_cstptr ppf v_cstptr;
+  if not (IntMap.is_empty v_block)
+  then print_block ppf v_block;
+  (match v_other with
+   | Value_none -> ()
+   | Value_integer i ->
+     Format.fprintf ppf "%i" i
+   | Value_any_integer ->
+     Format.fprintf ppf "int"
+   | _ -> Format.fprintf ppf "other");
+  Format.fprintf ppf "@])"
+
+and print_clos ppf v_clos =
+    Format.fprintf ppf "clos";
+
+and print_cstptr ppf v_cstptr =
+    Format.fprintf ppf "cstptr";
+
+and print_block ppf v_block =
+  let elts = IntMap.bindings v_block in
+  match elts with
+  | [] -> Format.pp_print_string ppf "[]"
+  | _ ->
+    let print_block_desc ppf desc =
+      Format.fprintf ppf "{@[";
+      Array.iter (fun v -> ValSet.print ppf v) desc.fields;
+      Format.fprintf ppf "@]}";
+    in
+    Format.fprintf ppf "[@[";
+    List.iter (fun (i,v) -> Format.fprintf ppf "%i: %a; " i
+                  print_block_desc v) elts;
+    Format.fprintf ppf "@]]"
+
