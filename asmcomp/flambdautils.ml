@@ -1016,25 +1016,60 @@ let stupid_clean t =
   dead_code_elimination
     (stupid_purity_annotation t)
 
-let reindex (type t) t =
-  let module S = struct
-    type annot = t
-    type data = ExprId.t
-    let default () = ExprId.create ()
-  end in
-  let module F = Fold(Setter(S)) in
-  F.fold t
+let reindex tree =
+  let eid () = ExprId.create () in
+  let mapper = function
+    | Fvar (id,_) -> Fvar (id,eid ())
+    | Fconst (cst,_) -> Fconst (cst,eid ())
+    | Flet(str, id, lam, body,_) -> Flet(str, id, lam, body,eid ())
+    | Fletrec(defs, body,_) -> Fletrec(defs, body,eid ())
+    | Fclosure(funct, fv,_) -> Fclosure(funct, fv,eid ())
+    | Foffset(lam,id,_) -> Foffset(lam,id,eid ())
+    | Fenv_field(env,_) -> Fenv_field(env,eid ())
+    | Fapply(funct, args, direct, dbg, _) ->
+      Fapply(funct, args, direct, dbg, eid ())
+    | Fswitch(arg, sw,_) -> Fswitch(arg, sw,eid ())
+    | Fsend(kind, met, obj, args, dbg, _) ->
+      Fsend(kind, met, obj, args, dbg,eid ())
+    | Fprim(prim, args, dbg, _) -> Fprim(prim, args, dbg, eid ())
+    | Fstaticfail (i, args,_) -> Fstaticfail (i, args,eid ())
+    | Fcatch (i, vars, body, handler,_) -> Fcatch (i, vars, body, handler,eid ())
+    | Ftrywith(body, id, handler,_) -> Ftrywith(body, id, handler,eid ())
+    | Fifthenelse(arg, ifso, ifnot,_) -> Fifthenelse(arg, ifso, ifnot,eid ())
+    | Fsequence(lam1, lam2,_) -> Fsequence(lam1, lam2,eid ())
+    | Fwhile(cond, body,_) -> Fwhile(cond, body,eid ())
+    | Ffor(id, lo, hi, dir, body,_) -> Ffor(id, lo, hi, dir, body,eid ())
+    | Fassign(id, lam,_) -> Fassign(id, lam,eid ())
+  in
+  map mapper tree
 
-let reindex' t =
-  let module S = struct
-    type annot = ExprId.t
-    type data = ExprId.t
-    let merge _ prev_id =
-      let name = ExprId.name prev_id in
-      ExprId.create ?name ()
-  end in
-  let module F = Fold(Merger(S)) in
-  F.fold t
+let reindex' tree =
+  let eid prev_id =
+    let name = ExprId.name prev_id in
+    ExprId.create ?name () in
+  let mapper = function
+    | Fvar (id,pid) -> Fvar (id,eid pid)
+    | Fconst (cst,pid) -> Fconst (cst,eid pid)
+    | Flet(str, id, lam, body,pid) -> Flet(str, id, lam, body,eid pid)
+    | Fletrec(defs, body,pid) -> Fletrec(defs, body,eid pid)
+    | Fclosure(funct, fv,pid) -> Fclosure(funct, fv,eid pid)
+    | Foffset(lam,id,pid) -> Foffset(lam,id,eid pid)
+    | Fenv_field(env,pid) -> Fenv_field(env,eid pid)
+    | Fapply(funct, args, direct, dbg, pid) -> Fapply(funct, args, direct, dbg, eid pid)
+    | Fswitch(arg, sw,pid) -> Fswitch(arg, sw,eid pid)
+    | Fsend(kind, met, obj, args, dbg, pid) -> Fsend(kind, met, obj, args, dbg,eid pid)
+    | Fprim(prim, args, dbg, pid) -> Fprim(prim, args, dbg, eid pid)
+    | Fstaticfail (i, args,pid) -> Fstaticfail (i, args,eid pid)
+    | Fcatch (i, vars, body, handler,pid) -> Fcatch (i, vars, body, handler,eid pid)
+    | Ftrywith(body, id, handler,pid) -> Ftrywith(body, id, handler,eid pid)
+    | Fifthenelse(arg, ifso, ifnot,pid) -> Fifthenelse(arg, ifso, ifnot,eid pid)
+    | Fsequence(lam1, lam2,pid) -> Fsequence(lam1, lam2,eid pid)
+    | Fwhile(cond, body,pid) -> Fwhile(cond, body,eid pid)
+    | Ffor(id, lo, hi, dir, body,pid) -> Ffor(id, lo, hi, dir, body,eid pid)
+    | Fassign(id, lam,pid) -> Fassign(id, lam,eid pid)
+  in
+  map mapper tree
+
 
 (* variable assignation tracking *)
 
