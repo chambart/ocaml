@@ -124,7 +124,8 @@ module NotConstants(P:Param) = struct
             mark iter env func.body)
           funct.funs;
         IdentMap.iter (fun id expr ->
-            add_depend_id (Eid (data expr)) id;
+            let eid = data expr in
+            add_depend_id (Eid eid) id;
             (* mark iter ou pas ici ? *)
             mark iter { env with curr_eid = Some eid } expr)
           fv
@@ -223,6 +224,12 @@ let dead_code_elimination effectful used expr =
     | Fclosure(funct, fv, eid) ->
       let funs = IdentMap.filter
           (fun id _ -> IdentSet.mem id used.used_fun) funct.funs in
+      let funs = IdentMap.map
+          (fun func ->
+             { func with
+               closure_params = IdentSet.filter
+                   (fun id -> IdentSet.mem id used.used_id)
+                   func.closure_params }) funs in
       let fv = IdentMap.filter
           (fun id _ -> IdentSet.mem id used.used_id) fv in
       Fclosure({ funct with funs }, fv, eid)
