@@ -28,7 +28,13 @@ let list_functions t =
 
 let global_size t =
   let r = ref (-1) in
+  let globals = ref IdentSet.empty in
   let aux = function
+    | Flet(_,id,Fprim(Pgetglobal gid, arg, _, _), _, _) ->
+      globals := IdentSet.add id !globals
+    | Fprim(Psetfield(n, _), [Fvar(id,_); lam], _, _) ->
+      if IdentSet.mem id !globals
+      then r := max !r n
     | Fprim(Psetfield(n, _), [Fprim(Pgetglobal id, arg, _, _); lam], _, _) ->
       r := max !r n;
     | _ -> ()
@@ -268,12 +274,17 @@ module Run(Param:Fparam) = struct
       assert(arg = []);
       find_global id
 
-    | Fprim(Psetfield(n, _), [Fprim(Pgetglobal id, arg, _, _); lam], _, _) ->
-      assert(id.Ident.name = Compilenv.current_unit_name ());
-      assert(arg = []);
-      aux lam;
-      set_global (set_field n (value global_val) (mu lam));
-      New value_unit
+
+    | Fprim(Psetfield(n, _), args, _, _) ->
+      List.iter (aux) args;
+      (match args with
+       | [] | [_] | _::_::_::_ -> assert false
+       | [a;arg] ->
+         if ValSet.equal (mu a) (ValSet.singleton global_val)
+         then begin
+           set_global (set_field n (value global_val) (mu arg))
+         end;
+         New value_unit)
 
     | Fprim(Pmakearray kind, args, _, _) ->
       List.iter (aux) args;
@@ -296,13 +307,6 @@ module Run(Param:Fparam) = struct
     | Fprim(Pduprecord _, args, _, _) ->
       List.iter (aux) args;
       New value_mutable
-
-    | Fprim(Psetfield _ , args, _, _) ->
-      List.iter (aux) args;
-      (match args with
-       | [] | [_] | _::_::_::_ -> assert false
-       | [a;arg] ->
-         New value_unit)
 
     | Fprim(p, args, _, eid) ->
       List.iter (aux) args;
