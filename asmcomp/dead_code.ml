@@ -108,10 +108,6 @@ module NotConstants(P:Param) = struct
             mark iter { env with curr_eid = None } lam) defs;
         mark iter { env with curr_eid = Some eid } body
 
-      (* | Fclosure : TODO (derniere expression du corps de la fonction
-         dépend de la fonction) et corriger le cas var après
-      *)
-
       | Foffset(expr, fun_id, eid) ->
         add_depend_eid (Fun fun_id) (Some eid);
         mark iter { env with curr_eid = Some eid } expr
@@ -122,13 +118,8 @@ module NotConstants(P:Param) = struct
 
       | Fclosure(funct, fv, eid) ->
         IdentMap.iter (fun fun_id func ->
-            (* TODO: supprimer ce reachable et mettre a la place une
-               dépendence de la fonction sur cette expression *)
             let body_eid = data func.body in
-            (* reachable (Eid body_eid); *)
             add_depend_fun (Eid body_eid) fun_id;
-            (* TODO: really depend on the function *)
-            (* let env = { curr_fun = Some fun_id; curr_eid = None } in *)
             let env = { curr_fun = Some fun_id; curr_eid = Some body_eid } in
             mark iter env func.body)
           funct.funs;
