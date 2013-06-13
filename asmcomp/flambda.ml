@@ -282,13 +282,19 @@ type 'a env = {
   (* variables bound to a closure *)
 }
 
-let add_check_env id env =
+let add_check_env' env id =
   if IdentSet.mem id !(env.seen_variables)
   then fatal_error (Printf.sprintf "Flambda.check: variable %s bound \
                                     multiple times" (Ident.unique_name id));
-  env.seen_variables := IdentSet.add id !(env.seen_variables);
+  env.seen_variables := IdentSet.add id !(env.seen_variables)
+
+let add_env id env =
   { env with
     bound_variables = IdentSet.add id env.bound_variables }
+
+let add_check_env id env =
+  add_check_env' env id;
+  add_env id env
 
 let bind_var id lam env =
   let env = add_check_env id env in
@@ -443,8 +449,8 @@ let rec check env = function
 and check_closure orig_env funct fv' =
   let fv = List.map fst (IdentMap.bindings fv') in
   let funs = List.map fst (IdentMap.bindings funct.funs) in
-  let env = List.fold_right add_check_env fv (empty_env orig_env) in
-  let env = List.fold_right add_rec_closure funs env in
+  List.iter (add_check_env' orig_env) fv;
+  let env = List.fold_right add_rec_closure funs (empty_env orig_env) in
   IdentMap.iter (fun _ func ->
     IdentSet.iter (fun id ->
       if not (IdentMap.mem id fv')
@@ -452,6 +458,7 @@ and check_closure orig_env funct fv' =
         fatal_error (Printf.sprintf "Flambda.check: variable %s not in \
                                      the closure" (Ident.unique_name id)))
       func.closure_params;
+    let env = IdentSet.fold add_env func.closure_params env in
     let env = List.fold_right add_check_env func.params env in
     check env func.body) funct.funs
 
