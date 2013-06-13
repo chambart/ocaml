@@ -641,6 +641,7 @@ let rec decompose binds = function
     let binds = Simple (kind,id,elam) :: binds_lam in
     decompose binds body
   | Fletrec (defs, body, _) ->
+    let defs = List.map (fun (id, lam) -> id, decompose_recompose lam) defs in
     let binds = Rec defs :: binds in
     decompose binds body
   | Fprim(Psequand | Psequor as prim, [arg1; arg2], dbg, eid) ->
@@ -752,6 +753,10 @@ and recompose binds body =
       Fletrec (defs, body, ExprId.create ())
   in
   List.fold_left aux body binds
+
+and decompose_recompose expr =
+  let binds, body = decompose [] expr in
+  recompose binds body
 
 and anf expr =
   let binds, body = decompose [] expr in
