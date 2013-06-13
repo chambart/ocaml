@@ -18,7 +18,7 @@ val specialise : Flambdainfo.analysis_result ->
 val rebind : Flambdainfo.analysis_result ->
   ExprSet.t -> ExprId.t flambda -> ExprId.t flambda
 
-val remove_unused_closure_param : 'a flambda -> 'a flambda
+(* val remove_unused_closure_param : 'a flambda -> 'a flambda *)
 
 val remove_unused_function_param : ExprId.t flambda -> ExprId.t flambda
 
