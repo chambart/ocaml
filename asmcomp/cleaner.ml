@@ -380,16 +380,16 @@ let inline_simple func fun_id ffun args =
   let body, _ = Flambdasubst.substitute sb ffun.body in
   let body =
     List.fold_right2 (fun id arg body ->
-      Flet(Strict,id,arg,body,ExprId.create ()))
+        Flet(Strict,id,arg,body,ExprId.create ()))
       params args body in
   let func_var = Ident.create "inlined_closure" in
   let body =
     List.fold_right (fun (id,id') body ->
-      let field =
-        { env = Fvar(func_var,ExprId.create ());
-          env_fun_id = fun_id;
-          env_var = id } in
-      Flet(Strict,id',Fenv_field(field,ExprId.create ()),body,ExprId.create ()))
+        let field =
+          { env = Fvar(func_var,ExprId.create ());
+            env_fun_id = fun_id;
+            env_var = id } in
+        Flet(Strict,id',Fenv_field(field,ExprId.create ()),body,ExprId.create ()))
       free_vars body in
   Flet(Strict,func_var,func,body,ExprId.create ())
 
@@ -476,21 +476,23 @@ let used_variables_and_offsets tree =
   Flambdautils.iter_flambda aux tree;
   !vars
 
-let remove_unused_closure_param tree =
-  let used = used_variables_and_offsets tree in
-  let mapper tree = match tree with
-    | Fclosure(ffunctions,fv,eid) ->
-      let fv = IdentMap.filter (fun id _ -> IdentSet.mem id used) fv in
-      let ffunctions =
-        { ffunctions with
-          funs = IdentMap.map (fun ffun ->
-              { ffun with closure_params =
-                            IdentSet.inter ffun.closure_params used })
-              ffunctions.funs } in
-      Fclosure(ffunctions,fv,eid)
-    | _ -> tree
-  in
-  Flambdautils.map mapper tree
+(* this is now done by dead code elimination *)
+
+(* let remove_unused_closure_param tree = *)
+(*   let used = used_variables_and_offsets tree in *)
+(*   let mapper tree = match tree with *)
+(*     | Fclosure(ffunctions,fv,eid) -> *)
+(*       let fv = IdentMap.filter (fun id _ -> IdentSet.mem id used) fv in *)
+(*       let ffunctions = *)
+(*         { ffunctions with *)
+(*           funs = IdentMap.map (fun ffun -> *)
+(*               { ffun with closure_params = *)
+(*                             IdentSet.inter ffun.closure_params used }) *)
+(*               ffunctions.funs } in *)
+(*       Fclosure(ffunctions,fv,eid) *)
+(*     | _ -> tree *)
+(*   in *)
+(*   Flambdautils.map mapper tree *)
 
 let remove_function_variables used fun_id ffunction =
   match ffunction.kind with
@@ -615,7 +617,8 @@ let clean analysis unpure_expr tree =
   let tree = C1.clean tree in
   let module C2 = Rebinder(P) in
   let tree = C2.rebind tree in
-  remove_unused_closure_param tree
+  tree
+  (* remove_unused_closure_param tree *)
 
 let specialise analysis unpure_expr tree =
   let module P = struct
@@ -697,7 +700,9 @@ let extract_constants (constants:Constants.constant_result) tree =
             (* Printf.printf "rename %s => %s\n%!" *)
             (*   (Ident.unique_name id) (Ident.unique_name external_var); *)
             IdentTbl.add renaming id external_var
-          | _ -> failwith "TODO quand la variable libre n'est pas directement une variable"
+          | _ ->
+            (* TODO, ou pas... en ANF ce cas la n'existe pas *)
+            failwith "TODO quand la variable libre n'est pas directement une variable"
         end
       in
       IdentMap.iter renamed_fv fv;
