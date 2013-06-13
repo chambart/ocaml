@@ -677,9 +677,13 @@ let extract_constants (constants:Constants.constant_result) tree =
         { ffunctions with
           funs = IdentMap.map
               (fun ffun ->
-                 (* Printf.printf "start %s\n%!" (ffun.label:>string); *)
-                 let v = { ffun with body = Flambdautils.map_no_closure mapper ffun.body } in
-                 (* Printf.printf "end %s\n%!" (ffun.label:>string); *)
+                 let tmp = !current_acc in
+                 current_acc := [];
+                 let body = Flambdautils.map_no_closure mapper ffun.body in
+                 let new_free_var = !current_acc in
+                 current_acc := new_free_var @ tmp;
+                 let closure_params = List.fold_right IdentSet.add new_free_var ffun.closure_params in
+                 let v = { ffun with body; closure_params } in
                  v)
               ffunctions.funs } in
 
