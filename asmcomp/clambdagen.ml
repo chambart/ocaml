@@ -461,6 +461,8 @@ module Conv(P:Param2) = struct
     | Uconst(cst, None) ->
       let lbl = Compilenv.new_structured_constant cst false in
       Lbl lbl
+    | Uprim(Pgetglobal id, [], _) ->
+      Lbl (Ident.name id)
     | _ -> Not_const
 
   and set_label set_lbl = function
