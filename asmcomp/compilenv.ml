@@ -31,6 +31,7 @@ let structured_constants =
   ref ([] : (string * bool * Clambda.ustructured_constant) list)
 
 let symbol_alias : (string,string list) Hashtbl.t = Hashtbl.create 10
+let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
 
@@ -75,7 +76,8 @@ let reset ?packname name =
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
   structured_constants := [];
-  Hashtbl.clear symbol_alias
+  Hashtbl.clear symbol_alias;
+  Hashtbl.clear symbol_back_alias
 
 let current_unit_infos () =
   current_unit
@@ -247,12 +249,24 @@ let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
 
-let new_symbol_alias ~orig ~alias =
+let set_symbol_alias ~orig ~alias =
   let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
-  Hashtbl.replace symbol_alias orig (alias::l)
+  Hashtbl.replace symbol_alias orig (alias::l);
+  assert(not (Hashtbl.mem symbol_back_alias alias));
+  Hashtbl.add symbol_back_alias alias orig
+
+let rec new_symbol_alias ~orig ~alias =
+  match (try Some (Hashtbl.find symbol_back_alias orig) with _ -> None) with
+  | Some orig -> new_symbol_alias ~orig ~alias
+  | None -> set_symbol_alias ~orig ~alias
 
 let symbol_alias s =
-  try Hashtbl.find symbol_alias s with Not_found -> []
+  let rec aux s =
+    let l = try Hashtbl.find symbol_alias s with Not_found -> [] in
+    List.concat (l::(List.map aux l))
+  in
+  aux s
+
 
 (* Error report *)
 
