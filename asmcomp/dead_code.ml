@@ -253,6 +253,6 @@ let dead_code_elimination effectful used expr =
   Flambdautils.map mapper expr
 
 let eliminate_dead_code tree =
-  let effectful = Purity.effectful tree in
+  let effectful = Purity.effectful Purity.Effectful tree in
   let used = used effectful tree in
   dead_code_elimination effectful used tree
