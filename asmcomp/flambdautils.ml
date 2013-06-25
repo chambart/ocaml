@@ -978,48 +978,48 @@ let dead_code_elimination t =
 
 
 (* TODO: clean: copied from flambdaloop to do this quickly now... *)
-let pure_prim = function
-    Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
-    Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
-    Parraysetu _ | Parraysets _ | Pbigarrayset _ -> false
-  | _ -> true (* TODO: exhaustive list *)
+(* let pure_prim = function *)
+(*     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ | *)
+(*     Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets | *)
+(*     Parraysetu _ | Parraysets _ | Pbigarrayset _ -> false *)
+(*   | _ -> true (\* TODO: exhaustive list *\) *)
 
-let stupid_purity_annotation (type t) t : pure flambda =
-  let module Unpure = struct
-    type annot = t
-    type data = pure
-    let merge l _ =
-      if List.for_all (fun v -> v = Pure) l
-      then Pure
-      else Unpure
-  end in
-  let module UnpureInst = struct
-    include Merger(Unpure)
+(* let stupid_purity_annotation (type t) t : pure flambda = *)
+(*   let module Unpure = struct *)
+(*     type annot = t *)
+(*     type data = pure *)
+(*     let merge l _ = *)
+(*       if List.for_all (fun v -> v = Pure) l *)
+(*       then Pure *)
+(*       else Unpure *)
+(*   end in *)
+(*   let module UnpureInst = struct *)
+(*     include Merger(Unpure) *)
 
-    let apply ~func ~args ~direct ~dbg data = Data Unpure
-    let prim p args _ data =
-      let d =
-        if pure_prim p &&
-           List.for_all (fun lam -> Flambda.data lam = Pure) args
-        then Pure
-        else Unpure
-      in
-      Data d
-    let staticfail _ _ data = Data Unpure
-    let assign _ _ data = Data Unpure
-    let send _ _ _ _ _ data = Data Unpure
+(*     let apply ~func ~args ~direct ~dbg data = Data Unpure *)
+(*     let prim p args _ data = *)
+(*       let d = *)
+(*         if pure_prim p && *)
+(*            List.for_all (fun lam -> Flambda.data lam = Pure) args *)
+(*         then Pure *)
+(*         else Unpure *)
+(*       in *)
+(*       Data d *)
+(*     let staticfail _ _ data = Data Unpure *)
+(*     let assign _ _ data = Data Unpure *)
+(*     let send _ _ _ _ _ data = Data Unpure *)
 
-    let closure ffunc fv data =
-      let unpure = List.map (fun (_,v) -> Flambda.data v) (IdentMap.bindings fv) in
-      Data (Unpure.merge unpure data)
+(*     let closure ffunc fv data = *)
+(*       let unpure = List.map (fun (_,v) -> Flambda.data v) (IdentMap.bindings fv) in *)
+(*       Data (Unpure.merge unpure data) *)
 
-  end in
-  let module M = Fold(UnpureInst) in
-  M.fold t
+(*   end in *)
+(*   let module M = Fold(UnpureInst) in *)
+(*   M.fold t *)
 
-let stupid_clean t =
-  dead_code_elimination
-    (stupid_purity_annotation t)
+(* let stupid_clean t = *)
+(*   dead_code_elimination *)
+(*     (stupid_purity_annotation t) *)
 
 let reindex tree =
   let eid () = ExprId.create () in

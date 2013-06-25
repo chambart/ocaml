@@ -1,8 +1,22 @@
 open Lambda
 open Flambda
-open Flambdautils
 
 let pure_prim = function
+    Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
+    Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
+    Parraysetu _ | Parraysets _ | Pbigarrayset _
+
+  | Pstringrefs | Parrayrefs _ | Pbigarrayref (_,_,_,_)
+
+  | Pstring_load_16 _ | Pstring_load_32 _ | Pstring_load_64 _
+
+  | Pbigstring_load_16 _ | Pbigstring_load_32 _
+  | Pbigstring_load_64 _
+
+    -> false
+  | _ -> true (* TODO: exhaustive list *)
+
+let effectless_prim = function
     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
     Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
     Parraysetu _ | Parraysets _ | Pbigarrayset _
@@ -17,60 +31,62 @@ let pure_prim = function
     -> false
   | _ -> true (* TODO: exhaustive list *)
 
-let unpure_expressions t : ExprSet.t =
-  let unpure_expr = ref ExprSet.empty in
+(* let unpure_expressions t : ExprSet.t = *)
+(*   let unpure_expr = ref ExprSet.empty in *)
 
-  let mark e =
-    unpure_expr := ExprSet.add e !unpure_expr in
+(*   let mark e = *)
+(*     unpure_expr := ExprSet.add e !unpure_expr in *)
 
-  let module Unpure = struct
-    type annot = ExprId.t
-    type data = pure
-    let merge l data =
-      if List.for_all (fun v -> v = Pure) l
-      then Pure
-      else
-        (mark data;
-         Unpure)
-  end in
-  let module UnpureInst = struct
-    include Merger(Unpure)
+(*   let module Unpure = struct *)
+(*     type annot = ExprId.t *)
+(*     type data = pure *)
+(*     let merge l data = *)
+(*       if List.for_all (fun v -> v = Pure) l *)
+(*       then Pure *)
+(*       else *)
+(*         (mark data; *)
+(*          Unpure) *)
+(*   end in *)
+(*   let module UnpureInst = struct *)
+(*     include Merger(Unpure) *)
 
-    let apply ~func ~args ~direct ~dbg data =
-      (* mark pure functions *)
-      mark data;
-      Data Unpure
+(*     let apply ~func ~args ~direct ~dbg data = *)
+(*       (\* mark pure functions *\) *)
+(*       mark data; *)
+(*       Data Unpure *)
 
-    let prim p args _ data =
-      let d =
-        if pure_prim p &&
-           List.for_all (fun lam -> Flambda.data lam = Pure) args
-        then Pure
-        else (mark data; Unpure)
-      in
-      Data d
-    let staticfail _ _ data =
-      mark data;
-      Data Unpure
+(*     let prim p args _ data = *)
+(*       let d = *)
+(*         if effectful_prim p && *)
+(*            List.for_all (fun lam -> Flambda.data lam = Pure) args *)
+(*         then Pure *)
+(*         else (mark data; Unpure) *)
+(*       in *)
+(*       Data d *)
+(*     let staticfail _ _ data = *)
+(*       mark data; *)
+(*       Data Unpure *)
 
-    let assign _ _ data =
-      mark data;
-      Data Unpure
-    let send _ _ _ _ _ data =
-      mark data;
-      Data Unpure
+(*     let assign _ _ data = *)
+(*       mark data; *)
+(*       Data Unpure *)
+(*     let send _ _ _ _ _ data = *)
+(*       mark data; *)
+(*       Data Unpure *)
 
-    let closure ffunc fv data =
-      let unpure = List.map (fun (_,v) -> Flambda.data v) (IdentMap.bindings fv) in
-      Data (Unpure.merge unpure data)
+(*     let closure ffunc fv data = *)
+(*       let unpure = List.map (fun (_,v) -> Flambda.data v) (IdentMap.bindings fv) in *)
+(*       Data (Unpure.merge unpure data) *)
 
-  end in
-  let module M = Fold(UnpureInst) in
-  let _ = M.fold t in
-  !unpure_expr
+(*   end in *)
+(*   let module M = Fold(UnpureInst) in *)
+(*   let _ = M.fold t in *)
+(*   !unpure_expr *)
 
-let effectful_node = function
-  | Fvar _
+type kind = Pure | Effectful
+
+let effectful_node kind unpure_var = function
+  | Fvar (id,_) -> IdentSet.mem id unpure_var
   | Fconst _
   | Flet _
   | Fletrec _
@@ -90,8 +106,10 @@ let effectful_node = function
   | Fsend(kind, met, obj, _, _,_) ->
     true
   | Fprim(p, _, _,_) ->
-    not (pure_prim p)
-
+    begin match kind with
+      | Pure -> not (pure_prim p)
+      | Effectful -> not (effectless_prim p)
+    end
   | Fassign(id, lam,data) -> true
   | Fstaticfail _ -> true
 
@@ -99,7 +117,15 @@ type effectful =
   { effectful_expr : ExprSet.t;
     effectful_fun : IdentSet.t }
 
-let effectful expr =
+let effectful kind expr =
+
+  let unpure_var =
+    match kind with
+    | Pure -> Flambdautils.assigned_var expr
+    | Effectful ->
+      (* reading unpure variable do no effect so we can skip this *)
+      IdentSet.empty in
+
   let effectful_expr = ref ExprSet.empty in
 
   let effectful_fun = ref IdentSet.empty in
@@ -113,17 +139,17 @@ let effectful expr =
   let do_expr iter env expr =
     let prev = !current_effectful in
     current_effectful := false;
-    if effectful_node expr
+    if effectful_node kind unpure_var expr
     then current_effectful := true;
     iter env expr;
     if !current_effectful
     then effectful_expr := ExprSet.add (data expr) !effectful_expr;
     current_effectful := !current_effectful || prev in
 
-  let mark iter env = function
+  let rec mark iter env = function
     | Fclosure(funct, _, _) as expr ->
       (* TODO funct ! *)
-      IdentMap.iter (fun _ func -> iter env func.body) funct.funs;
+      IdentMap.iter (fun _ func -> mark iter env func.body) funct.funs;
       do_expr iter env expr (* mark for fv *)
 
     | Fapply _ as expr ->
