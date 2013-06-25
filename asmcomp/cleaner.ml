@@ -5,15 +5,15 @@ open Values
 
 module type CleanerParam = sig
   val analysis : analysis_result
-  val unpure_expr : ExprSet.t
+  val effectful_expr : ExprSet.t
 end
 
 module Cleaner(Param:CleanerParam) = struct
   let analysis = Param.analysis
 
-  let is_pure expr =
+  let is_effectless expr =
     let eid = Flambda.data expr in
-    not (ExprSet.mem eid Param.unpure_expr)
+    not (ExprSet.mem eid Param.effectful_expr)
 
   let get_val_id v =
     try ValMap.find v analysis.values with
@@ -76,7 +76,7 @@ module Cleaner(Param:CleanerParam) = struct
         Pgenarray
 
   let fsequence (e1, e2, eid) =
-    if is_pure e1
+    if is_effectless e1
     then e2
     else Fsequence(e1,e2,eid)
 
@@ -181,7 +181,7 @@ module Cleaner(Param:CleanerParam) = struct
     | e -> e
 
   let mapper tree =
-    if is_pure tree
+    if is_effectless tree
     then
       match simple_constant (expr_value tree) with
       | Some (Cint i) ->
@@ -201,12 +201,12 @@ module Rebinder(Param:CleanerParam) = struct
   let analysis = Param.analysis
   let external_val = analysis.external_val
 
-  let is_pure expr =
+  let is_effectless expr =
     let eid = Flambda.data expr in
-    not (ExprSet.mem eid Param.unpure_expr)
+    not (ExprSet.mem eid Param.effectful_expr)
 
   let fsequence (e1, e2, eid) =
-    if is_pure e1
+    if is_effectless e1
     then e2
     else Fsequence(e1,e2,eid)
 
@@ -252,7 +252,7 @@ module Rebinder(Param:CleanerParam) = struct
               else tree
             | _ ->
               (* Printf.printf "\n\ncas utile\n\n%!"; *)
-              if is_pure tree
+              if is_effectless tree
               then Fvar (id,data tree)
               else tree
               (* let eid1 = ExprId.create () in *)
@@ -608,10 +608,10 @@ let remove_unused_function_param tree =
   in
   Flambdautils.map mapper tree
 
-let clean analysis unpure_expr tree =
+let clean analysis effectful tree =
   let module P = struct
     let analysis = analysis
-    let unpure_expr = unpure_expr
+    let effectful_expr = effectful.Purity.effectful_expr
   end in
   let module C1 = Cleaner(P) in
   let tree = C1.clean tree in
@@ -620,18 +620,18 @@ let clean analysis unpure_expr tree =
   tree
   (* remove_unused_closure_param tree *)
 
-let specialise analysis unpure_expr tree =
+let specialise analysis effectful tree =
   let module P = struct
     let analysis = analysis
-    let unpure_expr = unpure_expr
+    let effectful_expr = effectful.Purity.effectful_expr
   end in
   let module C1 = Cleaner(P) in
   C1.clean tree
 
-let rebind analysis unpure_expr tree =
+let rebind analysis effectful tree =
   let module P = struct
     let analysis = analysis
-    let unpure_expr = unpure_expr
+    let effectful_expr = effectful.Purity.effectful_expr
   end in
   let module C2 = Rebinder(P) in
   C2.rebind tree
