@@ -1944,6 +1944,11 @@ let cdefine_symbol symb =
   let l = symb :: (Compilenv.symbol_alias symb) in
   List.map (fun v -> Cdefine_symbol v) l
 
+let cdefine_offseted_symbol symb pos =
+  let l = symb :: (Compilenv.symbol_alias symb) in
+  List.flatten
+    (List.map (fun v -> cdefine_symbol (v ^ "_" ^ (string_of_int pos))) l)
+
 (* Emit structured constants *)
 
 let immstrings = Hashtbl.create 17
@@ -2087,16 +2092,15 @@ let emit_constant_closure symb fundecls clos_vars cont =
           let emit_fields, cont1 = emit_constant_fields clos_vars cont in
           emit_fields@cont1
       | f2 :: rem ->
-          let symb' = symb ^ "_" ^ (string_of_int pos) in
           if f2.arity = 1 then
             Cint(infix_header pos) ::
-            cdefine_symbol symb' @
+            cdefine_offseted_symbol symb pos @
             Csymbol_address f2.label ::
             Cint 3n ::
             emit_others (pos + 3) rem
           else
             Cint(infix_header pos) ::
-            cdefine_symbol symb' @
+            cdefine_offseted_symbol symb pos @
             Csymbol_address(curry_function f2.arity) ::
             Cint(Nativeint.of_int (f2.arity lsl 1 + 1)) ::
             Csymbol_address f2.label ::

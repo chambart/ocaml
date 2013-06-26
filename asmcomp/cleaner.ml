@@ -1,3 +1,4 @@
+open Misc
 open Lambda
 open Flambda
 open Flambdainfo
@@ -643,100 +644,121 @@ let extract_constants (constants:Constants.constant_result) tree =
   let renaming = IdentTbl.create 10 in
 
   (* constant variables extracted in the current closure *)
-  let current_acc = ref [] in
+  let current_acc = ref IdentSet.empty in
 
   let add_binding id lam =
     bindings := (id, lam) :: !bindings;
-    current_acc := id :: !current_acc in
+    current_acc := IdentSet.add id !current_acc
+  in
 
-  let rec mapper tree = match tree with
-    | Flet ( (StrictOpt|Strict|Alias) , id, lam, body, eid) ->
-      if IdentSet.mem id constants.Constants.not_constant_id
-      then tree
-      else begin
-        (* Printf.printf "let %s\n%!" (Ident.unique_name id); *)
-        add_binding id lam;
-        body
+  let rec mapper iter tree = match tree with
+    | Flet ( (StrictOpt|Strict|Alias) as kind, id, lam, body, eid) ->
+      begin
+        let b = bind iter (id,lam) in
+        let body = mapper iter body in
+        match b with
+        | None -> body
+        | Some (id,lam) ->
+          Flet ( kind, id, lam, body, eid )
       end
 
     | Fletrec (defs, body, eid) ->
-      let (not_const_defs,const_defs) =
-        List.partition (fun (id,_) ->
-            IdentSet.mem id constants.Constants.not_constant_id) defs in
-      let aux_const (id,lam) =
-        (* Printf.printf "let rec %s\n%!" (Ident.unique_name id); *)
-        add_binding id lam
-      in
-      List.iter aux_const const_defs;
+      let not_const_defs = map_filter (bind iter) defs in
+      let body = mapper iter body in
       begin match not_const_defs with
         | [] -> body
         | _::_ -> Fletrec (not_const_defs, body, eid)
       end
+
     | Fclosure( ffunctions, fv, eid ) ->
-      let previous_acc = !current_acc in
-      current_acc := [];
+      fclosure iter None ffunctions fv eid
 
-      let ffunctions =
-        { ffunctions with
-          funs = IdentMap.map
-              (fun ffun ->
-                 let tmp = !current_acc in
-                 current_acc := [];
-                 let body = Flambdautils.map_no_closure mapper ffun.body in
-                 let new_free_var = !current_acc in
-                 current_acc := new_free_var @ tmp;
-                 let closure_params = List.fold_right IdentSet.add new_free_var ffun.closure_params in
-                 let v = { ffun with body; closure_params } in
-                 v)
-              ffunctions.funs } in
+    | _ -> iter tree
 
-      let renamed_fv id expr =
-        if not (IdentSet.mem id constants.Constants.not_constant_id)
-        then begin
-          (* si la variable libre est une constante, alors elle
-             elle doit être renomée dans les bindings *)
-          match expr with
-          | Fvar(external_var,_) ->
-            (* Printf.printf "rename %s => %s\n%!" *)
-            (*   (Ident.unique_name id) (Ident.unique_name external_var); *)
-            IdentTbl.add renaming id external_var
-          | _ ->
-            (* TODO, ou pas... en ANF ce cas la n'existe pas *)
-            failwith "TODO quand la variable libre n'est pas directement une variable"
-        end
-      in
-      IdentMap.iter renamed_fv fv;
+  and bind iter (id,lam) =
+    if IdentSet.mem id constants.Constants.not_constant_id
+    then
+      let lam = mapper iter lam in
+      Some (id, lam)
+    else begin
+      (match lam with
+       | Fclosure( ffunctions, fv, eid ) ->
+         ignore(fclosure iter (Some id) ffunctions fv eid);
+       | _ ->
+         let lam = mapper iter lam in
+         add_binding id lam);
+      None
+    end
 
-      let local_acc = ref [] in
+  and fclosure iter name ffunctions fv eid =
+    let fv = IdentMap.map (mapper iter) fv in
 
-      let add_var fv var =
-        let renamed = Ident.rename var in
-        IdentTbl.add renaming var renamed;
-        local_acc := renamed :: !local_acc;
-        (* Printf.printf "rename add %s => %s\n%!" *)
-        (* (Ident.unique_name var) (Ident.unique_name renamed); *)
-        IdentMap.add var (Fvar(renamed,ExprId.create ())) fv in
+    let previous_acc = !current_acc in
+    current_acc := IdentSet.empty;
 
-      let fv = List.fold_left add_var fv !current_acc in
-      (* TODO: se démerder pour qu'il n'y ait pas de problème quand le
-         code des clotures sont constants *)
+    let ffunctions =
+      { ffunctions with
+        funs = IdentMap.map
+            (fun ffun ->
+               let tmp = !current_acc in
+               current_acc := IdentSet.empty;
+               let body = mapper iter ffun.body in
+               let new_free_var = !current_acc in
+               current_acc := IdentSet.union new_free_var tmp;
+               let closure_params = IdentSet.union new_free_var ffun.closure_params in
+               let v = { ffun with body; closure_params } in
+               v)
+            ffunctions.funs } in
 
-      let res =
-        if FunSet.mem ffunctions.ident constants.Constants.not_constant_closure
-        then Fclosure( ffunctions, fv, eid )
-        else begin
-          let new_id = Ident.create "constant_closure" in
-          bindings := (new_id, Fclosure( ffunctions, fv, ExprId.create () )) ::
-                        !bindings;
-          local_acc := new_id :: !local_acc;
-          Fvar(new_id, eid)
-        end
-      in
+    let renamed_fv id expr =
+      if not (IdentSet.mem id constants.Constants.not_constant_id)
+      then begin
+        (* si la variable libre est une constante, alors elle
+           elle doit être renomée dans les bindings *)
+        match expr with
+        | Fvar(external_var,_) ->
+          (* Printf.printf "rename %s => %s\n%!" *)
+          (*   (Ident.unique_name id) (Ident.unique_name external_var); *)
+          IdentTbl.add renaming id external_var
+        | _ ->
+          (* TODO, ou pas... en ANF ce cas la n'existe pas *)
+          failwith "TODO quand la variable libre n'est pas directement une variable"
+      end
+    in
+    IdentMap.iter renamed_fv fv;
 
-      current_acc := !local_acc @ previous_acc;
-      res
+    let local_acc = ref IdentSet.empty in
 
-    | _ -> tree
+    let add_var var fv =
+      let renamed = Ident.rename var in
+      IdentTbl.add renaming var renamed;
+      local_acc := IdentSet.add renamed !local_acc;
+      (* Printf.printf "rename add %s => %s\n%!" *)
+      (* (Ident.unique_name var) (Ident.unique_name renamed); *)
+      IdentMap.add var (Fvar(renamed,ExprId.create ())) fv in
+
+    let fv = IdentSet.fold add_var !current_acc fv in
+    (* TODO: se démerder pour qu'il n'y ait pas de problème quand le
+       code des clotures sont constants *)
+
+    let res =
+      if FunSet.mem ffunctions.ident constants.Constants.not_constant_closure
+      then Fclosure( ffunctions, fv, eid )
+      else begin
+        let new_id = match name with
+          | None -> Ident.create "constant_closure"
+          | Some id -> id
+        in
+        bindings := (new_id, Fclosure( ffunctions, fv, ExprId.create () )) ::
+                      !bindings;
+        local_acc := IdentSet.add new_id !local_acc;
+        Fvar(new_id, eid)
+      end
+    in
+
+    current_acc := IdentSet.union !local_acc previous_acc;
+    res
+
   in
   let rec rename id =
     try rename (IdentTbl.find renaming id)
@@ -749,7 +771,7 @@ let extract_constants (constants:Constants.constant_result) tree =
       (*   (Ident.unique_name var) (Ident.unique_name ren); *)
       Fvar(rename var,eid)
     | _ -> tree in
-  let tree = Flambdautils.map_no_closure mapper tree in
+  let tree = Flambdautils.map2 mapper tree in
   let bindings = List.fold_left (fun map (v,expr) ->
       let v = rename v in
       let expr = Flambdautils.map_no_closure renaming expr in
