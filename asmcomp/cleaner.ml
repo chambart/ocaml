@@ -399,68 +399,69 @@ type inlining_kind =
   | With_local_functions
 
 let inlining inlining_kind analysis lam =
-  let module IdentityOpt = struct
-    type annot = ExprId.t
-    type data = ExprId.t
-  end in
-  let module IdentityInst = struct
 
-    let functions_map = ref analysis.info.functions
+  let functions_map = ref analysis.info.functions in
 
-    let get_val_id v =
-      try ValMap.find v analysis.values with
-      | Not_found -> empty_value
+  let get_val_id v =
+    try ValMap.find v analysis.values with
+    | Not_found -> empty_value in
 
-    let value eid =
-      if ExprMap.mem eid analysis.expr
-      then
-        let ids = ExprMap.find eid analysis.expr in
-        let l = ValSet.elements ids in
-        let vl = List.map get_val_id l in
-        Values.list_union vl
-      else
-        Values.empty_value
+  let value eid =
+    if ExprMap.mem eid analysis.expr
+    then
+      let ids = ExprMap.find eid analysis.expr in
+      let l = ValSet.elements ids in
+      let vl = List.map get_val_id l in
+      Values.list_union vl
+    else
+      Values.empty_value in
 
-    let expr_value exp =
-      value (Flambda.data exp)
+  let expr_value exp =
+    value (Flambda.data exp) in
 
-    include Flambdautils.Identity(IdentityOpt)
-    let closure ffunctions fv data =
-      (* update functions body for further inlining *)
+  (* let closure ffunctions fv data = *)
+  (*   (\* update functions body for further inlining *\) *)
+  (*   functions_map := FunMap.add ffunctions.ident ffunctions !functions_map; *)
+  (*   Flambdautils.Data data in *)
+
+  let apply ~func ~args ~direct ~dbg ~tree node_data =
+    match direct with
+    | None -> tree
+    | Some (fun_label,closed) ->
+      begin match possible_closure (expr_value func) with
+        | Many_functions -> tree
+        | No_function -> tree
+        | One_function f ->
+          begin match closed with
+            | NotClosed | Closed ->
+
+              let fun_id = f.fun_id in
+              let ffunctions = FunMap.find f.closure_funs
+                  !functions_map in
+              let ffunction = IdentMap.find fun_id ffunctions.funs in
+              let should_go = match inlining_kind with
+                | Minimal -> should_inline_minimal ffunction
+                | With_local_functions -> should_inline ffunction
+              in
+              if not ffunctions.recursives && should_go
+              then inline_simple func fun_id ffunction args
+              else tree
+
+                (* | NotClosed -> tree *)
+          end
+      end
+  in
+
+  let mapper tree = match tree with
+    | Fclosure (ffunctions, fv, _) ->
       functions_map := FunMap.add ffunctions.ident ffunctions !functions_map;
-      Flambdautils.Data data
+      tree
+    | Fapply (func, args, direct, dbg, eid) ->
+      apply ~func ~args ~direct ~dbg ~tree eid
+    | _ -> tree in
 
-    let apply ~func ~args ~direct ~dbg node_data =
-      match direct with
-      | None -> Flambdautils.Data node_data
-      | Some (fun_label,closed) ->
-        begin match possible_closure (expr_value func) with
-          | Many_functions -> Flambdautils.Data node_data
-          | No_function -> Flambdautils.Data node_data
-          | One_function f ->
-            begin match closed with
-              | NotClosed | Closed ->
+  Flambdautils.map mapper lam
 
-                let fun_id = f.fun_id in
-                let ffunctions = FunMap.find f.closure_funs
-                    !functions_map in
-                let ffunction = IdentMap.find fun_id ffunctions.funs in
-                let should_go = match inlining_kind with
-                  | Minimal -> should_inline_minimal ffunction
-                  | With_local_functions -> should_inline ffunction
-                in
-                if not ffunctions.recursives && should_go
-                then
-                  let body = inline_simple func fun_id ffunction args in
-                  Flambdautils.Node body
-                else Flambdautils.Data node_data
-
-              (* | NotClosed -> Flambdautils.Data node_data *)
-            end
-        end
-  end in
-  let module Folder=Flambdautils.Fold(IdentityInst) in
-  Folder.fold lam
 
 let used_variables_and_offsets tree =
   let vars = ref IdentSet.empty in
