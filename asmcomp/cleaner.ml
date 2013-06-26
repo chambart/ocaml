@@ -652,7 +652,8 @@ let extract_constants (constants:Constants.constant_result) tree =
     current_acc := IdentSet.add id !current_acc
   in
 
-  let rec mapper iter tree = match tree with
+  let rec mapper' iter env tree = mapper (fun tree -> iter () tree) tree
+  and mapper iter tree = match tree with
     | Flet ( (StrictOpt|Strict|Alias) as kind, id, lam, body, eid) ->
       begin
         let b = bind iter (id,lam) in
@@ -772,7 +773,7 @@ let extract_constants (constants:Constants.constant_result) tree =
       (*   (Ident.unique_name var) (Ident.unique_name ren); *)
       Fvar(rename var,eid)
     | _ -> tree in
-  let tree = Flambdautils.map2 mapper tree in
+  let tree = Flambdautils.map2 mapper' () tree in
   let bindings = List.fold_left (fun map (v,expr) ->
       let v = rename v in
       let expr = Flambdautils.map_no_closure renaming expr in
