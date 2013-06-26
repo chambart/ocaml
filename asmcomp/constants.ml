@@ -171,11 +171,6 @@ module NotConstants(P:Param) = struct
     | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
       List.iter (mark_loop curr) args
 
-    (* Predefined exceptions are constants *)
-    | Fprim(Pgetglobal id, [], _, _) ->
-      if not (Ident.is_predef_exn id)
-      then mark_curr curr
-
     | Foffset (f1, _,_) ->
       mark_loop curr f1
 
