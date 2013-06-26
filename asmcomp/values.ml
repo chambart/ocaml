@@ -693,7 +693,7 @@ let prim p l =
       | _ -> assert false
     end
   | Psetfloatfield _ -> begin match l with
-      | [_] -> value_unit
+      | [_;_] -> value_unit
       | _ -> assert false
     end
 
