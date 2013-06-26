@@ -27,6 +27,12 @@ let try_finally work cleanup =
 
 (* List functions *)
 
+let rec map_filter f = function
+    [] -> []
+  | hd::tl -> match f hd with
+      None -> map_filter f tl
+    | Some v -> v :: map_filter f tl
+
 let rec map_end f l1 l2 =
   match l1 with
     [] -> l2
