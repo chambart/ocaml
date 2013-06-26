@@ -1,4 +1,4 @@
-open Asttypes
+(* open Asttypes *)
 open Lambda
 open Flambda
 
@@ -97,305 +97,305 @@ let iter2_flambda (f: ('env -> 'a flambda -> unit) -> 'env -> 'a flambda -> unit
   and aux env t = f aux2 env t in
   aux init_env t
 
-type 'a return =
-  | Data of 'a
-  | Node of 'a flambda
+(* type 'a return = *)
+(*   | Data of 'a *)
+(*   | Node of 'a flambda *)
 
-module type Folder = sig
-  type annot
-  type data
+(* module type Folder = sig *)
+(*   type annot *)
+(*   type data *)
 
-  val var : Ident.t -> annot -> data return
-  val const : const -> annot -> data return
-  val apply : func:data flambda -> args:data flambda list
-        -> direct:(function_label*closed) option -> dbg:Debuginfo.t
-        -> annot -> data return
-  val closure : data ffunctions -> data flambda IdentMap.t -> annot -> data return
-  val offset : data flambda -> Ident.t -> annot -> data return
-  val env_field : data fenv_field -> annot -> data return
-  val let_ : let_kind -> Ident.t -> def:data flambda -> body:data flambda -> annot -> data return
-  val letrec : (Ident.t * data flambda) list -> data flambda -> annot -> data return
-  val prim : primitive -> data flambda list -> Debuginfo.t -> annot -> data return
-  val switch : data flambda -> data flambda_switch -> annot -> data return
-  val staticfail : int -> data flambda list -> annot -> data return
-  val catch : int -> Ident.t list -> data flambda -> data flambda -> annot -> data return
-  val trywith : data flambda -> Ident.t -> data flambda -> annot -> data return
-  val ifthenelse : data flambda -> data flambda -> data flambda -> annot -> data return
-  val sequence : data flambda -> data flambda -> annot -> data return
-  val while_ : data flambda -> data flambda -> annot -> data return
-  val for_ : Ident.t -> data flambda -> data flambda -> direction_flag -> data flambda -> annot -> data return
-  val assign : Ident.t -> data flambda -> annot -> data return
-  val send : meth_kind -> data flambda -> data flambda -> data flambda list -> Debuginfo.t -> annot -> data return
+(*   val var : Ident.t -> annot -> data return *)
+(*   val const : const -> annot -> data return *)
+(*   val apply : func:data flambda -> args:data flambda list *)
+(*         -> direct:(function_label*closed) option -> dbg:Debuginfo.t *)
+(*         -> annot -> data return *)
+(*   val closure : data ffunctions -> data flambda IdentMap.t -> annot -> data return *)
+(*   val offset : data flambda -> Ident.t -> annot -> data return *)
+(*   val env_field : data fenv_field -> annot -> data return *)
+(*   val let_ : let_kind -> Ident.t -> def:data flambda -> body:data flambda -> annot -> data return *)
+(*   val letrec : (Ident.t * data flambda) list -> data flambda -> annot -> data return *)
+(*   val prim : primitive -> data flambda list -> Debuginfo.t -> annot -> data return *)
+(*   val switch : data flambda -> data flambda_switch -> annot -> data return *)
+(*   val staticfail : int -> data flambda list -> annot -> data return *)
+(*   val catch : int -> Ident.t list -> data flambda -> data flambda -> annot -> data return *)
+(*   val trywith : data flambda -> Ident.t -> data flambda -> annot -> data return *)
+(*   val ifthenelse : data flambda -> data flambda -> data flambda -> annot -> data return *)
+(*   val sequence : data flambda -> data flambda -> annot -> data return *)
+(*   val while_ : data flambda -> data flambda -> annot -> data return *)
+(*   val for_ : Ident.t -> data flambda -> data flambda -> direction_flag -> data flambda -> annot -> data return *)
+(*   val assign : Ident.t -> data flambda -> annot -> data return *)
+(*   val send : meth_kind -> data flambda -> data flambda -> data flambda list -> Debuginfo.t -> annot -> data return *)
 
-end
+(* end *)
 
-module Fold(M:Folder) :
-sig
-  val fold : M.annot flambda -> M.data flambda
-end = struct
-  let rec fold = function
-    | Fvar (id,annot) ->
-      begin match M.var id annot with
-        | Data data -> Fvar (id,data)
-        | Node n -> n
-      end
-    | Fconst (cst,annot) ->
-      begin match M.const cst annot with
-        | Data data -> Fconst (cst,data)
-        | Node n -> n
-      end
-    | Fapply (funct, args, direc, dbg, annot) ->
-      let funct = fold funct in
-      let args = fold_list args in
-      begin match M.apply funct args direc dbg annot with
-        | Data data -> Fapply (funct, args, direc, dbg, data)
-        | Node n -> n
-      end
-    | Fclosure (ffuns, fv, annot) ->
-      let ffuns =
-        { ffuns with
-          funs = IdentMap.map
-              (fun ffun -> { ffun with body = fold ffun.body }) ffuns.funs } in
-      let fv = IdentMap.map fold fv in
-      begin match M.closure ffuns fv annot with
-        | Data data -> Fclosure (ffuns, fv, data)
-        | Node n -> n
-      end
-    | Foffset (flam, off, annot) ->
-      let flam = fold flam in
-      begin match M.offset flam off annot with
-        | Data data -> Foffset (flam, off, data)
-        | Node n -> n
-      end
-    | Fenv_field (fenv_field, annot) ->
-      let flam = fold fenv_field.env in
-      let fenv_field = { fenv_field with env = flam } in
-      begin match M.env_field fenv_field annot with
-        | Data data -> Fenv_field (fenv_field, data)
-        | Node n -> n
-      end
-    | Flet(str, id, lam, body, annot) ->
-      let lam = fold lam in
-      let body = fold body in
-      begin match M.let_ str id lam body annot with
-        | Data data -> Flet (str, id, lam, body, data)
-        | Node n -> n
-      end
-    | Fletrec(defs, body, annot) ->
-      let defs = List.map (fun (id,lam) -> id,fold lam) defs in
-      let body = fold body in
-      begin match M.letrec defs body annot with
-        | Data data -> Fletrec (defs, body, data)
-        | Node n -> n
-      end
-    | Fprim(p, args, dbg, annot) ->
-      let args = fold_list args in
-      begin match M.prim p args dbg annot with
-        | Data data -> Fprim (p, args, dbg, data)
-        | Node n -> n
-      end
-    | Fstaticfail(i, args, annot) ->
-      let args = fold_list args in
-      begin match M.staticfail i args annot with
-        | Data data -> Fstaticfail (i, args, data)
-        | Node n -> n
-      end
-    | Fcatch (i, vars, body, handler, annot) ->
-      let body = fold body in
-      let handler = fold handler in
-      begin match M.catch i vars body handler annot with
-        | Data data -> Fcatch (i, vars, body, handler, data)
-        | Node n -> n
-      end
-    | Ftrywith(body, id, handler, annot) ->
-      let body = fold body in
-      let handler = fold handler in
-      begin match M.trywith body id handler annot with
-        | Data data -> Ftrywith(body, id, handler, data)
-        | Node n -> n
-      end
-    | Fifthenelse(arg, ifso, ifnot, annot) ->
-      let arg = fold arg in
-      let ifso = fold ifso in
-      let ifnot = fold ifnot in
-      begin match M.ifthenelse arg ifso ifnot annot with
-        | Data data -> Fifthenelse(arg, ifso, ifnot, data)
-        | Node n -> n
-      end
-    | Fsequence(lam1, lam2, annot) ->
-      let lam1 = fold lam1 in
-      let lam2 = fold lam2 in
-      begin match M.sequence lam1 lam2 annot with
-        | Data data -> Fsequence(lam1, lam2, data)
-        | Node n -> n
-      end
-    | Fwhile(cond, body, annot) ->
-      let cond = fold cond in
-      let body = fold body in
-      begin match M.while_ cond body annot with
-        | Data data -> Fwhile(cond, body, data)
-        | Node n -> n
-      end
-    | Fsend(kind, met, obj, args, dbg, annot) ->
-      let met = fold met in
-      let obj = fold obj in
-      let args = fold_list args in
-      begin match M.send kind met obj args dbg annot with
-        | Data data -> Fsend(kind, met, obj, args, dbg, data)
-        | Node n -> n
-      end
-    | Ffor(id, lo, hi, dir, body, annot) ->
-      let lo = fold lo in
-      let hi = fold hi in
-      let body = fold body in
-      begin match M.for_ id lo hi dir body annot with
-        | Data data -> Ffor(id, lo, hi, dir, body, data)
-        | Node n -> n
-      end
-    | Fassign(id, lam, annot) ->
-      let lam = fold lam in
-      begin match M.assign id lam annot with
-        | Data data -> Fassign(id, lam, data)
-        | Node n -> n
-      end
-    | Fswitch(arg, sw, annot) ->
-      let arg = fold arg in
-      let sw =
-        { sw with
-          fs_failaction = Misc.may_map fold sw.fs_failaction;
-          fs_consts = List.map (fun (i,v) -> i, fold v) sw.fs_consts;
-          fs_blocks = List.map (fun (i,v) -> i, fold v) sw.fs_blocks; } in
-      begin match M.switch arg sw annot with
-        | Data data -> Fswitch(arg, sw, data)
-        | Node n -> n
-      end
+(* module Fold(M:Folder) : *)
+(* sig *)
+(*   val fold : M.annot flambda -> M.data flambda *)
+(* end = struct *)
+(*   let rec fold = function *)
+(*     | Fvar (id,annot) -> *)
+(*       begin match M.var id annot with *)
+(*         | Data data -> Fvar (id,data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fconst (cst,annot) -> *)
+(*       begin match M.const cst annot with *)
+(*         | Data data -> Fconst (cst,data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fapply (funct, args, direc, dbg, annot) -> *)
+(*       let funct = fold funct in *)
+(*       let args = fold_list args in *)
+(*       begin match M.apply funct args direc dbg annot with *)
+(*         | Data data -> Fapply (funct, args, direc, dbg, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fclosure (ffuns, fv, annot) -> *)
+(*       let ffuns = *)
+(*         { ffuns with *)
+(*           funs = IdentMap.map *)
+(*               (fun ffun -> { ffun with body = fold ffun.body }) ffuns.funs } in *)
+(*       let fv = IdentMap.map fold fv in *)
+(*       begin match M.closure ffuns fv annot with *)
+(*         | Data data -> Fclosure (ffuns, fv, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Foffset (flam, off, annot) -> *)
+(*       let flam = fold flam in *)
+(*       begin match M.offset flam off annot with *)
+(*         | Data data -> Foffset (flam, off, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fenv_field (fenv_field, annot) -> *)
+(*       let flam = fold fenv_field.env in *)
+(*       let fenv_field = { fenv_field with env = flam } in *)
+(*       begin match M.env_field fenv_field annot with *)
+(*         | Data data -> Fenv_field (fenv_field, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Flet(str, id, lam, body, annot) -> *)
+(*       let lam = fold lam in *)
+(*       let body = fold body in *)
+(*       begin match M.let_ str id lam body annot with *)
+(*         | Data data -> Flet (str, id, lam, body, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fletrec(defs, body, annot) -> *)
+(*       let defs = List.map (fun (id,lam) -> id,fold lam) defs in *)
+(*       let body = fold body in *)
+(*       begin match M.letrec defs body annot with *)
+(*         | Data data -> Fletrec (defs, body, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fprim(p, args, dbg, annot) -> *)
+(*       let args = fold_list args in *)
+(*       begin match M.prim p args dbg annot with *)
+(*         | Data data -> Fprim (p, args, dbg, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fstaticfail(i, args, annot) -> *)
+(*       let args = fold_list args in *)
+(*       begin match M.staticfail i args annot with *)
+(*         | Data data -> Fstaticfail (i, args, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fcatch (i, vars, body, handler, annot) -> *)
+(*       let body = fold body in *)
+(*       let handler = fold handler in *)
+(*       begin match M.catch i vars body handler annot with *)
+(*         | Data data -> Fcatch (i, vars, body, handler, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Ftrywith(body, id, handler, annot) -> *)
+(*       let body = fold body in *)
+(*       let handler = fold handler in *)
+(*       begin match M.trywith body id handler annot with *)
+(*         | Data data -> Ftrywith(body, id, handler, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fifthenelse(arg, ifso, ifnot, annot) -> *)
+(*       let arg = fold arg in *)
+(*       let ifso = fold ifso in *)
+(*       let ifnot = fold ifnot in *)
+(*       begin match M.ifthenelse arg ifso ifnot annot with *)
+(*         | Data data -> Fifthenelse(arg, ifso, ifnot, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fsequence(lam1, lam2, annot) -> *)
+(*       let lam1 = fold lam1 in *)
+(*       let lam2 = fold lam2 in *)
+(*       begin match M.sequence lam1 lam2 annot with *)
+(*         | Data data -> Fsequence(lam1, lam2, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fwhile(cond, body, annot) -> *)
+(*       let cond = fold cond in *)
+(*       let body = fold body in *)
+(*       begin match M.while_ cond body annot with *)
+(*         | Data data -> Fwhile(cond, body, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fsend(kind, met, obj, args, dbg, annot) -> *)
+(*       let met = fold met in *)
+(*       let obj = fold obj in *)
+(*       let args = fold_list args in *)
+(*       begin match M.send kind met obj args dbg annot with *)
+(*         | Data data -> Fsend(kind, met, obj, args, dbg, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Ffor(id, lo, hi, dir, body, annot) -> *)
+(*       let lo = fold lo in *)
+(*       let hi = fold hi in *)
+(*       let body = fold body in *)
+(*       begin match M.for_ id lo hi dir body annot with *)
+(*         | Data data -> Ffor(id, lo, hi, dir, body, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fassign(id, lam, annot) -> *)
+(*       let lam = fold lam in *)
+(*       begin match M.assign id lam annot with *)
+(*         | Data data -> Fassign(id, lam, data) *)
+(*         | Node n -> n *)
+(*       end *)
+(*     | Fswitch(arg, sw, annot) -> *)
+(*       let arg = fold arg in *)
+(*       let sw = *)
+(*         { sw with *)
+(*           fs_failaction = Misc.may_map fold sw.fs_failaction; *)
+(*           fs_consts = List.map (fun (i,v) -> i, fold v) sw.fs_consts; *)
+(*           fs_blocks = List.map (fun (i,v) -> i, fold v) sw.fs_blocks; } in *)
+(*       begin match M.switch arg sw annot with *)
+(*         | Data data -> Fswitch(arg, sw, data) *)
+(*         | Node n -> n *)
+(*       end *)
 
-  and fold_list l = List.map fold l
+(*   and fold_list l = List.map fold l *)
 
-end
+(* end *)
 
-(* simple instanciation of folders *)
+(* (\* simple instanciation of folders *\) *)
 
-module type Setter = sig
-  type annot
-  type data
-  val default : unit -> data
-end
-module Setter(M:Setter) : Folder with
-  type data = M.data and type annot = M.annot =
-struct
+(* module type Setter = sig *)
+(*   type annot *)
+(*   type data *)
+(*   val default : unit -> data *)
+(* end *)
+(* module Setter(M:Setter) : Folder with *)
+(*   type data = M.data and type annot = M.annot = *)
+(* struct *)
 
-  type data = M.data
-  type annot = M.annot
+(*   type data = M.data *)
+(*   type annot = M.annot *)
 
-  let default () = Data (M.default ())
+(*   let default () = Data (M.default ()) *)
 
-  let var _ data = default ()
-  let const _ data = default ()
-  let apply ~func ~args ~direct ~dbg data = default ()
-  let closure _ _ data = default ()
-  let offset _ _ data = default ()
-  let env_field _ data = default ()
-  let let_ _ _ ~def ~body data = default ()
-  let letrec _ _ data = default ()
-  let prim _ _ _ data = default ()
-  let switch _ _ data = default ()
-  let staticfail _ _ data = default ()
-  let catch _ _ _ _ data = default ()
-  let trywith _ _ _ data = default ()
-  let ifthenelse _ _ _ data = default ()
-  let sequence _ _ data = default ()
-  let while_ _ _ data = default ()
-  let for_ _ _ _ _ _ data = default ()
-  let assign _ _ data = default ()
-  let send _ _ _ _ _ data = default ()
-end
+(*   let var _ data = default () *)
+(*   let const _ data = default () *)
+(*   let apply ~func ~args ~direct ~dbg data = default () *)
+(*   let closure _ _ data = default () *)
+(*   let offset _ _ data = default () *)
+(*   let env_field _ data = default () *)
+(*   let let_ _ _ ~def ~body data = default () *)
+(*   let letrec _ _ data = default () *)
+(*   let prim _ _ _ data = default () *)
+(*   let switch _ _ data = default () *)
+(*   let staticfail _ _ data = default () *)
+(*   let catch _ _ _ _ data = default () *)
+(*   let trywith _ _ _ data = default () *)
+(*   let ifthenelse _ _ _ data = default () *)
+(*   let sequence _ _ data = default () *)
+(*   let while_ _ _ data = default () *)
+(*   let for_ _ _ _ _ _ data = default () *)
+(*   let assign _ _ data = default () *)
+(*   let send _ _ _ _ _ data = default () *)
+(* end *)
 
-module type Identity = sig type annot type data = annot end
-module Identity(M:Identity) : Folder with type annot = M.annot and type data = M.data = struct
+(* module type Identity = sig type annot type data = annot end *)
+(* module Identity(M:Identity) : Folder with type annot = M.annot and type data = M.data = struct *)
 
-  type data = M.data
-  type annot = M.annot
+(*   type data = M.data *)
+(*   type annot = M.annot *)
 
-  let var _ annot = Data annot
-  let const _ annot = Data annot
-  let apply ~func ~args ~direct ~dbg annot = Data annot
-  let closure _ _ annot = Data annot
-  let offset _ _ annot = Data annot
-  let env_field _ annot = Data annot
-  let let_ _ _ ~def ~body annot = Data annot
-  let letrec _ _ annot = Data annot
-  let prim _ _ _ annot = Data annot
-  let switch _ _ annot = Data annot
-  let staticfail _ _ annot = Data annot
-  let catch _ _ _ _ annot = Data annot
-  let trywith _ _ _ annot = Data annot
-  let ifthenelse _ _ _ annot = Data annot
-  let sequence _ _ annot = Data annot
-  let while_ _ _ annot = Data annot
-  let for_ _ _ _ _ _ annot = Data annot
-  let assign _ _ annot = Data annot
-  let send _ _ _ _ _ annot = Data annot
+(*   let var _ annot = Data annot *)
+(*   let const _ annot = Data annot *)
+(*   let apply ~func ~args ~direct ~dbg annot = Data annot *)
+(*   let closure _ _ annot = Data annot *)
+(*   let offset _ _ annot = Data annot *)
+(*   let env_field _ annot = Data annot *)
+(*   let let_ _ _ ~def ~body annot = Data annot *)
+(*   let letrec _ _ annot = Data annot *)
+(*   let prim _ _ _ annot = Data annot *)
+(*   let switch _ _ annot = Data annot *)
+(*   let staticfail _ _ annot = Data annot *)
+(*   let catch _ _ _ _ annot = Data annot *)
+(*   let trywith _ _ _ annot = Data annot *)
+(*   let ifthenelse _ _ _ annot = Data annot *)
+(*   let sequence _ _ annot = Data annot *)
+(*   let while_ _ _ annot = Data annot *)
+(*   let for_ _ _ _ _ _ annot = Data annot *)
+(*   let assign _ _ annot = Data annot *)
+(*   let send _ _ _ _ _ annot = Data annot *)
 
-end
+(* end *)
 
-module type Merger = sig
-  type annot
-  type data
-  val merge : data list -> annot -> data
-end
-module Merger(M:Merger) : Folder with
-  type annot = M.annot and type data = M.data =
-struct
+(* module type Merger = sig *)
+(*   type annot *)
+(*   type data *)
+(*   val merge : data list -> annot -> data *)
+(* end *)
+(* module Merger(M:Merger) : Folder with *)
+(*   type annot = M.annot and type data = M.data = *)
+(* struct *)
 
-  type data = M.data
-  type annot = M.annot
+(*   type data = M.data *)
+(*   type annot = M.annot *)
 
-  let merge l annot =
-    Data (M.merge (List.map Flambda.data l) annot)
+(*   let merge l annot = *)
+(*     Data (M.merge (List.map Flambda.data l) annot) *)
 
-  let var _ annot = Data (M.merge [] annot)
-  let const _ annot = Data (M.merge [] annot)
-  let apply ~func ~args ~direct ~dbg annot = merge (func::args) annot
-  let closure ffunc fv annot =
-    let ffuns = List.map (fun (_,ffun) -> ffun.body)
-        (IdentMap.bindings ffunc.funs) in
-    let fv = List.map (fun (_,v) -> v)
-        (IdentMap.bindings fv) in
-    merge (ffuns @ fv) annot
-  let offset lam _ annot = merge [lam] annot
-  let env_field { env } annot = merge [env] annot
-  let let_ _ _ ~def ~body annot = merge [def;body] annot
-  let letrec defs body annot =
-    let defs = List.map snd defs in
-    merge (body::defs) annot
-  let prim _ args _ annot = merge args annot
-  let switch arg sw annot =
-    let fail = match sw.fs_failaction with None -> [] | Some v -> [v] in
-    let blocks = List.map snd sw.fs_blocks in
-    let consts = List.map snd sw.fs_consts in
-    let sw = arg::(fail@blocks@consts) in
-    merge sw annot
-  let staticfail _ args annot = merge args annot
-  let catch _ _ body handler annot = merge [body;handler] annot
-  let trywith body _ handler annot = merge [body;handler] annot
-  let ifthenelse arg ifso ifnot annot = merge [arg;ifso;ifnot] annot
-  let sequence lam1 lam2 annot = merge [lam1;lam2] annot
-  let while_ cond body annot = merge [cond;body] annot
-  let for_ _ lo hi _ body annot = merge [lo;hi;body] annot
-  let assign _ lam annot = merge [lam] annot
-  let send _ meth obj args _ annot = merge (meth::obj::args) annot
+(*   let var _ annot = Data (M.merge [] annot) *)
+(*   let const _ annot = Data (M.merge [] annot) *)
+(*   let apply ~func ~args ~direct ~dbg annot = merge (func::args) annot *)
+(*   let closure ffunc fv annot = *)
+(*     let ffuns = List.map (fun (_,ffun) -> ffun.body) *)
+(*         (IdentMap.bindings ffunc.funs) in *)
+(*     let fv = List.map (fun (_,v) -> v) *)
+(*         (IdentMap.bindings fv) in *)
+(*     merge (ffuns @ fv) annot *)
+(*   let offset lam _ annot = merge [lam] annot *)
+(*   let env_field { env } annot = merge [env] annot *)
+(*   let let_ _ _ ~def ~body annot = merge [def;body] annot *)
+(*   let letrec defs body annot = *)
+(*     let defs = List.map snd defs in *)
+(*     merge (body::defs) annot *)
+(*   let prim _ args _ annot = merge args annot *)
+(*   let switch arg sw annot = *)
+(*     let fail = match sw.fs_failaction with None -> [] | Some v -> [v] in *)
+(*     let blocks = List.map snd sw.fs_blocks in *)
+(*     let consts = List.map snd sw.fs_consts in *)
+(*     let sw = arg::(fail@blocks@consts) in *)
+(*     merge sw annot *)
+(*   let staticfail _ args annot = merge args annot *)
+(*   let catch _ _ body handler annot = merge [body;handler] annot *)
+(*   let trywith body _ handler annot = merge [body;handler] annot *)
+(*   let ifthenelse arg ifso ifnot annot = merge [arg;ifso;ifnot] annot *)
+(*   let sequence lam1 lam2 annot = merge [lam1;lam2] annot *)
+(*   let while_ cond body annot = merge [cond;body] annot *)
+(*   let for_ _ lo hi _ body annot = merge [lo;hi;body] annot *)
+(*   let assign _ lam annot = merge [lam] annot *)
+(*   let send _ meth obj args _ annot = merge (meth::obj::args) annot *)
 
-end
+(* end *)
 
-let set_tree (type a) (type d) (tree:a flambda) (d:unit -> d) : d flambda =
-  let module MySetter = struct
-    type annot = a
-    type data = d
-    let default = d
-  end in
-  let module F = Fold(Setter(MySetter)) in
-  F.fold tree
+(* let set_tree (type a) (type d) (tree:a flambda) (d:unit -> d) : d flambda = *)
+(*   let module MySetter = struct *)
+(*     type annot = a *)
+(*     type data = d *)
+(*     let default = d *)
+(*   end in *)
+(*   let module F = Fold(Setter(MySetter)) in *)
+(*   F.fold tree *)
 
 (* TODO: try to ensure that if the values are equal they should be
    physically equal ? *)
@@ -821,160 +821,160 @@ let empty_used_var = {
      variable definition *)
 }
 
-type pure = Pure | Unpure
+(* type pure = Pure | Unpure *)
 
-module UsageMerger = struct
-  type annot = pure
-  type data = annot * used_var
+(* module UsageMerger = struct *)
+(*   type annot = pure *)
+(*   type data = annot * used_var *)
 
-  let merge_depend m1 m2 =
-    let aux _ s1 s2 = match s1,s2 with
-      | None, s
-      | s, None -> s
-      | Some s1, Some s2 -> Some (IdentSet.union s1 s2) in
-    IdentMap.merge aux m1 m2
+(*   let merge_depend m1 m2 = *)
+(*     let aux _ s1 s2 = match s1,s2 with *)
+(*       | None, s *)
+(*       | s, None -> s *)
+(*       | Some s1, Some s2 -> Some (IdentSet.union s1 s2) in *)
+(*     IdentMap.merge aux m1 m2 *)
 
-  let merger uv1 uv2 =
-    let used = IdentSet.union uv1.used uv2.used in
-    let unpure_used = IdentSet.union uv1.unpure_used uv2.unpure_used in
-    let depend = merge_depend uv1.depend uv2.depend in
-    let unpure_depend = merge_depend uv1.unpure_depend uv2.unpure_depend in
-    {used; unpure_used; depend; unpure_depend }
+(*   let merger uv1 uv2 = *)
+(*     let used = IdentSet.union uv1.used uv2.used in *)
+(*     let unpure_used = IdentSet.union uv1.unpure_used uv2.unpure_used in *)
+(*     let depend = merge_depend uv1.depend uv2.depend in *)
+(*     let unpure_depend = merge_depend uv1.unpure_depend uv2.unpure_depend in *)
+(*     {used; unpure_used; depend; unpure_depend } *)
 
-  let merge l annot =
-    let usage =
-      match l with
-      | [] -> empty_used_var
-      | (_,t)::q -> List.fold_left merger t (List.map snd q) in
-    annot, usage
+(*   let merge l annot = *)
+(*     let usage = *)
+(*       match l with *)
+(*       | [] -> empty_used_var *)
+(*       | (_,t)::q -> List.fold_left merger t (List.map snd q) in *)
+(*     annot, usage *)
 
-end
-module UsageMergerInst = struct
-  include Merger(UsageMerger)
-  let var id annot =
-    Data(annot, { empty_used_var with used = IdentSet.singleton id })
+(* end *)
+(* module UsageMergerInst = struct *)
+(*   include Merger(UsageMerger) *)
+(*   let var id annot = *)
+(*     Data(annot, { empty_used_var with used = IdentSet.singleton id }) *)
 
-  let add id def use =
-    let def_pure, def_usage = Flambda.data def in
-    let unpure_used =
-      (* a variable defined with side effects is considered as needed
-         for its side effects, hence added to unpure_used *)
-      match def_pure with
-      | Pure -> use.unpure_used
-      | Unpure -> IdentSet.add id use.unpure_used
-    in
-    let depend = UsageMerger.merge_depend def_usage.depend use.depend in
-    let unpure_depend = UsageMerger.merge_depend def_usage.unpure_depend
-        use.unpure_depend in
-    { used = use.used;
-      unpure_used;
-      depend = IdentMap.add id def_usage.used depend;
-      unpure_depend =
-        IdentMap.add id
-          (IdentSet.diff def_usage.unpure_used def_usage.used) unpure_depend }
+(*   let add id def use = *)
+(*     let def_pure, def_usage = Flambda.data def in *)
+(*     let unpure_used = *)
+(*       (\* a variable defined with side effects is considered as needed *)
+(*          for its side effects, hence added to unpure_used *\) *)
+(*       match def_pure with *)
+(*       | Pure -> use.unpure_used *)
+(*       | Unpure -> IdentSet.add id use.unpure_used *)
+(*     in *)
+(*     let depend = UsageMerger.merge_depend def_usage.depend use.depend in *)
+(*     let unpure_depend = UsageMerger.merge_depend def_usage.unpure_depend *)
+(*         use.unpure_depend in *)
+(*     { used = use.used; *)
+(*       unpure_used; *)
+(*       depend = IdentMap.add id def_usage.used depend; *)
+(*       unpure_depend = *)
+(*         IdentMap.add id *)
+(*           (IdentSet.diff def_usage.unpure_used def_usage.used) unpure_depend } *)
 
-  let let_ _ id ~def ~body annot =
-    let _, body_usage = Flambda.data body in
-    let use = add id def body_usage in
-    Data(annot, use)
+(*   let let_ _ id ~def ~body annot = *)
+(*     let _, body_usage = Flambda.data body in *)
+(*     let use = add id def body_usage in *)
+(*     Data(annot, use) *)
 
-  let letrec defs body annot =
-    let _, body_usage = Flambda.data body in
-    let use =
-      List.fold_left (fun use (id,def) -> add id def use)
-        body_usage defs in
-    Data(annot, use)
+(*   let letrec defs body annot = *)
+(*     let _, body_usage = Flambda.data body in *)
+(*     let use = *)
+(*       List.fold_left (fun use (id,def) -> add id def use) *)
+(*         body_usage defs in *)
+(*     Data(annot, use) *)
 
-end
-module UsageAnnotation = Fold(UsageMergerInst)
+(* end *)
+(* module UsageAnnotation = Fold(UsageMergerInst) *)
 
-let reachable_variables t =
-  let t = UsageAnnotation.fold t in
-  let (_, use) = Flambda.data t in
-  let visit_queue = Queue.create () in
-  let push_set s = IdentSet.iter
-      (fun v -> Queue.add v visit_queue) s in
+(* let reachable_variables t = *)
+(*   let t = UsageAnnotation.fold t in *)
+(*   let (_, use) = Flambda.data t in *)
+(*   let visit_queue = Queue.create () in *)
+(*   let push_set s = IdentSet.iter *)
+(*       (fun v -> Queue.add v visit_queue) s in *)
 
-  let try_find id m =
-    try IdentMap.find id m
-    with Not_found ->
-      IdentSet.empty
-      (* if the variable is not bound by a let (like a function
-         parameter or a catch), we do not create a dependency *)
-  in
+(*   let try_find id m = *)
+(*     try IdentMap.find id m *)
+(*     with Not_found -> *)
+(*       IdentSet.empty *)
+(*       (\* if the variable is not bound by a let (like a function *)
+(*          parameter or a catch), we do not create a dependency *\) *)
+(*   in *)
 
-  let rec visit visited reachable unpure_reachable =
-    if Queue.is_empty visit_queue
-    then (reachable, unpure_reachable)
-    else
-      let id = Queue.take visit_queue in
-      if IdentSet.mem id visited
-      then visit visited reachable unpure_reachable
-      else
-        let visited = IdentSet.add id visited in
-        let depend = try_find id use.depend in
-        let unpure_depend = try_find id use.unpure_depend in
-        let reachable = IdentSet.union reachable depend in
-        let unpure_reachable = IdentSet.union unpure_reachable
-            unpure_depend in
-        push_set (IdentSet.diff reachable visited);
-        push_set (IdentSet.diff unpure_reachable visited);
-        visit visited reachable unpure_reachable
-  in
-  let reachable = use.used in
-  let unpure_reachable = use.unpure_used in
-  push_set use.used;
-  push_set use.unpure_used;
-  let (reachable, unpure_reachable) =
-    visit IdentSet.empty reachable unpure_reachable in
-  reachable, unpure_reachable
+(*   let rec visit visited reachable unpure_reachable = *)
+(*     if Queue.is_empty visit_queue *)
+(*     then (reachable, unpure_reachable) *)
+(*     else *)
+(*       let id = Queue.take visit_queue in *)
+(*       if IdentSet.mem id visited *)
+(*       then visit visited reachable unpure_reachable *)
+(*       else *)
+(*         let visited = IdentSet.add id visited in *)
+(*         let depend = try_find id use.depend in *)
+(*         let unpure_depend = try_find id use.unpure_depend in *)
+(*         let reachable = IdentSet.union reachable depend in *)
+(*         let unpure_reachable = IdentSet.union unpure_reachable *)
+(*             unpure_depend in *)
+(*         push_set (IdentSet.diff reachable visited); *)
+(*         push_set (IdentSet.diff unpure_reachable visited); *)
+(*         visit visited reachable unpure_reachable *)
+(*   in *)
+(*   let reachable = use.used in *)
+(*   let unpure_reachable = use.unpure_used in *)
+(*   push_set use.used; *)
+(*   push_set use.unpure_used; *)
+(*   let (reachable, unpure_reachable) = *)
+(*     visit IdentSet.empty reachable unpure_reachable in *)
+(*   reachable, unpure_reachable *)
 
-let dead_code_elimination t =
-  let reachable, unpure_reachable = reachable_variables t in
-  let module Cleaner = struct
-    type annot = pure
-    type data = pure
-  end in
-  let module CleanerInst = struct
-    include Identity(Cleaner)
+(* let dead_code_elimination t = *)
+(*   let reachable, unpure_reachable = reachable_variables t in *)
+(*   let module Cleaner = struct *)
+(*     type annot = pure *)
+(*     type data = pure *)
+(*   end in *)
+(*   let module CleanerInst = struct *)
+(*     include Identity(Cleaner) *)
 
-    let assign id arg data =
-      if IdentSet.mem id reachable
-      then Data data
-      else
-        let unit = Fconst(Fconst_pointer 0,Pure) in
-        match Flambda.data arg with
-        | Pure -> Node(unit)
-        | Unpure -> Node(Fsequence(arg,unit,data))
+(*     let assign id arg data = *)
+(*       if IdentSet.mem id reachable *)
+(*       then Data data *)
+(*       else *)
+(*         let unit = Fconst(Fconst_pointer 0,Pure) in *)
+(*         match Flambda.data arg with *)
+(*         | Pure -> Node(unit) *)
+(*         | Unpure -> Node(Fsequence(arg,unit,data)) *)
 
-    let let_ str id ~def ~body annot =
-      if IdentSet.mem id reachable
-      then Data annot
-      else (if IdentSet.mem id unpure_reachable
-        then Node (Fsequence(def,body,annot))
-        else Node body)
+(*     let let_ str id ~def ~body annot = *)
+(*       if IdentSet.mem id reachable *)
+(*       then Data annot *)
+(*       else (if IdentSet.mem id unpure_reachable *)
+(*         then Node (Fsequence(def,body,annot)) *)
+(*         else Node body) *)
 
-    let letrec defs body annot =
-      let aux (kept,kept_for_effect) (id,def) =
-        if IdentSet.mem id reachable
-        then ((id,def) :: kept,kept_for_effect)
-        else (if IdentSet.mem id unpure_reachable
-          then (kept,def :: kept_for_effect)
-          else (kept,kept_for_effect)) in
-      let kept, kept_for_effect = List.fold_left aux ([],[]) defs in
-      let kept_body = match kept with
-        | [] -> body
-        | _ -> Fletrec(List.rev kept,body,annot)
-      in
-      (* There shouldn't be any code executed in the definitions of a
-         letrec so if kept_for_effect is not empty, we are seriously
-         doing something wrong... *)
-      assert(kept_for_effect = []);
-      Node kept_body
+(*     let letrec defs body annot = *)
+(*       let aux (kept,kept_for_effect) (id,def) = *)
+(*         if IdentSet.mem id reachable *)
+(*         then ((id,def) :: kept,kept_for_effect) *)
+(*         else (if IdentSet.mem id unpure_reachable *)
+(*           then (kept,def :: kept_for_effect) *)
+(*           else (kept,kept_for_effect)) in *)
+(*       let kept, kept_for_effect = List.fold_left aux ([],[]) defs in *)
+(*       let kept_body = match kept with *)
+(*         | [] -> body *)
+(*         | _ -> Fletrec(List.rev kept,body,annot) *)
+(*       in *)
+(*       (\* There shouldn't be any code executed in the definitions of a *)
+(*          letrec so if kept_for_effect is not empty, we are seriously *)
+(*          doing something wrong... *\) *)
+(*       assert(kept_for_effect = []); *)
+(*       Node kept_body *)
 
-  end in
-  let module Cleaning = Fold(CleanerInst) in
-  Cleaning.fold t
+(*   end in *)
+(*   let module Cleaning = Fold(CleanerInst) in *)
+(*   Cleaning.fold t *)
 
 
 (* TODO: clean: copied from flambdaloop to do this quickly now... *)
@@ -1021,34 +1021,34 @@ let dead_code_elimination t =
 (*   dead_code_elimination *)
 (*     (stupid_purity_annotation t) *)
 
-let reindex tree =
-  let eid () = ExprId.create () in
-  let mapper = function
-    | Fvar (id,_) -> Fvar (id,eid ())
-    | Fconst (cst,_) -> Fconst (cst,eid ())
-    | Flet(str, id, lam, body,_) -> Flet(str, id, lam, body,eid ())
-    | Fletrec(defs, body,_) -> Fletrec(defs, body,eid ())
-    | Fclosure(funct, fv,_) -> Fclosure(funct, fv,eid ())
-    | Foffset(lam,id,_) -> Foffset(lam,id,eid ())
-    | Fenv_field(env,_) -> Fenv_field(env,eid ())
-    | Fapply(funct, args, direct, dbg, _) ->
-      Fapply(funct, args, direct, dbg, eid ())
-    | Fswitch(arg, sw,_) -> Fswitch(arg, sw,eid ())
-    | Fsend(kind, met, obj, args, dbg, _) ->
-      Fsend(kind, met, obj, args, dbg,eid ())
-    | Fprim(prim, args, dbg, _) -> Fprim(prim, args, dbg, eid ())
-    | Fstaticfail (i, args,_) -> Fstaticfail (i, args,eid ())
-    | Fcatch (i, vars, body, handler,_) -> Fcatch (i, vars, body, handler,eid ())
-    | Ftrywith(body, id, handler,_) -> Ftrywith(body, id, handler,eid ())
-    | Fifthenelse(arg, ifso, ifnot,_) -> Fifthenelse(arg, ifso, ifnot,eid ())
-    | Fsequence(lam1, lam2,_) -> Fsequence(lam1, lam2,eid ())
-    | Fwhile(cond, body,_) -> Fwhile(cond, body,eid ())
-    | Ffor(id, lo, hi, dir, body,_) -> Ffor(id, lo, hi, dir, body,eid ())
-    | Fassign(id, lam,_) -> Fassign(id, lam,eid ())
-  in
-  map mapper tree
+(* let reindex (type t) (tree:t flambda) = *)
+(*   let eid () = ExprId.create () in *)
+(*   let mapper (type t) : (t flambda) -> 'a = function *)
+(*     | Fvar (id,_) -> Fvar (id,eid ()) *)
+(*     | Fconst (cst,_) -> Fconst (cst,eid ()) *)
+(*     | Flet(str, id, lam, body,_) -> Flet(str, id, lam, body,eid ()) *)
+(*     | Fletrec(defs, body,_) -> Fletrec(defs, body,eid ()) *)
+(*     | Fclosure(funct, fv,_) -> Fclosure(funct, fv,eid ()) *)
+(*     | Foffset(lam,id,_) -> Foffset(lam,id,eid ()) *)
+(*     | Fenv_field(env,_) -> Fenv_field(env,eid ()) *)
+(*     | Fapply(funct, args, direct, dbg, _) -> *)
+(*       Fapply(funct, args, direct, dbg, eid ()) *)
+(*     | Fswitch(arg, sw,_) -> Fswitch(arg, sw,eid ()) *)
+(*     | Fsend(kind, met, obj, args, dbg, _) -> *)
+(*       Fsend(kind, met, obj, args, dbg,eid ()) *)
+(*     | Fprim(prim, args, dbg, _) -> Fprim(prim, args, dbg, eid ()) *)
+(*     | Fstaticfail (i, args,_) -> Fstaticfail (i, args,eid ()) *)
+(*     | Fcatch (i, vars, body, handler,_) -> Fcatch (i, vars, body, handler,eid ()) *)
+(*     | Ftrywith(body, id, handler,_) -> Ftrywith(body, id, handler,eid ()) *)
+(*     | Fifthenelse(arg, ifso, ifnot,_) -> Fifthenelse(arg, ifso, ifnot,eid ()) *)
+(*     | Fsequence(lam1, lam2,_) -> Fsequence(lam1, lam2,eid ()) *)
+(*     | Fwhile(cond, body,_) -> Fwhile(cond, body,eid ()) *)
+(*     | Ffor(id, lo, hi, dir, body,_) -> Ffor(id, lo, hi, dir, body,eid ()) *)
+(*     | Fassign(id, lam,_) -> Fassign(id, lam,eid ()) *)
+(*   in *)
+(*   map mapper tree *)
 
-let reindex' tree =
+let reindex tree =
   let eid prev_id =
     let name = ExprId.name prev_id in
     ExprId.create ?name () in
@@ -1075,6 +1075,25 @@ let reindex' tree =
   in
   map mapper tree
 
+(* let reindex (type t) t = *)
+(*   let module S = struct *)
+(*     type annot = t *)
+(*     type data = ExprId.t *)
+(*     let default () = ExprId.create () *)
+(*   end in *)
+(*   let module F = Fold(Setter(S)) in *)
+(*   F.fold t *)
+
+(* let reindex' t = *)
+(*   let module S = struct *)
+(*     type annot = ExprId.t *)
+(*     type data = ExprId.t *)
+(*     let merge _ prev_id = *)
+(*       let name = ExprId.name prev_id in *)
+(*       ExprId.create ?name () *)
+(*   end in *)
+(*   let module F = Fold(Merger(S)) in *)
+(*   F.fold t *)
 
 (* variable assignation tracking *)
 
