@@ -2,19 +2,98 @@ open Lambda
 open Flambda
 
 let pure_prim = function
-    Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
-    Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
-    Parraysetu _ | Parraysets _ | Pbigarrayset _
+  | Pidentity
+  | Pignore -> true
 
-  | Pstringrefs | Parrayrefs _ | Pbigarrayref (_,_,_,_)
+  | Prevapply _
+  | Pdirapply _ -> assert false
 
-  | Pstring_load_16 _ | Pstring_load_32 _ | Pstring_load_64 _
+  | Pgetglobal _ -> true
+  | Psetglobal _ -> false
 
-  | Pbigstring_load_16 _ | Pbigstring_load_32 _
+  | Pmakeblock _ -> true
+
+  | Psetfield _
+  | Pfloatfield _
+  | Psetfloatfield _ -> false
+
+  (* pure on immutable blocks: find a way to distinguish *)
+  | Pfield _ -> false
+  | Pduprecord _ -> false
+  | Pbittest -> false
+
+  | Plazyforce
+  | Pccall _
+  | Praise -> false
+
+  | Psequand | Psequor | Pnot -> true
+  | Pnegint | Paddint | Psubint | Pmulint | Pdivint | Pmodint
+  | Pandint | Porint | Pxorint
+  | Plslint | Plsrint | Pasrint
+  | Pintcomp _ -> true
+
+  | Poffsetint _ -> true
+  | Poffsetref _ -> false
+
+  | Pintoffloat | Pfloatofint
+  | Pnegfloat | Pabsfloat
+  | Paddfloat | Psubfloat | Pmulfloat | Pdivfloat
+  | Pfloatcomp _ -> true
+
+  | Pstringlength -> true (* string length can't change *)
+
+  | Pstringrefu | Pstringsetu | Pstringrefs | Pstringsets -> false
+
+  | Pmakearray _
+  | Parraylength _ -> true
+
+  | Parrayrefu _
+  | Parraysetu _
+  | Parrayrefs _
+  | Parraysets _ -> false
+
+  | Pisint -> true
+  | Pisout -> true
+
+  | Pbintofint _
+  | Pintofbint _
+  | Pcvtbint _
+  | Pnegbint _
+  | Paddbint _
+  | Psubbint _
+  | Pmulbint _
+  | Pdivbint _
+  | Pmodbint _
+  | Pandbint _
+  | Porbint _
+  | Pxorbint _
+  | Plslbint _
+  | Plsrbint _
+  | Pasrbint _
+  | Pbintcomp _ -> true
+
+  | Pbigarrayref _
+  | Pbigarrayset _ -> false
+  | Pbigarraydim _ -> false
+
+  | Pstring_load_16 _
+  | Pstring_load_32 _
+  | Pstring_load_64 _
+  | Pstring_set_16 _
+  | Pstring_set_32 _
+  | Pstring_set_64 _
+  | Pbigstring_load_16 _
+  | Pbigstring_load_32 _
   | Pbigstring_load_64 _
+  | Pbigstring_set_16 _
+  | Pbigstring_set_32 _
+  | Pbigstring_set_64 _ -> false
 
-    -> false
-  | _ -> true (* TODO: exhaustive list *)
+  | Pctconst _ -> assert false
+
+  | Pbswap16
+  | Pbbswap _ -> true
+  | Pphyscomp _ -> true
 
 let effectless_prim = function
     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
@@ -30,58 +109,6 @@ let effectless_prim = function
 
     -> false
   | _ -> true (* TODO: exhaustive list *)
-
-(* let unpure_expressions t : ExprSet.t = *)
-(*   let unpure_expr = ref ExprSet.empty in *)
-
-(*   let mark e = *)
-(*     unpure_expr := ExprSet.add e !unpure_expr in *)
-
-(*   let module Unpure = struct *)
-(*     type annot = ExprId.t *)
-(*     type data = pure *)
-(*     let merge l data = *)
-(*       if List.for_all (fun v -> v = Pure) l *)
-(*       then Pure *)
-(*       else *)
-(*         (mark data; *)
-(*          Unpure) *)
-(*   end in *)
-(*   let module UnpureInst = struct *)
-(*     include Merger(Unpure) *)
-
-(*     let apply ~func ~args ~direct ~dbg data = *)
-(*       (\* mark pure functions *\) *)
-(*       mark data; *)
-(*       Data Unpure *)
-
-(*     let prim p args _ data = *)
-(*       let d = *)
-(*         if effectful_prim p && *)
-(*            List.for_all (fun lam -> Flambda.data lam = Pure) args *)
-(*         then Pure *)
-(*         else (mark data; Unpure) *)
-(*       in *)
-(*       Data d *)
-(*     let staticfail _ _ data = *)
-(*       mark data; *)
-(*       Data Unpure *)
-
-(*     let assign _ _ data = *)
-(*       mark data; *)
-(*       Data Unpure *)
-(*     let send _ _ _ _ _ data = *)
-(*       mark data; *)
-(*       Data Unpure *)
-
-(*     let closure ffunc fv data = *)
-(*       let unpure = List.map (fun (_,v) -> Flambda.data v) (IdentMap.bindings fv) in *)
-(*       Data (Unpure.merge unpure data) *)
-
-(*   end in *)
-(*   let module M = Fold(UnpureInst) in *)
-(*   let _ = M.fold t in *)
-(*   !unpure_expr *)
 
 type kind = Pure | Effectful
 
