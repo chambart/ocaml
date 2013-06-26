@@ -17,6 +17,8 @@ exception Fatal_error
 
 val try_finally : (unit -> 'a) -> (unit -> unit) -> 'a;;
 
+val map_filter: ('a -> 'b option) -> 'a list -> 'b list
+        (* [map_filter f l] is [map f l], with only the Some kept. *)
 val map_end: ('a -> 'b) -> 'a list -> 'b list -> 'b list
         (* [map_end f l t] is [map f l @ t], just more efficient. *)
 val map_left_right: ('a -> 'b) -> 'a list -> 'b list
