@@ -168,6 +168,14 @@ let prepare ppf flambda =
   ++ text "extract constant"
   ++ extract_constant ppf
 
+let elim_let ppf flambda =
+  let not_const = Constants.not_constants flambda in
+  let pure_result = Purity.effectful Purity.Pure flambda in
+  flambda
+  ++ text "eliminate useless let"
+  ++ Cleaner.elim_let not_const pure_result
+  ++ flambda_dump_if ppf
+
 let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
@@ -190,6 +198,7 @@ let optimise_one ppf flambda =
     ++ text "end specialise"
     ++ specialise ppf
     ++ flambda_dump_if ppf
+    ++ elim_let ppf
     ++ text "end"
 
   else flambda
