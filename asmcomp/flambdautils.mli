@@ -13,9 +13,9 @@ val map :
   'a Flambda.flambda -> 'a Flambda.flambda
 
 val map2 :
-  (('a Flambda.flambda -> 'a Flambda.flambda) ->
-   'a Flambda.flambda -> 'a Flambda.flambda) ->
-  'a Flambda.flambda -> 'a Flambda.flambda
+  (('env -> 'a Flambda.flambda -> 'a Flambda.flambda) ->
+   'env -> 'a Flambda.flambda -> 'a Flambda.flambda) ->
+  'env -> 'a Flambda.flambda -> 'a Flambda.flambda
 
 val anf :
   Flambda.ExprId.t Flambda.flambda -> Flambda.ExprId.t Flambda.flambda

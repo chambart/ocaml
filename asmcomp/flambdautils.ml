@@ -553,79 +553,82 @@ let map f tree =
   in
   aux tree
 
-let map2 f tree =
-  let rec aux1 tree = match tree with
+let map2 :
+  (('env -> 'a Flambda.flambda -> 'a Flambda.flambda) ->
+   'env -> 'a Flambda.flambda -> 'a Flambda.flambda) ->
+  'env -> 'a Flambda.flambda -> 'a Flambda.flambda = fun f env tree ->
+  let rec aux1 env tree = match tree with
     | Fvar (id,annot) -> tree
     | Fconst (cst,annot) -> tree
     | Fapply (funct, args, direc, dbg, annot) ->
-      Fapply (aux funct, List.map aux args, direc, dbg, annot)
+      Fapply (aux env funct, List.map (aux env) args, direc, dbg, annot)
     | Fclosure (ffuns, fv, annot) ->
-      let fv = IdentMap.map aux fv in
+      let fv = IdentMap.map (aux env) fv in
       Fclosure (ffuns, fv, annot)
     | Foffset (flam, off, annot) ->
-      Foffset (aux flam, off, annot)
+      Foffset (aux env flam, off, annot)
     | Fenv_field (fenv_field, annot) ->
-      Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot)
+      Fenv_field ({ fenv_field with env = aux env fenv_field.env }, annot)
     | Flet(str, id, lam, body, annot) ->
-      let lam = aux lam in
-      let body = aux body in
+      let lam = aux env lam in
+      let body = aux env body in
       Flet (str, id, lam, body, annot)
     | Fletrec(defs, body, annot) ->
-      let defs = List.map (fun (id,lam) -> id,aux lam) defs in
-      let body = aux body in
+      let defs = List.map (fun (id,lam) -> id,aux env lam) defs in
+      let body = aux env body in
       Fletrec (defs, body, annot)
     | Fprim(p, args, dbg, annot) ->
-      let args = List.map aux args in
+      let args = List.map (aux env) args in
       Fprim (p, args, dbg, annot)
     | Fstaticfail(i, args, annot) ->
-      let args = List.map aux args in
+      let args = List.map (aux env) args in
       Fstaticfail (i, args, annot)
     | Fcatch (i, vars, body, handler, annot) ->
-      let body = aux body in
-      let handler = aux handler in
+      let body = aux env body in
+      let handler = aux env handler in
       Fcatch (i, vars, body, handler, annot)
     | Ftrywith(body, id, handler, annot) ->
-      let body = aux body in
-      let handler = aux handler in
+      let body = aux env body in
+      let handler = aux env handler in
       Ftrywith(body, id, handler, annot)
     | Fifthenelse(arg, ifso, ifnot, annot) ->
-      let arg = aux arg in
-      let ifso = aux ifso in
-      let ifnot = aux ifnot in
+      let arg = aux env arg in
+      let ifso = aux env ifso in
+      let ifnot = aux env ifnot in
       Fifthenelse(arg, ifso, ifnot, annot)
     | Fsequence(lam1, lam2, annot) ->
-      let lam1 = aux lam1 in
-      let lam2 = aux lam2 in
+      let lam1 = aux env lam1 in
+      let lam2 = aux env lam2 in
       Fsequence(lam1, lam2, annot)
     | Fwhile(cond, body, annot) ->
-      let cond = aux cond in
-      let body = aux body in
+      let cond = aux env cond in
+      let body = aux env body in
       Fwhile(cond, body, annot)
     | Fsend(kind, met, obj, args, dbg, annot) ->
-      let met = aux met in
-      let obj = aux obj in
-      let args = List.map aux args in
+      let met = aux env met in
+      let obj = aux env obj in
+      let args = List.map (aux env) args in
       Fsend(kind, met, obj, args, dbg, annot)
     | Ffor(id, lo, hi, dir, body, annot) ->
-      let lo = aux lo in
-      let hi = aux hi in
-      let body = aux body in
+      let lo = aux env lo in
+      let hi = aux env hi in
+      let body = aux env body in
       Ffor(id, lo, hi, dir, body, annot)
     | Fassign(id, lam, annot) ->
-      let lam = aux lam in
+      let lam = aux env lam in
       Fassign(id, lam, annot)
     | Fswitch(arg, sw, annot) ->
-      let arg = aux arg in
+      let arg = aux env arg in
       let sw =
         { sw with
-          fs_failaction = Misc.may_map aux sw.fs_failaction;
-          fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
-          fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
+          fs_failaction = Misc.may_map (aux env) sw.fs_failaction;
+          fs_consts = List.map (fun (i,v) -> i, aux env v) sw.fs_consts;
+          fs_blocks = List.map (fun (i,v) -> i, aux env v) sw.fs_blocks; } in
       Fswitch(arg, sw, annot)
-  and aux tree =
-    f aux1 tree
+  and aux env tree =
+    f aux1 env tree
   in
-  aux tree
+  aux env tree
 
 (****** ANF transformation *******)
 
