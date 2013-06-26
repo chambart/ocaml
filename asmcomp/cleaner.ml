@@ -780,3 +780,94 @@ let extract_constants (constants:Constants.constant_result) tree =
       IdentMap.add v expr map)
       IdentMap.empty !bindings in
   Flambdasort.rebuild_sorted_expr bindings tree
+
+
+
+type count =
+  | One
+  | Many
+  | Loop
+
+let count_var expr =
+
+  let add id env =
+    let count =
+      try match IdentTbl.find env id with
+        | One | Many -> Many
+        | Loop -> Loop
+      with Not_found -> One in
+    IdentTbl.replace env id count in
+
+  let promote ~orig_env ~loop_env =
+    IdentTbl.iter (fun id _ -> IdentTbl.replace orig_env id Loop) loop_env in
+
+  let fresh_env () = IdentTbl.create 5 in
+
+  let rec f iter env = function
+    | Fvar(id, _) -> add id env
+    | Fwhile(fcond, floop, _) ->
+      f iter env fcond;
+      loop iter env floop
+    | Ffor(_,flo,fhi,_,floop,_) ->
+      f iter env flo;
+      f iter env fhi;
+      loop iter env floop
+    | Fclosure (ffuns, fv, _) ->
+      IdentMap.iter (fun _ ffun -> f iter env ffun.body) ffuns.funs;
+      IdentMap.iter (fun _ expr -> f iter env expr) fv;
+    | expr -> iter env expr
+
+  and loop iter orig_env expr =
+    let loop_env = fresh_env () in
+    f iter loop_env expr;
+    promote ~orig_env ~loop_env
+  in
+
+  let init_env = fresh_env () in
+  Flambdautils.iter2_flambda f init_env expr;
+  init_env
+
+let elim_let constant unpure_expr expr =
+  let count = count_var expr in
+  let should_elim id eid =
+    match IdentTbl.find count id with
+    | Many | Loop -> false
+    | One ->
+      (IdentSet.mem id constant.Constants.not_constant_id) &&
+      (* if the value is a constant, it will be compiled more
+         efficiently by simply accessing its label *)
+      not (ExprSet.mem eid unpure_expr.Purity.effectful_expr)
+          (* if the expression is unpure, we cannot move it
+             around without changing the semantics *)
+  in
+
+  let add_env id lam env = IdentMap.add id lam env in
+
+  let rec mapper iter env expr = match expr with
+    | Fvar(id, _) ->
+      begin try IdentMap.find id env with Not_found -> expr end
+
+    | Flet(_, id, lam, Fvar(id', _), _) when Ident.same id id' ->
+      mapper iter env lam
+
+    | Flet((StrictOpt|Strict|Alias), id, lam, body, _) ->
+      if should_elim id (data lam)
+      then
+        let lam = mapper iter env lam in
+        mapper iter (add_env id lam env) body
+      else iter env expr
+
+    | Fclosure (ffuns, fv, eid) ->
+      let ffuns =
+        { ffuns with
+          funs = IdentMap.map
+              (fun ffun ->
+                 { ffun with body = mapper iter IdentMap.empty ffun.body })
+              ffuns.funs } in
+      let fv = IdentMap.map (mapper iter env) fv in
+      Fclosure (ffuns, fv, eid)
+
+    | _ -> iter env expr
+  in
+
+  Flambdautils.map2 mapper IdentMap.empty expr
