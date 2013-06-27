@@ -4,4 +4,4 @@ type constant_result = {
   not_constant_closure : Flambda.FunSet.t;
 }
 
-val not_constants : 'a Flambda.flambda -> constant_result
+val not_constants : for_clambda:bool -> 'a Flambda.flambda -> constant_result

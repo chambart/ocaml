@@ -640,6 +640,16 @@ let rebind analysis effectful tree =
 
 let extract_constants (constants:Constants.constant_result) tree =
 
+  let global_var, global_index = Flambdautils.global_index tree in
+
+  let global_id id =
+    try
+      let gid = IdentTbl.find global_var id in
+      if gid.Ident.name = Compilenv.current_unit_name ()
+      then Some gid
+      else None
+    with Not_found -> None in
+
   (* constants extracted *)
   let bindings = ref [] in
   let renaming = IdentTbl.create 10 in
@@ -772,6 +782,13 @@ let extract_constants (constants:Constants.constant_result) tree =
       (* Printf.printf "rebind %s => %s\n%!" *)
       (*   (Ident.unique_name var) (Ident.unique_name ren); *)
       Fvar(rename var,eid)
+    | Fprim(Pfield i,[Fvar(id,_)], _, eid) ->
+      begin match global_id id with
+        | None -> tree
+        | Some gid ->
+          let var = IntTbl.find global_index i in
+          Fvar(var, eid)
+      end
     | _ -> tree in
   let tree = Flambdautils.map2 mapper' () tree in
   let bindings = List.fold_left (fun map (v,expr) ->
@@ -830,9 +847,10 @@ let count_var expr =
 let elim_let constant unpure_expr expr =
   let count = count_var expr in
   let should_elim id eid =
-    match IdentTbl.find count id with
-    | Many | Loop -> false
-    | One ->
+    let count = try Some (IdentTbl.find count id) with _ -> None in
+    match count with
+    | None | Some (Many | Loop) -> false
+    | Some One ->
       (IdentSet.mem id constant.Constants.not_constant_id) &&
       (* if the value is a constant, it will be compiled more
          efficiently by simply accessing its label *)

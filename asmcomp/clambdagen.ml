@@ -104,7 +104,7 @@ module Conv(P:Param2) = struct
   let fv_offset_table = P.fv_offset_table
   let fv_pos_table = P.fv_pos_table
 
-  let not_constants = Constants.not_constants P.expr
+  let not_constants = Constants.not_constants ~for_clambda:true P.expr
 
   let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
     | Fvar (id,_) ->
