@@ -14,7 +14,7 @@ module type Param = sig
   val effectful : Purity.effectful
 end
 
-module NotConstants(P:Param) = struct
+module Used(P:Param) = struct
 
   type dep =
     (* TODO exceptions/static fail *)
@@ -181,7 +181,7 @@ let used effectful (expr:ExprId.t Flambda.flambda) =
     let expr = expr
     let effectful = effectful
   end in
-  let module A = NotConstants(P) in
+  let module A = Used(P) in
   A.res
 
 
