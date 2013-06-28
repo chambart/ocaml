@@ -259,11 +259,10 @@ let same f1 f2 =
       bound to a closure. ( this is assumed by Clambdagen )
     * At most one place can catch a static exception
     * Staticfail are correctly enclosed inside a catch
+    * no let rec x = y and y = ...
+      -> assumed by clambdagen
 
    TODO: check assumptions of the rest of the code
-   - no let rec x = y and y = ...
-     -> assumed by clambdagen
-   - allow access to free variables if they are constants ?
  *)
 
 module StringSet = Set.Make(String)
@@ -344,7 +343,16 @@ let rec check env = function
     check env lam;
     let env = bind_var id lam env in
     check env body
-  | Fletrec(defs, body,_) ->
+  | Fletrec(defs, body,_) -> List.iter (function
+      (* clambdagen assumes this *)
+      | (_,Fvar(var_id,_)) ->
+        List.iter (fun (id,_) ->
+            if Ident.same var_id id
+            then fatal_error (Printf.sprintf "Flambda.check: recursive alias to \
+                                              var %s" (Ident.unique_name id)))
+          defs
+      | _ -> ())
+      defs;
     let env = List.fold_left (fun env (id,lam) -> bind_var id lam env) env defs in
     List.iter (fun (_,def) -> check env def) defs;
     check env body
