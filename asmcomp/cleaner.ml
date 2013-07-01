@@ -4,6 +4,14 @@ open Flambda
 open Flambdainfo
 open Values
 
+let one_value_function analysis value =
+  match possible_closure value with
+  | No_function | Many_functions -> None
+  | One_function f ->
+    let fun_id = f.fun_id in
+    let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
+    Some (f, IdentMap.find fun_id ffunctions.funs)
+
 module type CleanerParam = sig
   val analysis : analysis_result
   val effectful_expr : ExprSet.t
@@ -160,9 +168,9 @@ module Cleaner(Param:CleanerParam) = struct
       Fprim(Parrayrefu (array_ref_kind kind array), [array;index], dbg, eid)
 
     | Fapply(funct, args, _, dbg, eid) ->
-      begin match possible_closure (expr_value funct) with
-        | Many_functions -> tree
-        | One_function f ->
+      begin match one_value_function analysis (expr_value funct) with
+        | None -> tree
+        | Some (f, ffunction) ->
           let fun_id = f.fun_id in
           let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
@@ -174,9 +182,6 @@ module Cleaner(Param:CleanerParam) = struct
             let direct = Some(ffunction.label,closed) in
             Fapply(funct, args, direct, dbg, eid)
           else tree
-        | No_function ->
-          (* Don't know what to do here *)
-          tree
       end
 
     | e -> e
@@ -424,40 +429,33 @@ let inlining inlining_kind analysis lam =
   (*   functions_map := FunMap.add ffunctions.ident ffunctions !functions_map; *)
   (*   Flambdautils.Data data in *)
 
-  let apply ~func ~args ~direct ~dbg ~tree node_data =
-    match direct with
-    | None -> tree
-    | Some (fun_label,closed) ->
-      begin match possible_closure (expr_value func) with
-        | Many_functions -> tree
-        | No_function -> tree
-        | One_function f ->
-          begin match closed with
-            | NotClosed | Closed ->
-
-              let fun_id = f.fun_id in
-              let ffunctions = FunMap.find f.closure_funs
-                  !functions_map in
-              let ffunction = IdentMap.find fun_id ffunctions.funs in
-              let should_go = match inlining_kind with
-                | Minimal -> should_inline_minimal ffunction
-                | With_local_functions -> should_inline ffunction
-              in
-              if not ffunctions.recursives && should_go
-              then inline_simple func fun_id ffunction args
-              else tree
-
-                (* | NotClosed -> tree *)
-          end
-      end
+  let apply ~func ~args ~dbg ~tree node_data =
+    begin match one_value_function analysis (expr_value func) with
+      | None -> tree
+      | Some (f, ffunction) ->
+        if ffunction.arity = List.length args
+        then
+          let fun_id = f.fun_id in
+          let ffunctions = FunMap.find f.closure_funs
+              !functions_map in
+          let ffunction = IdentMap.find fun_id ffunctions.funs in
+          let should_go = match inlining_kind with
+            | Minimal -> should_inline_minimal ffunction
+            | With_local_functions -> should_inline ffunction
+          in
+          if not ffunctions.recursives && should_go
+          then inline_simple func fun_id ffunction args
+          else tree
+        else tree
+    end
   in
 
   let mapper tree = match tree with
     | Fclosure (ffunctions, fv, _) ->
       functions_map := FunMap.add ffunctions.ident ffunctions !functions_map;
       tree
-    | Fapply (func, args, direct, dbg, eid) ->
-      apply ~func ~args ~direct ~dbg ~tree eid
+    | Fapply (func, args, _, dbg, eid) ->
+      apply ~func ~args ~dbg ~tree eid
     | _ -> tree in
 
   Flambdautils.map mapper lam
