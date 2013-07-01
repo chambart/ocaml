@@ -358,17 +358,24 @@ end
 let fun_size ffun =
   (* check also that some parameters are constants *)
   let count = ref 0 in
-  Flambdautils.iter_flambda (fun _ -> incr count) ffun.body;
+  Flambdautils.iter_all (function
+      | Fvar _ -> ()
+      | Fsequence (e1,e2,_) -> ()
+      | Flet (_,_,e1,e2,_) -> ()
+      | _ -> incr count) ffun.body;
   !count
 
-let should_inline ffun = fun_size ffun < 30
+let should_inline ffun = fun_size ffun < 20
 
 let should_inline_minimal ffun =
   let max_size = 10 in
   let count = ref 0 in
   Flambdautils.iter_flambda (function
-    | Fclosure _ -> count := !count + max_size
-    | _ -> incr count) ffun.body;
+      | Fvar _ -> ()
+      | Fsequence (e1,e2,_) -> ()
+      | Flet (_,_,e1,e2,_) -> ()
+      | Fclosure _ -> count := !count + max_size
+      | _ -> incr count) ffun.body;
   !count < max_size
 
 let inline_simple func fun_id ffun args =
