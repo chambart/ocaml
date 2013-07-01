@@ -154,7 +154,16 @@ let cleaning ppf flambda =
 
 let inlining ppf flambda =
   let val_result = Flambdainfo.analyse flambda in
-  Cleaner.inlining Cleaner.Minimal val_result flambda
+  (* Cleaner.inlining Cleaner.Minimal val_result flambda *)
+  let step1 =
+    Cleaner.inlining Cleaner.With_local_functions val_result flambda
+    ++ Flambdautils.reindex
+    ++ flambda_dump_if ppf
+  in
+  let val_result = Flambdainfo.analyse step1 in
+  step1
+  ++ text "inlining minimal"
+  ++ Cleaner.inlining Cleaner.Minimal val_result
   ++ Flambdautils.reindex
   ++ flambda_dump_if ppf
 
