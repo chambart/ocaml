@@ -804,6 +804,7 @@ let extract_constants (constants:Constants.constant_result) tree =
 
 
 type count =
+  | Zero
   | One
   | Many
   | Loop
@@ -811,19 +812,32 @@ type count =
 let count_var expr =
 
   let add id env =
-    let count =
-      try match IdentTbl.find env id with
+    try
+      let count = match IdentTbl.find env id with
+        | Zero -> One
         | One | Many -> Many
-        | Loop -> Loop
-      with Not_found -> One in
-    IdentTbl.replace env id count in
+        | Loop -> Loop in
+      IdentTbl.replace env id count
+    with Not_found -> () in
 
   let promote ~orig_env ~loop_env =
-    IdentTbl.iter (fun id _ -> IdentTbl.replace orig_env id Loop) loop_env in
+    IdentTbl.iter (fun id count -> IdentTbl.replace orig_env id Loop) loop_env in
 
   let fresh_env () = IdentTbl.create 5 in
 
+  let global_count = IdentTbl.create 5 in
+
   let rec f iter env = function
+    | Flet(_,id,lam,body,_) ->
+      f iter env lam;
+      IdentTbl.add env id Zero;
+      f iter env body;
+      begin try
+          let count = IdentTbl.find env id in
+          IdentTbl.remove env id;
+          IdentTbl.add global_count id count
+        with Not_found -> () end
+
     | Fvar(id, _) -> add id env
     | Fwhile(fcond, floop, _) ->
       f iter env fcond;
@@ -845,14 +859,15 @@ let count_var expr =
 
   let init_env = fresh_env () in
   Flambdautils.iter2_flambda f init_env expr;
-  init_env
+  assert(IdentTbl.length init_env = 0);
+  global_count
 
 let elim_let constant unpure_expr expr =
   let count = count_var expr in
   let should_elim id eid =
     let count = try Some (IdentTbl.find count id) with _ -> None in
     match count with
-    | None | Some (Many | Loop) -> false
+    | None | Some (Zero | Many | Loop) -> false
     | Some One ->
       (IdentSet.mem id constant.Constants.not_constant_id) &&
       (* if the value is a constant, it will be compiled more
