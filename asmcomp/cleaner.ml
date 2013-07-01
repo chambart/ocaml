@@ -691,13 +691,18 @@ let extract_constants (constants:Constants.constant_result) tree =
       let lam = mapper iter lam in
       Some (id, lam)
     else begin
-      (match lam with
-       | Fclosure( ffunctions, fv, eid ) ->
-         ignore(fclosure iter (Some id) ffunctions fv eid);
-       | _ ->
-         let lam = mapper iter lam in
-         add_binding id lam);
-      None
+      match lam with
+      | Fvar(aliased_id, _) ->
+        (* avoid let rec x = y and y = ... *)
+        IdentTbl.add renaming id aliased_id;
+        Some (id, lam)
+      | Fclosure( ffunctions, fv, eid ) ->
+        ignore(fclosure iter (Some id) ffunctions fv eid);
+        None
+      | _ ->
+        let lam = mapper iter lam in
+        add_binding id lam;
+        None
     end
 
   and fclosure iter name ffunctions fv eid =
