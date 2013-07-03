@@ -797,6 +797,7 @@ let extract_constants (constants:Constants.constant_result) tree =
         | None -> tree
         | Some gid ->
           let var = IntTbl.find global_index i in
+          let var = rename var in
           Fvar(var, eid)
       end
     | _ -> tree in
