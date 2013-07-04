@@ -20,9 +20,12 @@ open Flambda
 module type Param1 = sig
   type t
   val expr : t Flambda.flambda
+  val not_constants : Constants.constant_result
 end
 
 module Offsets(P:Param1) = struct
+
+  let not_constants = P.not_constants
 
   (* The offset table associate a function label to its offset
      inside a closure *)
@@ -43,6 +46,9 @@ module Offsets(P:Param1) = struct
 
     let funct = IdentMap.bindings functs.funs in
     let fv = IdentMap.bindings fv in
+    (* only consider free variables that are not constants *)
+    (* let fv = List.filter (fun (id, _) -> *)
+    (*     IdentSet.mem id not_constants.Constants.not_constant_id) fv in *)
 
     (* build the table mapping the function to the offset of its code
        pointer inside the closure value *)
@@ -89,6 +95,7 @@ module type Param2 = sig
   val fun_offset_table : int IdentMap.t
   val fv_offset_table : int IdentMap.t
   val fv_pos_table : int FunMap.t
+  val not_constants : Constants.constant_result
 end
 
 type const_lbl =
@@ -104,7 +111,7 @@ module Conv(P:Param2) = struct
   let fv_offset_table = P.fv_offset_table
   let fv_pos_table = P.fv_pos_table
 
-  let not_constants = Constants.not_constants ~for_clambda:true P.expr
+  let not_constants = P.not_constants
 
   let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
     | Fvar (id,_) ->
@@ -160,6 +167,11 @@ module Conv(P:Param2) = struct
                  to it: hence we must substitute it directly. *)
               IdentMap.add id (conv sb cm def) sb, cm, acc
             | Fvar (var_id, _) ->
+              List.iter (fun (id,_) ->
+                  if Ident.same var_id id
+                  then Printf.printf "prob: %s %s\n%!"
+                      (Ident.unique_name id)
+                      (Ident.unique_name var_id)) consts;
               assert(List.for_all(fun (id,_) -> not (Ident.same var_id id)) consts);
               (* For variables: the variable could have been substituted to
                  a constant: avoid it by substituting it directly *)
@@ -184,7 +196,11 @@ module Conv(P:Param2) = struct
          label ^ "_" ^ offset
          This works because we know that Foffset is by construction always
          applied to a variable or the closure on which we can recover the
-         original label. *)
+         original label.
+
+         TODO: verify that this still holds after substitution !
+         add a check in Flambda.check
+      *)
       let ulam = conv sb cm lam in
       if not (IdentMap.mem id fun_offset_table)
       then fatal_error (Printf.sprintf "missing offset %s" (Ident.unique_name id));
@@ -193,7 +209,12 @@ module Conv(P:Param2) = struct
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv sb cm lam in
-      assert(IdentMap.mem env_var fv_offset_table);
+      if not (IdentMap.mem env_var fv_offset_table)
+      then begin
+        Printf.printf "env field offset not found: %s\n%!"
+          (Ident.unique_name env_var);
+        assert false
+      end;
       if not (IdentMap.mem env_fun_id fun_offset_table)
       then begin
         Printf.printf "fun_var not found: %s (when looking for %s)\n%!"
@@ -430,6 +451,10 @@ module Conv(P:Param2) = struct
         Compilenv.add_structured_constant closure_lbl cst true;
         Uconst(cst,Some closure_lbl)
     else
+      (* let fv_ulam = *)
+      (*   (\* only not constants are in the closure *\) *)
+      (*   List.filter (fun (id, _) -> *)
+      (*       IdentSet.mem id not_constants.Constants.not_constant_id) fv_ulam in *)
       Uclosure (ufunct, List.map snd fv_ulam)
 
   and conv_list sb cm l = List.map (conv sb cm) l
@@ -482,7 +507,12 @@ module Conv(P:Param2) = struct
 end
 
 let convert (type a) (expr:a Flambda.flambda) =
-  let module P1 = struct type t = a let expr = expr end in
+  let not_constants = Constants.not_constants ~for_clambda:true expr in
+  let module P1 = struct
+    type t = a
+    let expr = expr
+    let not_constants = not_constants
+  end in
   let fun_offset_table, fv_offset_table, fv_pos_table =
     let module O = Offsets(P1) in
     O.res
@@ -490,6 +520,8 @@ let convert (type a) (expr:a Flambda.flambda) =
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
     let fv_offset_table = fv_offset_table
-    let fv_pos_table = fv_pos_table end in
+    let fv_pos_table = fv_pos_table
+    let not_constants = not_constants
+  end in
   let module C = Conv(P2) in
   C.res
