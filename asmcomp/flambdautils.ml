@@ -50,6 +50,7 @@ let iter_all f t =
        | Some f -> aux f)
     | Fsend (_,f1,f2,fl,_,_) ->
       iter_list (f1::f2::fl)
+    | Funreachable _ -> ()
 
   and iter_list l = List.iter aux l in
   aux t
@@ -97,6 +98,7 @@ let iter_flambda f t =
        | Some f -> aux f)
     | Fsend (_,f1,f2,fl,_,_) ->
       iter_list (f1::f2::fl)
+    | Funreachable _ -> ()
 
   and iter_list l = List.iter aux l in
   aux t
@@ -142,6 +144,7 @@ let iter2_flambda (f: ('env -> 'a flambda -> unit) -> 'env -> 'a flambda -> unit
        | Some f -> aux env f)
     | Fsend (_,f1,f2,fl,_,_) ->
       iter_list env (f1::f2::fl)
+    | Funreachable _ -> ()
 
   and iter_list env l = List.iter (aux env) l
   and aux env t = f aux2 env t in
@@ -519,6 +522,7 @@ let map_no_closure f tree =
             fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
             fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
         Fswitch(arg, sw, annot)
+      | Funreachable _ -> tree
     in
     f exp
   in
@@ -598,6 +602,7 @@ let map f tree =
             fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
             fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
         Fswitch(arg, sw, annot)
+      | Funreachable _ -> tree
     in
     f exp
   in
@@ -675,6 +680,7 @@ let map2 :
           fs_consts = List.map (fun (i,v) -> i, aux env v) sw.fs_consts;
           fs_blocks = List.map (fun (i,v) -> i, aux env v) sw.fs_blocks; } in
       Fswitch(arg, sw, annot)
+    | Funreachable _ -> tree
   and aux env tree =
     f aux1 env tree
   in
@@ -689,6 +695,7 @@ type 'a binds =
 let rec decompose binds = function
   | Fvar _ as expr -> binds, expr
   | Fconst _ as expr -> binds, expr
+  | Funreachable _ as expr -> binds, expr
   | Flet (kind, id, lam, body, _) ->
     let binds_lam, elam = decompose binds lam in
     let binds = Simple (kind,id,elam) :: binds_lam in
@@ -1125,6 +1132,7 @@ let reindex tree =
     | Fwhile(cond, body,pid) -> Fwhile(cond, body,eid pid)
     | Ffor(id, lo, hi, dir, body,pid) -> Ffor(id, lo, hi, dir, body,eid pid)
     | Fassign(id, lam,pid) -> Fassign(id, lam,eid pid)
+    | Funreachable pid -> Funreachable (eid pid)
   in
   map mapper tree
 

@@ -130,6 +130,8 @@ let rec lam ppf = function
     let kind =
       if k = Lambda.Self then "self" else if k = Lambda.Cached then "cache" else "" in
     fprintf ppf "@[<2>(send%s@ %a@ %a%a)@]" kind lam obj lam met args largs
+  | Funreachable _ ->
+    fprintf ppf "unreachable"
 
 and sequence ppf ulam = match ulam with
   | Fsequence(l1, l2,_) ->

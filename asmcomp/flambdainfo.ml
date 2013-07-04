@@ -415,6 +415,9 @@ module Run(Param:Fparam) = struct
       List.iter (aux) exprs;
       New (unknown_value)
 
+    | Funreachable pid ->
+      New (empty_value)
+
   and aux_apply1' (clos_id, free_vars) =
 
     let ffunctions =

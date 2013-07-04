@@ -113,6 +113,7 @@ let substitute sb lam =
           fs_consts = List.map (fun (i,v) -> i, aux exn_sb sb v) sw.fs_consts;
           fs_blocks = List.map (fun (i,v) -> i, aux exn_sb sb v) sw.fs_blocks; } in
       Fswitch(aux exn_sb sb arg, sw, annot)
+    | Funreachable _ -> orig
 
   and subst_free_vars fv =
     let sb, fv' =

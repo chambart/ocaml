@@ -160,6 +160,7 @@ module NotConstants(P:Param) = struct
         mark_loop [] ffunc.body) funcs.funs
 
     | Fconst (cst,_) -> ()
+    | Funreachable _ -> ()
 
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block

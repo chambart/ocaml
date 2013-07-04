@@ -211,6 +211,7 @@ type 'a flambda =
   | Ffor of Ident.t * 'a flambda * 'a flambda * direction_flag * 'a flambda * 'a
   | Fassign of Ident.t * 'a flambda * 'a
   | Fsend of meth_kind * 'a flambda * 'a flambda * 'a flambda list * Debuginfo.t * 'a
+  | Funreachable of 'a
 
 and const =
   | Fconst_base of constant
@@ -464,6 +465,7 @@ let rec check env = function
     check env body
   | Fassign(id, lam,_) ->
     check env lam
+  | Funreachable _ -> ()
 
 and check_closure orig_env funct fv' =
   let fv = List.map fst (IdentMap.bindings fv') in
@@ -529,6 +531,7 @@ let data = function
   | Fwhile(cond, body,data) -> data
   | Ffor(id, lo, hi, dir, body,data) -> data
   | Fassign(id, lam,data) -> data
+  | Funreachable data -> data
 
 let string_desc = function
   | Fvar (id,data) -> Ident.unique_name id
@@ -552,3 +555,4 @@ let string_desc = function
   | Fwhile(cond, body,data) -> "while"
   | Ffor(id, lo, hi, dir, body,data) -> "for"
   | Fassign(id, lam,data) -> "assign"
+  | Funreachable _ -> "unreachable"
