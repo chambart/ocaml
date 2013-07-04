@@ -289,6 +289,9 @@ module Conv(P:Param2) = struct
     | Fsend(kind, met, obj, args, dbg, _) ->
       Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
 
+    | Funreachable _ ->
+      fatal_error "unreachable node"
+
   and make_offset ulam offset =
     match ulam with
     | Uconst(Uconst_label lbl,_)
