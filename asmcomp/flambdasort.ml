@@ -10,12 +10,14 @@ let dependencies (bindings:'a bindings) : dependencies =
 
 (* ensure that the dependency graph does not have external dependencies *)
 let check dependencies =
-  IdentMap.iter (fun _ set ->
+  IdentMap.iter (fun id set ->
       IdentSet.iter (fun v ->
           if not (IdentMap.mem v dependencies)
           then fatal_error
               (Printf.sprintf "Flambdasort.check: the graph has external \
-                               dependencies (%s)" (Ident.unique_name v)))
+                               dependencies (%s -> %s)"
+                 (Ident.unique_name id)
+                 (Ident.unique_name v)))
         set)
     dependencies
 
