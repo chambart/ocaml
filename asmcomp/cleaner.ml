@@ -820,16 +820,20 @@ type count =
 let count_var expr =
 
   let add id env =
-    try
-      let count = match IdentTbl.find env id with
-        | Zero -> One
-        | One | Many -> Many
-        | Loop -> Loop in
-      IdentTbl.replace env id count
-    with Not_found -> () in
+    let count =
+      try IdentTbl.find env id with
+      | Not_found -> Zero
+    in
+    let count = match count with
+      | Zero -> One
+      | One | Many -> Many
+      | Loop -> Loop in
+    IdentTbl.replace env id count in
 
   let promote ~orig_env ~loop_env =
-    IdentTbl.iter (fun id count -> IdentTbl.replace orig_env id Loop) loop_env in
+    IdentTbl.iter (fun id count ->
+        (* Printf.printf "promote %s\n%!" (Ident.unique_name id); *)
+        IdentTbl.replace orig_env id Loop) loop_env in
 
   let fresh_env () = IdentTbl.create 5 in
 
@@ -867,7 +871,13 @@ let count_var expr =
 
   let init_env = fresh_env () in
   Flambdautils.iter2_flambda f init_env expr;
-  assert(IdentTbl.length init_env = 0);
+  (* if IdentTbl.length init_env <> 0 *)
+  (* then begin *)
+  (* (\* functions variables and closures are still there *\) *)
+  (*   IdentTbl.iter (fun id _ -> Printf.printf "remaining %s\n%!" *)
+  (*                     (Ident.unique_name id)) init_env; *)
+  (*   assert false; *)
+  (* end; *)
   global_count
 
 let elim_let constant unpure_expr expr =
