@@ -102,7 +102,7 @@ module Cleaner(Param:CleanerParam) = struct
         | Neither ->
           Printf.printf "\n\n\n\nneither\n\n\n\n%!";
           (* happens when arg never returns *)
-          arg
+          Funreachable eid
       end
 
     | Fswitch(arg,sw,eid) ->
@@ -135,7 +135,8 @@ module Cleaner(Param:CleanerParam) = struct
         | Some failaction, [], [] ->
           fsequence(arg, failaction, eid)
         | None, [], [] ->
-          arg
+          Printf.printf "neither switch\n%!";
+          Funreachable eid
         | None, [_, branch], []
         | None, [], [_, branch] ->
           (* maybe keep then information about the branch somewhere:
@@ -345,6 +346,7 @@ module Rebinder(Param:CleanerParam) = struct
               fs_consts = List.map (fun (i,v) -> i, (aux map) v) sw.fs_consts;
               fs_blocks = List.map (fun (i,v) -> i, (aux map) v) sw.fs_blocks; } in
           Fswitch(arg, sw, annot)
+        | Funreachable _ -> tree
       in
       simplif map exp
     in
