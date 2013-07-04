@@ -114,7 +114,7 @@ module Cleaner(Param:CleanerParam) = struct
           let cases_set = IntSet.filter (fun i -> IntSet.mem i cases) cases_set in
           let kept = List.filter (fun (i,_) -> IntSet.mem i cases) branches in
           let branch_set = List.fold_left (fun set (i,_) -> IntSet.add i set)
-              cases_set branches in
+              IntSet.empty branches in
           let need_failaction = not (IntSet.subset cases branch_set) in
           kept, cases_set, need_failaction in
 
