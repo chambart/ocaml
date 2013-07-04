@@ -156,11 +156,16 @@ module Run(Param:Fparam) = struct
       ValTbl.replace val_tbl vid unknown_value;
       vid
 
+  let expr_vid' exp =
+    let eid = data exp in
+    try Some (ExprTbl.find expr_val eid) with
+    | Not_found -> None
+
   let expr_vid exp =
     let eid = data exp in
-    let desc = string_desc exp in
     try ExprTbl.find expr_val eid with
     | Not_found ->
+      let desc = string_desc exp in
       let vid = ValId.create ~name:desc () in
       ExprTbl.add expr_val eid vid;
       vid
@@ -201,7 +206,7 @@ module Run(Param:Fparam) = struct
   (* TODO change:
      Compilenv.global_approx id *)
 
-  let rec aux exp =
+  let rec aux ?set_id exp =
     let eid = data exp in
 
     let vids =
@@ -213,7 +218,13 @@ module Run(Param:Fparam) = struct
       | NewOld (None, val_ids)
       | Old val_ids -> val_ids
       | New values ->
-        let vid = expr_vid exp in
+        let vid = match set_id with
+          | None -> expr_vid exp
+          | Some id ->
+            match expr_vid' exp with
+            | Some id -> id
+            | None -> id
+        in
         insert vid values;
         ValSet.singleton vid
       | NewOld (Some values, val_ids) ->
@@ -249,9 +260,37 @@ module Run(Param:Fparam) = struct
       Old (mu body)
 
     | Fletrec(defs, body, _) ->
-      List.iter (fun (id,lam) ->
-          aux lam;
+
+      (* Hack to have some recursive informations with a single loop. *)
+      let compare_closure_first f1 f2 = match f1, f2 with
+        | Fclosure _, Fclosure _ -> 0
+        | Fclosure _, _ -> -1
+        | _, Fclosure _ -> 1
+        | Foffset _, Foffset _ -> 0
+        | Foffset _, _ -> -1
+        | _, Foffset _ -> 1
+        | _, _ -> 0
+      in
+      let defs = List.sort (fun (_,lam1) (_,lam2) ->
+          compare_closure_first lam1 lam2) defs in
+      let defs = List.map (fun (id,lam) ->
+          let vid = expr_vid lam in
+          (* Printf.printf "loopid %s %s\n%!" *)
+          (*   (Ident.unique_name id) *)
+          (*   (ValId.to_string vid); *)
+          bind id (ValSet.singleton vid);
+          id, lam, vid) defs in
+      List.iter (fun (id,lam,set_id) ->
+          aux ~set_id lam;
+          (* Printf.printf "returned %s %a\n%!" *)
+          (*   (Ident.unique_name id) *)
+          (*   ValSet.output (mu lam); *)
           bind id (mu lam)) defs;
+
+      (* List.iter (fun (id,lam) -> *)
+      (*     aux lam; *)
+      (*     bind id (mu lam)) defs; *)
+
       aux body;
       Old (mu body)
 
