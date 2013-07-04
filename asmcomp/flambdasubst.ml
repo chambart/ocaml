@@ -38,10 +38,20 @@ let substitute sb lam =
       let flam = aux exn_sb sb flam in
       let off =
         try IdentMap.find off !offset_subst_table with
-        | Not_found -> off in
+        | Not_found ->
+          (* Printf.printf "not found %s\n%!" (Ident.unique_name off); *)
+          off in
       let env_fun_id =
-        try IdentMap.find env_fun_id sb with
-        | Not_found -> env_fun_id in
+        try
+          let e = IdentMap.find env_fun_id !offset_subst_table in
+          (* Printf.printf "rename %s -> %s\n%!" *)
+          (*   (Ident.unique_name env_fun_id) *)
+          (*   (Ident.unique_name e); *)
+          e
+        with
+        | Not_found ->
+          (* Printf.printf "not found fun %s\n%!" (Ident.unique_name env_fun_id); *)
+          env_fun_id in
       Fenv_field ({ env = flam; env_var = off; env_fun_id }, annot)
 
     | Flet(str, id, lam, body, annot) ->
@@ -109,6 +119,7 @@ let substitute sb lam =
       IdentMap.fold (fun id value (sb, map) ->
         let id' = Ident.rename id in
         (* Printf.printf "rename closure params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
+        offset_subst_table := IdentMap.add id id' !offset_subst_table;
         let map = IdentMap.add id' value map in
         let sb = IdentMap.add id id' sb in
         sb, map) fv (IdentMap.empty, IdentMap.empty) in
