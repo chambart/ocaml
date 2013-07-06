@@ -115,7 +115,6 @@ type kind = Pure | Effectful
 let effectful_node kind unpure_var = function
   | Fvar (id,_) -> IdentSet.mem id unpure_var
   | Fconst _
-  | Funreachable _
   | Flet _
   | Fletrec _
   | Fclosure _
@@ -140,6 +139,7 @@ let effectful_node kind unpure_var = function
     end
   | Fassign(id, lam,data) -> true
   | Fstaticfail _ -> true
+  | Funreachable _ -> true
 
 type effectful =
   { effectful_expr : ExprSet.t;

@@ -290,7 +290,10 @@ module Conv(P:Param2) = struct
       Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
 
     | Funreachable _ ->
-      fatal_error "unreachable node"
+      Printf.printf "\n\n\nUnreachable code\n\n\n%!";
+      (* fatal_error "unreachable node" *)
+      (* shoudl'nt be executable, maybe build something else *)
+      Uprim(Praise, [Uconst (Uconst_pointer 0, None)], Debuginfo.none)
 
   and make_offset ulam offset =
     match ulam with
