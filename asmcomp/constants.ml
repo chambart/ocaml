@@ -196,6 +196,12 @@ module NotConstants(P:Param) = struct
             add_depend curr (Global i)
         end
 
+    (* | Fprim(Pgetglobalfield(id,i), [], _, _) -> *)
+    (*   (\* adds 'id in NC => curr in NC' *\) *)
+    (*   if id.Ident.name = Compilenv.current_unit_name () *)
+    (*   then add_depend curr (Global i) *)
+    (*   else mark_curr curr *)
+
     | Fprim(Psetfield (i,_), [Fvar(obj_id,_);Fvar(value_id,_)], _, _) ->
       (* This case Requires an entry in ANF *)
       add_depend curr (Var obj_id);
