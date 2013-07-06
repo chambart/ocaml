@@ -25,6 +25,7 @@ val anf :
 val reindex :
   Flambda.ExprId.t Flambda.flambda -> Flambda.ExprId.t Flambda.flambda
 
+val all_assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t
 val assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t
 
 val free_variables : 'a Flambda.flambda -> Flambda.IdentSet.t
