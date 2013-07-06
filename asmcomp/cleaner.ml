@@ -671,7 +671,7 @@ let extract_constants (constants:Constants.constant_result) tree =
 
   let rec mapper' iter env tree = mapper (fun tree -> iter () tree) tree
   and mapper iter tree = match tree with
-    | Flet ( (StrictOpt|Strict|Alias) as kind, id, lam, body, eid) ->
+    | Flet ( kind, id, lam, body, eid) ->
       begin
         let b = bind iter (id,lam) in
         let body = mapper iter body in
