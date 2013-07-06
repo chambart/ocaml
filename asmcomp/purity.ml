@@ -22,6 +22,9 @@ let pure_prim = function
   | Pduprecord _ -> false
   | Pbittest -> false
 
+  (* maybe this one could be considered pure: assigned only one time *)
+  (* | Pgetglobalfield _ -> false *)
+
   | Plazyforce
   | Pccall _
   | Praise -> false
