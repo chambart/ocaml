@@ -149,7 +149,7 @@ let effectful kind expr =
 
   let unpure_var =
     match kind with
-    | Pure -> Flambdautils.assigned_var expr
+    | Pure -> Flambdautils.all_assigned_var expr
     | Effectful ->
       (* reading unpure variable do no effect so we can skip this *)
       IdentSet.empty in
