@@ -256,6 +256,13 @@ module Conv(P:Param2) = struct
       Uprim(Pgetglobal (Ident.create_persistent (Compilenv.symbol_for_global id)),
         [], dbg)
 
+    (* | Fprim(Pgetglobalfield(id,i), l, dbg, _) -> *)
+    (*   assert(l = []); *)
+    (*   Uprim(Pfield i, *)
+    (*         [Uprim(Pgetglobal (Ident.create_persistent *)
+    (*                              (Compilenv.symbol_for_global id)), [], dbg)], *)
+    (*         dbg) *)
+
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
       let args = conv_list sb cm args in
       begin match constant_list args with
