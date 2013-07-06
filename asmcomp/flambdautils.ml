@@ -1158,6 +1158,16 @@ let reindex tree =
 
 (* variable assignation tracking *)
 
+let all_assigned_var tree =
+  let assign = ref IdentSet.empty in
+  let aux = function
+    | Fassign (id,_,_) ->
+      if not (IdentSet.mem id !assign) then assign := IdentSet.add id !assign
+    | _ -> ()
+  in
+  iter_flambda aux tree;
+  !assign
+
 let assigned_var tree =
   let assign = ref IdentSet.empty in
   let bound = ref IdentSet.empty in
