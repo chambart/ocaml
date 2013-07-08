@@ -6,7 +6,7 @@ val clean : Flambdainfo.analysis_result ->
 
 type inlining_kind =
   | Minimal
-  | With_local_functions
+  | With_local_functions of Constants.constant_result
 
 val inlining : inlining_kind -> Flambdainfo.analysis_result ->
   ExprId.t flambda -> ExprId.t flambda

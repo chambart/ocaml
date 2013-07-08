@@ -154,9 +154,10 @@ let cleaning ppf flambda =
 
 let inlining ppf flambda =
   let val_result = Flambdainfo.analyse flambda in
+  let not_const = Constants.not_constants ~for_clambda:false flambda in
   (* Cleaner.inlining Cleaner.Minimal val_result flambda *)
   let step1 =
-    Cleaner.inlining Cleaner.With_local_functions val_result flambda
+    Cleaner.inlining (Cleaner.With_local_functions not_const) val_result flambda
     ++ Flambdautils.reindex
     ++ flambda_dump_if ppf
   in
