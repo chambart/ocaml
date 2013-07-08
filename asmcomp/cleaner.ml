@@ -784,8 +784,16 @@ let extract_constants (constants:Constants.constant_result) tree =
     res
 
   in
+
+  (* renaming applied only on value in the definition of a let *)
+  let renaming_rval = IdentTbl.create 10 in
+
   let rec rename id =
     try rename (IdentTbl.find renaming id)
+    with Not_found -> id in
+  let rec rename_rval id =
+    let id = (rename id) in
+    try rename_rval (IdentTbl.find renaming_rval id)
     with Not_found -> id in
   let renaming tree =
     match tree with
@@ -793,20 +801,65 @@ let extract_constants (constants:Constants.constant_result) tree =
       (* let ren = rename var in *)
       (* Printf.printf "rebind %s => %s\n%!" *)
       (*   (Ident.unique_name var) (Ident.unique_name ren); *)
-      Fvar(rename var,eid)
+      Fvar(rename_rval var,eid)
     | Fprim(Pfield i,[Fvar(id,_)], _, eid) ->
       begin match global_id id with
         | None -> tree
         | Some gid ->
           let var = IntTbl.find global_index i in
-          let var = rename var in
+          let var = rename_rval var in
           Fvar(var, eid)
       end
     | _ -> tree in
+
   let tree = Flambdautils.map2 mapper' () tree in
-  let bindings = List.fold_left (fun map (v,expr) ->
-      let v = rename v in
-      let expr = Flambdautils.map_no_closure renaming expr in
+
+  (* list fields of constants: field(i,lam) of a constant lam is
+     considered to be constant, so we need to do the dereferencing
+     here to avoid problems later (rebinding will have problems with
+     recursive cases). Dereferencing is done by adding a renaming
+     applied only to the expression (not to the let definition) *)
+  let fields = IdentTbl.create 10 in
+  let list_fields (id,expr) = match expr with
+    | Fprim(Pmakeblock _, lams, _, _) ->
+      IdentTbl.add fields id lams
+    | _ -> ()
+  in
+  List.iter list_fields !bindings;
+  let deref (id,expr) = match expr with
+    (* assumes ANF *)
+    | Fprim(Pfield i, [Fvar (block_id,_)], _, _) ->
+      begin
+        let block_id = rename block_id in
+        let block = try IdentTbl.find fields block_id with
+          | Not_found ->
+            fatal_error (Printf.sprintf "can't find constant block %s"
+                           (Ident.unique_name block_id))
+        in
+        (* assumes ANF *)
+        let new_var = match List.nth block i with
+          | Fvar(new_var, _) -> new_var
+          | _ -> fatal_error "not in ANF" in
+        let id' = rename id in
+        (* Printf.printf "rename %s -> %s: %s, %s\n%!" *)
+        (*   (Ident.unique_name id) *)
+        (*   (Ident.unique_name id') *)
+        (*   (Ident.unique_name new_var) *)
+        (*   (Ident.unique_name block_id); *)
+        IdentTbl.add renaming_rval id' new_var
+      end
+    | _ -> ()
+  in
+  List.iter deref !bindings;
+
+  let bindings = List.fold_left (fun map (v',expr') ->
+      let v = rename v' in
+      let expr = Flambdautils.map_no_closure renaming expr' in
+      (* Format.printf "%s %a@. => %s %a@." *)
+      (*   (Ident.unique_name v') *)
+      (*   Printflambda.flambda expr' *)
+      (*   (Ident.unique_name v) *)
+      (*   Printflambda.flambda expr; *)
       IdentMap.add v expr map)
       IdentMap.empty !bindings in
   Flambdasort.rebuild_sorted_expr bindings tree
