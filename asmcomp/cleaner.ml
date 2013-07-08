@@ -367,7 +367,25 @@ let fun_size ffun =
       | _ -> incr count) ffun.body;
   !count
 
-let should_inline ffun = fun_size ffun < 20
+type toplevel = Toplevel | Deep
+
+let should_inline constants toplevel ffunction args =
+  let should_inline_size () = fun_size ffunction < 20 in
+  match toplevel with
+  | Toplevel ->
+    let has_constant_param =
+      List.exists (function
+          | Fvar (id,_) ->
+            (* the parameter is a constant *)
+            not (IdentSet.mem id constants.Constants.not_constant_id)
+          | Fconst _ -> true
+          | _ -> fatal_error "not in ANF")
+        args
+    in
+    (* Printf.printf "inline toplevel %s %b\n%!" *)
+    (*   (ffunction.label:>string) (has_constant_param || should_inline_size ()); *)
+    has_constant_param || should_inline_size ()
+  | Deep -> should_inline_size ()
 
 let should_inline_minimal ffun =
   let max_size = 10 in
@@ -381,6 +399,7 @@ let should_inline_minimal ffun =
   !count < max_size
 
 let inline_simple func fun_id ffun args =
+  (* Printf.printf "inline %s\n%!" (ffun.label:>string); *)
   let sb, free_vars = IdentSet.fold (fun id (sb,free_vars) ->
       let id' = Ident.rename id in
       let sb = IdentMap.add id id' sb in
@@ -410,7 +429,7 @@ let inline_simple func fun_id ffun args =
 
 type inlining_kind =
   | Minimal
-  | With_local_functions
+  | With_local_functions of Constants.constant_result
 
 let inlining inlining_kind analysis lam =
 
@@ -438,7 +457,7 @@ let inlining inlining_kind analysis lam =
   (*   functions_map := FunMap.add ffunctions.ident ffunctions !functions_map; *)
   (*   Flambdautils.Data data in *)
 
-  let apply ~func ~args ~dbg ~tree node_data =
+  let apply ~func ~args ~dbg ~tree toplevel node_data =
     begin match one_value_function analysis (expr_value func) with
       | None -> tree
       | Some (f, ffunction) ->
@@ -450,7 +469,8 @@ let inlining inlining_kind analysis lam =
           let ffunction = IdentMap.find fun_id ffunctions.funs in
           let should_go = match inlining_kind with
             | Minimal -> should_inline_minimal ffunction
-            | With_local_functions -> should_inline ffunction
+            | With_local_functions constants ->
+              should_inline constants toplevel ffunction args
           in
           if not ffunctions.recursives && should_go
           then inline_simple func fun_id ffunction args
@@ -459,15 +479,25 @@ let inlining inlining_kind analysis lam =
     end
   in
 
-  let mapper tree = match tree with
-    | Fclosure (ffunctions, fv, _) ->
-      functions_map := FunMap.add ffunctions.ident ffunctions !functions_map;
-      tree
-    | Fapply (func, args, _, dbg, eid) ->
-      apply ~func ~args ~dbg ~tree eid
-    | _ -> tree in
+  let rec mapper iter env tree = match tree with
+    | Fclosure (ffuns, fv, eid) ->
+      let fv = IdentMap.map (fun lam -> mapper iter env lam) fv in
+      let ffuns =
+        { ffuns with
+          funs = IdentMap.map
+              (fun ffun -> { ffun with body = mapper iter Deep ffun.body })
+              ffuns.funs } in
+      functions_map := FunMap.add ffuns.ident ffuns !functions_map;
+      Fclosure (ffuns, fv, eid)
+    | _ ->
+      begin match iter env tree with
+        | Fapply (func, args, _, dbg, eid) ->
+          apply ~func ~args ~dbg ~tree env eid
+        | tree -> tree
+      end
+  in
 
-  Flambdautils.map mapper lam
+  Flambdautils.map2 mapper Toplevel lam
 
 
 let used_variables_and_offsets tree =
