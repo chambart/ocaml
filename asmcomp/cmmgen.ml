@@ -444,9 +444,6 @@ let rec expr_size env = function
       begin try Ident.find_same id env with Not_found -> RHS_nonrec end
   | Uclosure(fundecls, clos_vars) ->
       RHS_block (fundecls_size fundecls + List.length clos_vars)
-  | Ulet(id, exp, Uvar id') ->
-      if Ident.same id id' then expr_size exp
-      else RHS_nonrec (* probably false in that case... *)
   | Ulet(id, exp, body) ->
       expr_size (Ident.add id (expr_size env exp) env) body
   | Uletrec(bindings, body) ->
@@ -1757,11 +1754,7 @@ and transl_unbox_int bi = function
       Cconst_natint n
   | Uconst(Uconst_base(Const_int64 n), _) ->
       assert (size_int = 8); Cconst_natint (Int64.to_nativeint n)
-<<<<<<< HEAD
-  | Uprim(Pbintofint bi',[Uconst(Const_base(Const_int i),_)],_) when bi = bi' ->
-=======
   | Uprim(Pbintofint bi', [Uconst(Uconst_base(Const_int i),_)], _) when bi = bi' ->
->>>>>>> Introduce a new intermediate tree: flambda
       Cconst_int i
   | exp -> unbox_int bi (transl exp)
 
