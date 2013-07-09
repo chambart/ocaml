@@ -199,7 +199,10 @@ let dead_code_elimination effectful used expr =
     not (ExprSet.mem eid used.used_expr) &&
     not (ExprSet.mem eid effectful.Purity.effectful_expr) in
   let mapper expr = match expr with
-    | Fvar _ -> expr
+    | Fvar (id,eid) ->
+      if (IdentSet.mem id used.used_id)
+      then expr
+      else Fconst (Fconst_pointer 0, eid)
     | Fconst _ -> expr
     | Flet(str, id, lam, body, eid) ->
       if can_remove_expr lam
