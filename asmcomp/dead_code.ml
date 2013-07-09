@@ -211,7 +211,13 @@ let dead_code_elimination effectful used expr =
       then Fsequence(lam, body, eid)
       else expr
     | Fletrec(defs, body, eid) ->
-      begin match List.filter (fun (id,lam) -> not (can_remove id lam)) defs with
+      let defs = List.filter (fun (id,lam) -> not (can_remove id lam)) defs in
+      let used_defs, not_used_defs = List.partition
+          (fun (id,_) -> IdentSet.mem id used.used_id) defs in
+      let body =
+        List.fold_right (fun (_,lam) expr -> Fsequence(lam, expr, ExprId.create ()))
+          not_used_defs body in
+      begin match used_defs with
         | [] -> body
         | defs -> Fletrec(defs, body, eid)
       end
