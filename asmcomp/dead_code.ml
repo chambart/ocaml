@@ -120,6 +120,10 @@ module Used(P:Param) = struct
         IdentMap.iter (fun fun_id func ->
             let body_eid = data func.body in
             add_depend_fun (Eid body_eid) fun_id;
+            (* inside the function recursive call are done with the
+               id, without going throug an offset: the function is
+               used if its variable is used *)
+            add_depend_id (Fun fun_id) fun_id;
             let env = { curr_fun = Some fun_id; curr_eid = Some body_eid } in
             mark iter env func.body)
           funct.funs;
