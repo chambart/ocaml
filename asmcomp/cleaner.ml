@@ -370,22 +370,21 @@ let fun_size ffun =
 type toplevel = Toplevel | Deep
 
 let should_inline constants toplevel ffunction args =
-  let should_inline_size () = fun_size ffunction < 20 in
+  let should_inline_size () = fun_size ffunction < 30 in
+  let has_constant_param =
+    List.exists (function
+        | Fvar (id,_) ->
+          (* the parameter is a constant *)
+          not (IdentSet.mem id constants.Constants.not_constant_id)
+        | Fconst _ -> true
+        | _ -> fatal_error "not in ANF")
+      args
+  in
   match toplevel with
   | Toplevel ->
-    let has_constant_param =
-      List.exists (function
-          | Fvar (id,_) ->
-            (* the parameter is a constant *)
-            not (IdentSet.mem id constants.Constants.not_constant_id)
-          | Fconst _ -> true
-          | _ -> fatal_error "not in ANF")
-        args
-    in
-    (* Printf.printf "inline toplevel %s %b\n%!" *)
-    (*   (ffunction.label:>string) (has_constant_param || should_inline_size ()); *)
     has_constant_param || should_inline_size ()
-  | Deep -> should_inline_size ()
+  | Deep ->
+    has_constant_param && should_inline_size ()
 
 let should_inline_minimal ffun =
   let max_size = 10 in
