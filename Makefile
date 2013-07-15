@@ -747,6 +747,7 @@ camlp4out: ocamlc ocamlbuild.byte
 	./build/camlp4-byte-only.sh
 
 camlp4opt: ocamlopt otherlibrariesopt ocamlbuild-mixed-boot ocamlbuild.native
+	rm -f _build/camlp4/Camlp4_import.cmi
 	./build/camlp4-native-only.sh
 
 # Ocamlbuild
