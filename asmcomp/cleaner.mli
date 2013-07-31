@@ -27,3 +27,5 @@ val extract_constants : Constants.constant_result ->
 
 val elim_let : Constants.constant_result -> Purity.effectful ->
   ExprId.t flambda -> ExprId.t flambda
+
+val unclose : Constants.constant_result -> ExprId.t flambda -> ExprId.t flambda

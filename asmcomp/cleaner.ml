@@ -170,8 +170,11 @@ module Cleaner(Param:CleanerParam) = struct
 
     | Fapply(funct, args, _, dbg, eid) ->
       begin match one_value_function analysis (expr_value funct) with
-        | None -> tree
+        | None ->
+          (* Format.eprintf "none: %a@." Printflambda.flambda funct; *)
+          tree
         | Some (f, ffunction) ->
+          (* Format.eprintf "some: %a@." Printflambda.flambda funct; *)
           let fun_id = f.fun_id in
           let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
@@ -458,8 +461,11 @@ let inlining inlining_kind analysis lam =
 
   let apply ~func ~args ~dbg ~tree toplevel node_data =
     begin match one_value_function analysis (expr_value func) with
-      | None -> tree
+      | None ->
+        (* Format.eprintf "none: %a@." Printflambda.flambda func; *)
+        tree
       | Some (f, ffunction) ->
+        (* Format.eprintf "some: %a@." Printflambda.flambda func; *)
         if ffunction.arity = List.length args
         then
           let fun_id = f.fun_id in
@@ -1016,3 +1022,251 @@ let elim_let constant unpure_expr expr =
   in
 
   Flambdautils.map2 mapper IdentMap.empty expr
+
+(** convert variables in closure to parameters: add an intermediate
+    function to call the closed function using the closure
+
+{[
+  let v = ... in
+  let const = ... in (* a constant value *)
+  let rec f x =
+    ... const ...
+    ... v ...
+    ... f y ...
+  in
+  ... f z ...
+]}
+
+is transformed to
+
+{[
+  let v = ... in
+  let const = ... in (* a constant value *)
+  let rec f' v x =
+    ... const ...
+    ... v ...
+    ... f v y ...
+  in
+  let f x = f' v x in
+  ... f z ...
+]}
+
+f' has only constants in its closure hence it can be compiled to a
+constant: no allocation needed for its closure.
+
+If f is known at some point, it is certain to be inlined, sometimes
+allowing to completely remove the allocation of the closure f.
+
+*)
+
+let should_unclose constants ffunctions =
+
+  (* cases where this is not possible:
+     {[let v = ... in
+       let rec f x =
+         List.map f v ]}
+
+     {[let v = ... in
+       let rec f x = incr v; f ]}
+
+     basicaly: f used as a variable not in a Fapply
+  *)
+
+  let no_escaping_functions _ ffun =
+    let rec check iter env tree = match tree with
+      | Fvar(id, _) ->
+        if IdentMap.mem id ffunctions.funs
+        then raise Exit
+      | Fapply(Fvar(id, _), args, _, _, _) ->
+        List.iter (check iter env) args
+      | tree -> iter env tree
+    in
+    try
+      Flambdautils.iter2_flambda check () ffun.body;
+      true
+    with Exit -> false
+  in
+
+  (* If the closure is a constant, there is nothing to do.
+
+     TODO: do not do that if that prevents tail calls (too many arguments)
+     TODO: find heuristics to determine when this is profitable
+  *)
+  ffunctions.recursives &&
+  FunSet.mem ffunctions.ident constants.Constants.not_constant_closure &&
+  IdentMap.for_all no_escaping_functions ffunctions.funs
+
+let unclose_functions constants ffunctions
+    (fv':Flambda.ExprId.t Flambda.flambda Flambda.IdentMap.t) =
+  let nid = ExprId.create in
+
+  (* we separate constants and not constants in the closure:
+     constants will stay, others will be passed as parameters. *)
+  let not_const_fv, const_fv =
+    List.partition (fun (id,lam) ->
+        IdentSet.mem id constants.Constants.not_constant_id)
+      (IdentMap.bindings fv') in
+
+  (* if there is no real variable in the closure then there is nothing
+     to do (and this should have been handled by should_unclose) *)
+  assert(not_const_fv <> []);
+
+  let const_fv' = IdentMap.of_list const_fv in
+  let const_fv_set = IdentSet.of_list (List.map fst const_fv) in
+  let const_fv_renaming = IdentMap.mapi (fun id _ -> Ident.rename id) const_fv' in
+
+  let added_params = List.map fst not_const_fv in
+
+  (* id of the new closed version of functions *)
+  let fun_renaming = IdentMap.mapi (fun id _ -> Ident.rename id) ffunctions.funs in
+
+  let replace_calls args_renaming tree =
+    let var_renaming = IdentMap.disjoint_union const_fv_renaming args_renaming in
+    let mapper tree = match tree with
+
+      | Fvar(id, eid) ->
+        (* rename constant access to the closure to their renamed version,
+           other are renamed to use function parameters *)
+        (try Fvar(IdentMap.find id var_renaming, eid)
+         with Not_found -> tree)
+
+      | Fapply(Fvar(id,eid1), args, _, dbg, eid2) ->
+        (* replace recursive calls by calls to the new version (with
+           more parameters) *)
+        if not (IdentMap.mem id fun_renaming)
+        then tree
+        else begin
+          let new_id = IdentMap.find id fun_renaming in
+          let new_args = List.map (fun id ->
+              Fvar(IdentMap.find id args_renaming, nid ()))
+              added_params in
+          Fapply(Fvar(new_id,eid1), new_args @ args, None, dbg, eid2)
+        end
+
+      | _ -> tree
+
+    in
+
+    (* the identifiers for closure variables and renamed functions
+       cannot appear in the body of local functions: we do not need to
+       map on them (hence the use of map_no_closure) *)
+    let tree = Flambdautils.map_no_closure mapper tree in
+
+    (* only checking that no variable is left: this should have been
+       ensured by should_unclose, but who knows...
+       TODO should be run only in compiler debug mode *)
+    let check tree = match tree with
+      | Fvar(id, _) ->
+        assert(not (IdentMap.mem id fun_renaming));
+      | _ -> ()
+    in
+    Flambdautils.iter_flambda check tree;
+    tree
+  in
+
+  let internal_ffunction id ffunction =
+    let args_renaming =
+      List.map (fun id ->
+          let rid = Ident.rename id in
+          (* Printf.printf "%s -> %s\n%!" (Ident.unique_name id) (Ident.unique_name rid); *)
+          id, rid) (added_params @ ffunction.params) in
+    { label = Flambdagen.make_function_lbl id;
+      kind = ffunction.kind;
+      arity = List.length added_params + ffunction.arity;
+      params = List.map snd args_renaming;
+      closure_params = IdentSet.map (IdentMap.rename const_fv_renaming)
+          (IdentSet.inter const_fv_set ffunction.closure_params);
+      body = replace_calls (IdentMap.of_list args_renaming) ffunction.body;
+      dbg = ffunction.dbg
+    } in
+
+  (* fun_renaming: (id, new_id, clos_id) list
+     id: original id in the closure
+     new_id: id of the closed version of the function (in the closure)
+     clos_id: variable of the closed version of the function in the
+     closure of the external one *)
+  let internal_ffunctions, fun_renaming =
+    let ident = FunId.create ?name:(FunId.name ffunctions.ident) () in
+    let funs_list = List.map (fun (id,ffunction) ->
+        let new_fun_id = IdentMap.find id fun_renaming in
+        id, new_fun_id, internal_ffunction new_fun_id ffunction)
+        (IdentMap.bindings ffunctions.funs) in
+    let funs = List.fold_left (fun map (_,new_fun_id, ffunction) ->
+        IdentMap.add new_fun_id ffunction map)
+        IdentMap.empty funs_list in
+    let fun_renaming =
+      List.map (fun (id,new_fun_id, _) -> (id,new_fun_id, Ident.rename id))
+        funs_list in
+    { ident; funs; recursives = ffunctions.recursives }, fun_renaming
+  in
+
+  let external_ffunction ffunction internal_fun_id =
+    let params = List.map (fun id -> Fvar(id,nid ()))
+        (added_params @ ffunction.params) in
+    let body =
+      Fapply( Fvar(internal_fun_id, nid ()),
+              params,
+              None, (* We could fill it directly, but there will
+                       be a pass doing that later *)
+              Debuginfo.none, (* Should we take the one from
+                                 the functions declaration ?
+                                 TODO: test stack trace *)
+              nid () )
+    in
+
+    let closure_params =
+      IdentSet.union
+        ffunction.closure_params
+        (IdentSet.of_list (List.map (fun (_,_,clos_id) -> clos_id) fun_renaming))
+    in
+
+    { ffunction with
+      body;
+      closure_params }
+  in
+
+  let external_ffunctions =
+    let funs = List.fold_left (fun map (id, _, clos_id) ->
+        let ffunction = IdentMap.find id ffunctions.funs in
+        IdentMap.add id (external_ffunction ffunction clos_id) map)
+        IdentMap.empty fun_renaming in
+    { ident = ffunctions.ident; funs;
+      recursives = false } in
+
+  let closure_id = Ident.create "unclosed" in
+  let external_fv' =
+    List.fold_left (fun fv (_,new_id, clos_id) ->
+       let expr =
+         Flet(Strict, new_id,
+              (* stupid hack to give a name to the expression and ensure
+                 this is the same as the function id.
+                 TODO: This should be removed when flambdainfo is fixed *)
+              Foffset(Fvar(closure_id,nid ()), new_id, nid ()),
+              Fvar(new_id, nid ()), nid ())
+       in
+       IdentMap.add clos_id expr fv)
+      fv' fun_renaming
+  in
+
+  let renamed_const_fv' =
+    IdentMap.of_list
+      (List.map (fun (id, lam) -> IdentMap.rename const_fv_renaming id, lam)
+         const_fv) in
+
+  let internal_closure =
+    Fclosure(internal_ffunctions, renamed_const_fv', nid ()) in
+  let external_closure =
+    Fclosure(external_ffunctions, external_fv', nid ()) in
+
+  Flet(Strict, closure_id, internal_closure,
+       external_closure, nid ())
+
+let unclose constants tree =
+  let mapper tree = match tree with
+    | Fclosure(ffunctions,fv,eid) ->
+      if should_unclose constants ffunctions
+      then unclose_functions constants ffunctions fv
+      else tree
+    | _ -> tree
+  in
+  Flambdautils.map mapper tree

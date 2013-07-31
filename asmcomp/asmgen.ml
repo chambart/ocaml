@@ -186,10 +186,17 @@ let elim_let ppf flambda =
   ++ Cleaner.elim_let not_const pure_result
   ++ flambda_dump_if ppf
 
+let unclose ppf flambda =
+  let not_const = Constants.not_constants ~for_clambda:false flambda in
+  Cleaner.unclose not_const flambda
+
 let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
     flambda
+    ++ text "unclose"
+    ++ unclose ppf
+    ++ flambda_dump_if ppf
     ++ text "prepare"
     ++ prepare ppf
     ++ flambda_dump_if ppf
