@@ -20,6 +20,13 @@ module ExtMap(M:PrintableHashOrdered) = struct
       | Some r -> add id r map) m empty
   let of_list l =
     List.fold_left (fun map (id,v) -> add id v map) empty l
+  let disjoint_union m1 m2 =
+    merge (fun _ x y -> match x, y with
+        | None, None -> None
+        | None, Some v | Some v, None -> Some v
+        | Some _, Some _ -> failwith "ExtMap.disjoint_union") m1 m2
+  let rename m v =
+    try find v m with Not_found -> v
 end
 
 module ExtSet(M:PrintableHashOrdered) = struct
@@ -35,6 +42,7 @@ module ExtSet(M:PrintableHashOrdered) = struct
     | [] -> empty
     | [t] -> singleton t
     | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
+  let map f s = of_list (List.map f (elements s))
 end
 
 module ExtHashtbl(M:PrintableHashOrdered) = struct
@@ -171,7 +179,15 @@ module Idt = struct
   let equal = Ident.same
 end
 
-module IdentSet = Lambda.IdentSet
+module IdentSet =
+struct
+  include Lambda.IdentSet
+  let of_list l = match l with
+    | [] -> empty
+    | [t] -> singleton t
+    | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
+  let map f s = of_list (List.map f (elements s))
+end
 module IdentMap = ExtMap(Idt)
 module IdentTbl = ExtHashtbl(Idt)
 
@@ -310,18 +326,23 @@ let seen_env_var fun_id var_id env =
 
 let bind_var id lam env =
   let env = add_check_env id env in
-  match lam with
-  | Fvar (var,_) ->
-    if IdentMap.mem var env.closure_variables
-    then
-      let closure_var = IdentMap.find var env.closure_variables in
-      { env with closure_variables =
-                   IdentMap.add id closure_var env.closure_variables }
+  let rec aux lam =
+    match lam with
+    | Fvar (var,_) ->
+      if IdentMap.mem var env.closure_variables
+      then
+        let closure_var = IdentMap.find var env.closure_variables in
+        { env with closure_variables =
+                     IdentMap.add id closure_var env.closure_variables }
     else env
-  | Fclosure (ffun,fv,_) ->
-    { env with closure_variables =
-                 IdentMap.add id (ffun,fv) env.closure_variables }
-  | _ -> env
+    | Fclosure (ffun,fv,_) ->
+      { env with closure_variables =
+                   IdentMap.add id (ffun,fv) env.closure_variables }
+    | Flet (_,_,_,lam,_) ->
+      aux lam
+    | _ -> env
+  in
+  aux lam
 
 (* Adds without checks: the variable of the closure was already
    inserted in an environment, but will not be available inside the

@@ -243,7 +243,9 @@ module Run(Param:Fparam) = struct
   and aux' = function
     | Fvar (id,_) ->
       (try Old (IdentTbl.find bindings id) with
-       | Not_found -> New unknown_value)
+       | Not_found ->
+         (* Printf.printf "unknown %s\n%!" (Ident.unique_name id); *)
+         New unknown_value)
         (* TODO: forbid Not_found case *)
 
     | Fconst (cst,_) -> New (Values.const cst)
@@ -398,6 +400,11 @@ module Run(Param:Fparam) = struct
 
     | Foffset(lam, id, eid) ->
       aux lam;
+      (* WARNING: This is the only place where an id can be bound to
+         the closure (there are none for recursive calls). Fix this by
+         adding that declaration at closure declaration time. And
+         after that forbid having the same identifier for closure
+         inside its function body and outside. *)
       let c = Values.set_closure_funid (val_union lam) id in
       (* Queue.push c closures; *)
       New (c)
