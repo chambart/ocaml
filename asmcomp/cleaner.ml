@@ -178,14 +178,17 @@ module Cleaner(Param:CleanerParam) = struct
           let fun_id = f.fun_id in
           let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
-          if ffunction.arity = List.length args
-          then
-            let closed = IdentSet.is_empty ffunction.closure_params
-                         && f.partial_application = Known [] in
-            let closed = if closed then Closed else NotClosed in
-            let direct = Some(ffunction.label,closed) in
-            Fapply(funct, args, direct, dbg, eid)
-          else tree
+          match ffunction.kind with
+          | Tupled -> tree (* TODO: tupled functions ! *)
+          | Curried ->
+            if ffunction.arity = List.length args
+            then
+              let closed = IdentSet.is_empty ffunction.closure_params
+                           && f.partial_application = Known [] in
+              let closed = if closed then Closed else NotClosed in
+              let direct = Some(ffunction.label,closed) in
+              Fapply(funct, args, direct, dbg, eid)
+            else tree
       end
 
     | e -> e
@@ -466,21 +469,24 @@ let inlining inlining_kind analysis lam =
         tree
       | Some (f, ffunction) ->
         (* Format.eprintf "some: %a@." Printflambda.flambda func; *)
-        if ffunction.arity = List.length args
-        then
-          let fun_id = f.fun_id in
-          let ffunctions = FunMap.find f.closure_funs
-              !functions_map in
-          let ffunction = IdentMap.find fun_id ffunctions.funs in
-          let should_go = match inlining_kind with
-            | Minimal -> should_inline_minimal ffunction
-            | With_local_functions constants ->
-              should_inline constants toplevel ffunction args
-          in
-          if not ffunctions.recursives && should_go
-          then inline_simple func fun_id ffunction args
+        match ffunction.kind with
+        | Tupled -> tree (* TODO: tupled functions ! *)
+        | Curried ->
+          if ffunction.arity = List.length args
+          then
+            let fun_id = f.fun_id in
+            let ffunctions = FunMap.find f.closure_funs
+                !functions_map in
+            let ffunction = IdentMap.find fun_id ffunctions.funs in
+            let should_go = match inlining_kind with
+              | Minimal -> should_inline_minimal ffunction
+              | With_local_functions constants ->
+                should_inline constants toplevel ffunction args
+            in
+            if not ffunctions.recursives && should_go
+            then inline_simple func fun_id ffunction args
+            else tree
           else tree
-        else tree
     end
   in
 
@@ -1073,26 +1079,32 @@ let should_unclose constants ffunctions =
   *)
 
   let no_escaping_functions _ ffun =
-    let rec check iter env tree = match tree with
-      | Fvar(id, _) ->
-        if IdentMap.mem id ffunctions.funs
-        then raise Exit
-      | Fapply(Fvar(id, _), args, _, _, _) ->
-        List.iter (check iter env) args
-      | tree -> iter env tree
-    in
-    try
-      Flambdautils.iter2_flambda check () ffun.body;
-      true
-    with Exit -> false
+    if ffun.kind = Tupled
+    then false (* TODO: tupled functions ! *)
+    else
+      let rec check iter env tree = match tree with
+        | Fvar(id, _) ->
+          if IdentMap.mem id ffunctions.funs
+          then raise Exit
+        | Fapply(Fvar(id, _), args, _, _, _) ->
+          List.iter (check iter env) args
+        | tree -> iter env tree
+      in
+      try
+        Flambdautils.iter2_flambda check () ffun.body;
+        true
+      with Exit -> false
   in
 
   (* If the closure is a constant, there is nothing to do.
 
+     There is no particular reason to restrict to recursive functions,
+     but it is most certainly a win for them.
+
      TODO: do not do that if that prevents tail calls (too many arguments)
      TODO: find heuristics to determine when this is profitable
   *)
-  ffunctions.recursives &&
+  (* ffunctions.recursives && *)
   FunSet.mem ffunctions.ident constants.Constants.not_constant_closure &&
   IdentMap.for_all no_escaping_functions ffunctions.funs
 
@@ -1265,7 +1277,11 @@ let unclose constants tree =
   let mapper tree = match tree with
     | Fclosure(ffunctions,fv,eid) ->
       if should_unclose constants ffunctions
-      then unclose_functions constants ffunctions fv
+      then begin
+        (* let k, _ = IdentMap.min_binding ffunctions.funs in *)
+        (* Printf.printf "unclose %s\n%!" (Ident.unique_name k); *)
+        unclose_functions constants ffunctions fv
+      end
       else tree
     | _ -> tree
   in
