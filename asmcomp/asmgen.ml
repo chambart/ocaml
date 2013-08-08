@@ -194,9 +194,12 @@ let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
     flambda
-    ++ text "unclose"
-    ++ unclose ppf
-    ++ flambda_dump_if ppf
+
+    (* commented until extract constant is fixed *)
+    (* ++ text "unclose" *)
+    (* ++ unclose ppf *)
+    (* ++ flambda_dump_if ppf *)
+
     ++ text "prepare"
     ++ prepare ppf
     ++ flambda_dump_if ppf
