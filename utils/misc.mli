@@ -42,6 +42,10 @@ val samelist: ('a -> 'a -> bool) -> 'a list -> 'a list -> bool
 val may: ('a -> unit) -> 'a option -> unit
 val may_map: ('a -> 'b) -> 'a option -> 'b option
 
+val lift_option_array: 'a option array -> 'a array option
+        (* [lift_option_array a] is an array containing all values of [a]
+           iff all elements of a are Some *)
+
 val find_in_path: string list -> string -> string
         (* Search a file in a list of directories. *)
 val find_in_path_uncap: string list -> string -> string

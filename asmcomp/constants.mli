@@ -5,3 +5,12 @@ type constant_result = {
 }
 
 val not_constants : for_clambda:bool -> 'a Flambda.flambda -> constant_result
+(** [not_constant ~for_clambda expr] assumes [expr] is in ANF if
+    [for_clambda] is false *)
+
+type alias_result =
+  { constant_result : constant_result;
+    constant_alias : Ident.t Flambda.IdentMap.t }
+
+val alias : 'a Flambda.flambda -> alias_result
+(** [alias expr] assumes [expr] is in ANF *)

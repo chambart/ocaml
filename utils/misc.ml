@@ -79,6 +79,12 @@ let may_map f = function
     Some x -> Some (f x)
   | None -> None
 
+let lift_option_array a =
+  try Some (Array.map (function
+        | None -> raise Not_found
+        | Some v -> v) a)
+  with Not_found -> None
+
 (* File functions *)
 
 let find_in_path path name =

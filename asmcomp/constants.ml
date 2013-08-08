@@ -322,3 +322,253 @@ let not_constants (type a) ~for_clambda (expr:a Flambda.flambda) =
   end in
   let module A = NotConstants(P) in
   A.res
+
+
+module type AliasParam = sig
+  type t
+  val global_var : Ident.t IdentTbl.t
+  val expr : t Flambda.flambda
+  val const_result : constant_result
+end
+
+module ConstantAlias(P:AliasParam) = struct
+
+  let is_constant id = not (IdentSet.mem id P.const_result.not_constant_id)
+  let global_var = P.global_var
+
+  let global_id id =
+    try
+      let gid = IdentTbl.find global_var id in
+      if gid.Ident.name = Compilenv.current_unit_name ()
+      then Some gid
+      else None
+    with Not_found -> None
+
+  type abstract_values =
+    | Vvar of Ident.t
+    | Vblock of abstract_values array
+    | Vclosure of (Ident.t option) * (abstract_values IdentMap.t)
+    | Vfield of int * Ident.t
+    | Vglobal of int
+    | Voffset of abstract_offset
+    | Venv_field of abstract_env_field
+    | Vpredef_exn of Ident.t
+    | Vbase_const
+
+  and abstract_offset =
+    { offset_field : Ident.t; offset_var : Ident.t }
+
+  and abstract_env_field =
+    { env_offset : Ident.t; env_field_var : Ident.t; env_fun : Ident.t }
+
+  (* Table representing potential aliases *)
+  let abstr_table : abstract_values IdentTbl.t = IdentTbl.create 100
+  let abstr_globals : Ident.t IntTbl.t = IntTbl.create 100
+
+  let add_abstr id = function
+    | None -> ()
+    | Some v -> IdentTbl.add abstr_table id v
+
+  let rec mark_alias v =
+    ignore (mark_alias_result v:abstract_values option)
+
+  and mark_alias_result = function
+    | Flet(str, id, lam, body, _) ->
+      let lam_res = mark_alias_result lam in
+      add_abstr id lam_res;
+      mark_alias_result body
+
+    | Fletrec(defs, body, _) ->
+      List.iter (fun (id,def) ->
+          let lam_res = mark_alias_result def in
+          add_abstr id lam_res) defs;
+      mark_alias_result body
+
+    | Fvar (id,_) ->
+      Some (Vvar id)
+
+    | Fclosure (funcs,fv,_) ->
+      let closure = IdentMap.mapi (fun inner_id lam -> mark_alias_result lam) fv in
+      IdentMap.iter add_abstr closure;
+      (* build closure approximation *)
+      let result =
+        try Some (Vclosure (None, IdentMap.fold (fun inner_id v acc -> match v with
+            | None -> raise Exit (* Not a constant: no approximation *)
+            | Some v -> IdentMap.add inner_id v acc) closure IdentMap.empty))
+        with Exit -> None in
+      IdentMap.iter (fun _ ffunc -> mark_alias ffunc.body) funcs.funs;
+      result
+
+    | Fconst (cst,_) ->
+      Some Vbase_const
+
+    | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
+      let r = List.map mark_alias_result args in
+      Misc.may_map (fun x -> Vblock x)
+        (Misc.lift_option_array (Array.of_list r))
+
+    | Foffset (f1, offset_field,_) ->
+      mark_alias f1;
+      begin match f1 with
+        | Fvar(offset_var,_) ->
+          Some (Voffset { offset_field; offset_var })
+        | _ -> assert false (* assumes ANF *)
+      end
+
+    | Fenv_field ({env = f1; env_var; env_fun_id = env_fun},_) ->
+      mark_alias f1;
+      begin match f1 with
+        | Fvar(env_field_var,_) ->
+          Some (Venv_field { env_offset=env_var; env_field_var; env_fun })
+        | _ -> assert false (* assumes ANF *)
+      end
+
+    (* predefined exceptions are constants *)
+    | Fprim(Pgetglobal id, [], _, _) ->
+      if Ident.is_predef_exn id
+      then Some (Vpredef_exn id)
+      else None
+
+    | Fprim(Pfield i, [Fvar(id,_)], _, _) ->
+      (* This case Requires an entry in ANF *)
+      begin match global_id id with
+        | None -> Some (Vfield (i,id))
+        | Some gid -> Some (Vglobal i)
+      end
+
+    | Fprim(Psetfield (i,_), [Fvar(obj_id,_);Fvar(value_id,_)], _, _) ->
+      (* This case Requires an entry in ANF *)
+      begin match global_id obj_id with
+        | None -> ()
+        | Some gid -> IntTbl.add abstr_globals i value_id
+      end;
+      None
+
+    | Fassign (id, f1, _) ->
+      mark_alias f1;
+      None
+
+    | Ftrywith (f1,id,f2,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      None
+
+    | Fcatch (_,ids,f1,f2,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      None
+
+    | Ffor (id,f1,f2,_,f3,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      mark_alias f3;
+      None
+
+    | Fsequence (f1,f2,_) -> assert false (* assumes ANF *)
+
+    | Fwhile (f1,f2,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      None
+
+    | Fifthenelse (f1,f2,f3,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      mark_alias f3;
+      None
+
+    | Fstaticfail (_,l,_)
+    | Fprim (_,l,_,_) ->
+      List.iter mark_alias l;
+      None
+
+    | Fapply (f1,fl,_,_,_) ->
+      mark_alias f1;
+      List.iter mark_alias fl;
+      None
+
+    | Fswitch (arg,sw,_) ->
+      List.iter (fun (_,l) -> mark_alias l) sw.fs_consts;
+      List.iter (fun (_,l) -> mark_alias l) sw.fs_blocks;
+      Misc.may (fun l -> mark_alias l) sw.fs_failaction;
+      None
+
+    | Fsend (_,f1,f2,fl,_,_) ->
+      mark_alias f1;
+      mark_alias f2;
+      List.iter mark_alias fl;
+      None
+
+    | Funreachable _ ->
+      None
+
+  (* third loop: propagate alias informations of constants *)
+  let propagate_alias () =
+
+    let result = IdentTbl.create 100 in
+
+    let rec resolve id : abstract_values =
+      Printf.printf "%s\n%!" (Ident.unique_name id);
+      try IdentTbl.find result id with Not_found ->
+        assert (is_constant id); (* only consider constants *)
+        assert (IdentTbl.mem abstr_table id);
+        let res = match IdentTbl.find abstr_table id with
+          | (Vblock _ | Vclosure _ | Vpredef_exn _ |
+             Vbase_const) as v -> v
+          | Vvar id -> resolve id
+          | Vfield (i,id) ->
+            (match resolve id with
+             | Vblock a -> a.(i)
+             | _ -> assert false)
+          | Voffset { offset_field; offset_var } ->
+            (match resolve offset_var with
+             | Vclosure (None, map) ->
+               Vclosure (Some offset_field, map)
+             | _ -> assert false)
+          | Venv_field { env_offset; env_field_var; env_fun } ->
+            (match resolve env_field_var with
+             | Vclosure (Some fun_id, map) ->
+               assert(Ident.same fun_id env_fun);
+               assert(IdentMap.mem env_offset map);
+               IdentMap.find env_offset map
+             | _ ->
+               Printf.printf "env_field: %s\n%!" (Ident.unique_name id);
+               assert false)
+          | Vglobal i ->
+            assert(IntTbl.mem abstr_globals i);
+            let var = IntTbl.find abstr_globals i in
+            resolve var
+        in
+        IdentTbl.add result id res;
+        res
+    in
+    let resolve id _ =
+      if is_constant id (* only call on constants *)
+      then ignore (resolve id:abstract_values) in
+
+    IdentTbl.iter resolve abstr_table;
+
+    IdentTbl.fold (fun key abs map -> match abs with
+        | Vvar aid -> IdentMap.add key aid map
+        | _ -> map) result IdentMap.empty
+
+  let res =
+    mark_alias P.expr;
+    propagate_alias ()
+
+end
+
+type alias_result =
+  { constant_result : constant_result;
+    constant_alias : Ident.t Flambda.IdentMap.t }
+
+let alias (type a) (expr:a Flambda.flambda) =
+  let module P = struct
+    type t = a
+    let expr = expr
+    let global_var = Flambdautils.global_var expr
+    let const_result = not_constants ~for_clambda:false expr
+  end in
+  let module A = ConstantAlias(P) in
+  { constant_result = P.const_result;
+    constant_alias = A.res }
