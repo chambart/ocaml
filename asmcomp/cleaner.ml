@@ -686,7 +686,13 @@ let rebind analysis effectful tree =
   let module C2 = Rebinder(P) in
   C2.rebind tree
 
-let extract_constants (constants:Constants.constant_result) tree =
+let extract_constants (alias:Constants.alias_result) tree =
+
+  let constants = alias.Constants.constant_result in
+
+  let get_alias id =
+    try Some (IdentMap.find id alias.Constants.constant_alias)
+    with Not_found -> None in
 
   let global_var, global_index = Flambdautils.global_index tree in
 
@@ -741,18 +747,23 @@ let extract_constants (constants:Constants.constant_result) tree =
       let lam = mapper iter lam in
       Some (id, lam)
     else begin
-      match lam with
-      | Fvar(aliased_id, _) ->
-        (* avoid let rec x = y and y = ... *)
-        IdentTbl.add renaming id aliased_id;
-        Some (id, lam)
-      | Fclosure( ffunctions, fv, eid ) ->
-        ignore(fclosure iter (Some id) ffunctions fv eid);
-        None
-      | _ ->
-        let lam = mapper iter lam in
-        add_binding id lam;
-        None
+      match get_alias id with
+      | Some alias ->
+        IdentTbl.add renaming id alias;
+        (* Some (id, Fvar(alias, Flambda.data lam)) *)
+        Some(id,lam)
+      | None ->
+        match lam with
+        | Fvar(_, _) ->
+          Printf.printf "alias var %s\n%!" (Ident.unique_name id);
+          assert false
+        | Fclosure( ffunctions, fv, eid ) ->
+          ignore(fclosure iter (Some id) ffunctions fv eid);
+          None
+        | _ ->
+          let lam = mapper iter lam in
+          add_binding id lam;
+          None
     end
 
   and fclosure iter name ffunctions fv eid =
