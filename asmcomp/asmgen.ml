@@ -169,8 +169,8 @@ let inlining ppf flambda =
   ++ flambda_dump_if ppf
 
 let extract_constant ppf flambda =
-  let not_const = Constants.not_constants ~for_clambda:false flambda in
-  Cleaner.extract_constants not_const flambda
+  (* assumes ANF *)
+  Cleaner.extract_constants (Constants.alias flambda) flambda
 
 let prepare ppf flambda =
   Flambdautils.anf flambda

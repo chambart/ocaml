@@ -183,7 +183,9 @@ module NotConstants(P:Param) = struct
       then mark_curr curr
 
     | Fprim(Pfield i, [Fvar(id,_)], _, _) ->
-      (* This case Requires an entry in ANF *)
+      (* This case Requires an entry in ANF if for_clambda is false
+         Notice that if for_clambda is true then it does the same
+         thing that the default Fprim case *)
       if for_clambda
       then mark_curr curr
       else
@@ -191,6 +193,14 @@ module NotConstants(P:Param) = struct
           | None ->
             (* This is correct only if there is a rebind phase after !
                Clambdagen cannot handle this *)
+            (* if some inlining produced some unreachable code like
+               {[let a = 0 in
+                 if a
+                 then a.(0)
+                 else ... ]}
+               then a.(0) cannot be compiled. There must be a specialisation
+               phase after that eliminating the then branch and a dead code
+               elimination eliminating potential reference to a.(0) *)
             add_depend curr (Var id)
           | Some gid ->
             add_depend curr (Global i)
@@ -204,6 +214,9 @@ module NotConstants(P:Param) = struct
 
     | Fprim(Psetfield (i,_), [Fvar(obj_id,_);Fvar(value_id,_)], _, _) ->
       (* This case Requires an entry in ANF *)
+      (* reference between global constants should have been eliminated
+         when transforming to clambda
+         TODO: check that this is effectively the case *)
       add_depend curr (Var obj_id);
       add_depend curr (Var value_id);
       mark_curr curr;
@@ -354,6 +367,7 @@ module ConstantAlias(P:AliasParam) = struct
     | Venv_field of abstract_env_field
     | Vpredef_exn of Ident.t
     | Vbase_const
+    | Vunreachable
 
   and abstract_offset =
     { offset_field : Ident.t; offset_var : Ident.t }
@@ -500,56 +514,71 @@ module ConstantAlias(P:AliasParam) = struct
       None
 
     | Funreachable _ ->
-      None
+      Some Vunreachable
 
   (* third loop: propagate alias informations of constants *)
   let propagate_alias () =
 
-    let result = IdentTbl.create 100 in
+    let result : (Ident.t option * abstract_values) IdentTbl.t =
+      IdentTbl.create 100 in
 
-    let rec resolve id : abstract_values =
-      Printf.printf "%s\n%!" (Ident.unique_name id);
+    let rec resolve id : (Ident.t option * abstract_values) =
+      (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
       try IdentTbl.find result id with Not_found ->
         assert (is_constant id); (* only consider constants *)
         assert (IdentTbl.mem abstr_table id);
-        let res = match IdentTbl.find abstr_table id with
-          | (Vblock _ | Vclosure _ | Vpredef_exn _ |
-             Vbase_const) as v -> v
-          | Vvar id -> resolve id
-          | Vfield (i,id) ->
-            (match resolve id with
-             | Vblock a -> a.(i)
-             | _ -> assert false)
-          | Voffset { offset_field; offset_var } ->
-            (match resolve offset_var with
-             | Vclosure (None, map) ->
-               Vclosure (Some offset_field, map)
-             | _ -> assert false)
-          | Venv_field { env_offset; env_field_var; env_fun } ->
-            (match resolve env_field_var with
-             | Vclosure (Some fun_id, map) ->
-               assert(Ident.same fun_id env_fun);
-               assert(IdentMap.mem env_offset map);
-               IdentMap.find env_offset map
-             | _ ->
-               Printf.printf "env_field: %s\n%!" (Ident.unique_name id);
-               assert false)
-          | Vglobal i ->
-            assert(IntTbl.mem abstr_globals i);
-            let var = IntTbl.find abstr_globals i in
-            resolve var
-        in
+        let res = resolve_abs (IdentTbl.find abstr_table id) in
         IdentTbl.add result id res;
         res
+
+    and resolve_abs : _ -> (Ident.t option * abstract_values) = function
+      | (Vblock _ | Vclosure _ | Vpredef_exn _ |
+         Vbase_const) as v ->
+        None, v
+      | Vvar id ->
+        begin match resolve id with
+          | None, res -> Some id, res
+          | res -> res
+        end
+      | Vfield (i,id) ->
+        (match resolve id with
+         | _, Vblock a ->
+           if Array.length a <= i
+           then None, Vunreachable
+           else resolve_abs a.(i)
+         | _ ->
+           (* This can happen with impossible branch not yet
+              eliminated by specialisation *)
+           None, Vunreachable)
+      | Voffset { offset_field; offset_var } ->
+        (match resolve offset_var with
+         | _, Vclosure (None, map) ->
+           None, Vclosure (Some offset_field, map)
+         | _ -> assert false)
+      | Venv_field { env_offset; env_field_var; env_fun } ->
+        (match resolve env_field_var with
+         | _, Vclosure (Some fun_id, map) ->
+           assert(Ident.same fun_id env_fun);
+           assert(IdentMap.mem env_offset map);
+           resolve_abs (IdentMap.find env_offset map)
+         | _ ->
+           assert false)
+      | Vglobal i ->
+        assert(IntTbl.mem abstr_globals i);
+        let var = IntTbl.find abstr_globals i in
+        resolve var
+      | Vunreachable ->
+        None, Vunreachable
     in
+
     let resolve id _ =
       if is_constant id (* only call on constants *)
-      then ignore (resolve id:abstract_values) in
+      then ignore (resolve id:_ * _) in
 
     IdentTbl.iter resolve abstr_table;
 
     IdentTbl.fold (fun key abs map -> match abs with
-        | Vvar aid -> IdentMap.add key aid map
+        | Some aid, _ -> IdentMap.add key aid map
         | _ -> map) result IdentMap.empty
 
   let res =

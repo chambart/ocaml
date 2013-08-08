@@ -22,7 +22,7 @@ val rebind : Flambdainfo.analysis_result ->
 
 val remove_unused_function_param : ExprId.t flambda -> ExprId.t flambda
 
-val extract_constants : Constants.constant_result ->
+val extract_constants : Constants.alias_result ->
   ExprId.t flambda -> ExprId.t flambda
 
 val elim_let : Constants.constant_result -> Purity.effectful ->
