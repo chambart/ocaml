@@ -370,7 +370,13 @@ module ConstantAlias(P:AliasParam) = struct
     | Vunreachable
 
   and abstract_offset =
-    { offset_field : Ident.t; offset_var : Ident.t }
+    { offset_field : Ident.t;
+      offset_var : offset_var }
+
+  and offset_var =
+    | Direct of abstract_values
+    (* value inside the closure. Usefull if there is no offset value *)
+    | Indirect of Ident.t
 
   and abstract_env_field =
     { env_offset : Ident.t; env_field_var : Ident.t; env_fun : Ident.t }
@@ -410,7 +416,12 @@ module ConstantAlias(P:AliasParam) = struct
             | None -> raise Exit (* Not a constant: no approximation *)
             | Some v -> IdentMap.add inner_id v acc) closure IdentMap.empty))
         with Exit -> None in
-      IdentMap.iter (fun _ ffunc -> mark_alias ffunc.body) funcs.funs;
+      IdentMap.iter (fun fun_id ffunc ->
+          Misc.may (fun result -> add_abstr fun_id
+                       (Some (Voffset { offset_field = fun_id;
+                                        offset_var = Direct result })))
+            result;
+          mark_alias ffunc.body) funcs.funs;
       result
 
     | Fconst (cst,_) ->
@@ -425,7 +436,7 @@ module ConstantAlias(P:AliasParam) = struct
       mark_alias f1;
       begin match f1 with
         | Fvar(offset_var,_) ->
-          Some (Voffset { offset_field; offset_var })
+          Some (Voffset { offset_field; offset_var = Indirect offset_var })
         | _ -> assert false (* assumes ANF *)
       end
 
@@ -551,7 +562,10 @@ module ConstantAlias(P:AliasParam) = struct
               eliminated by specialisation *)
            None, Vunreachable)
       | Voffset { offset_field; offset_var } ->
-        (match resolve offset_var with
+        let res = match offset_var with
+          | Direct res -> None, res
+          | Indirect offset_var -> resolve offset_var in
+        (match res with
          | _, Vclosure (None, map) ->
            None, Vclosure (Some offset_field, map)
          | _ -> assert false)
