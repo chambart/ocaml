@@ -195,10 +195,9 @@ let optimise_one ppf flambda =
   then
     flambda
 
-    (* commented until extract constant is fixed *)
-    (* ++ text "unclose" *)
-    (* ++ unclose ppf *)
-    (* ++ flambda_dump_if ppf *)
+    ++ text "unclose"
+    ++ unclose ppf
+    ++ flambda_dump_if ppf
 
     ++ text "prepare"
     ++ prepare ppf
