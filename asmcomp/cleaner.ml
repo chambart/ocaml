@@ -386,10 +386,13 @@ let should_inline constants toplevel ffunction args =
         | _ -> fatal_error "not in ANF")
       args
   in
+  (* Printf.printf "inline %s\n%!" (ffunction.label:>string); *)
   match toplevel with
   | Toplevel ->
+    (* Printf.printf "toplevel\n"; *)
     has_constant_param || should_inline_size ()
   | Deep ->
+    (* Printf.printf "deep\n"; *)
     has_constant_param && should_inline_size ()
 
 let should_inline_minimal ffun =
@@ -472,7 +475,7 @@ let inlining inlining_kind analysis lam =
         match ffunction.kind with
         | Tupled -> tree (* TODO: tupled functions ! *)
         | Curried ->
-          if ffunction.arity = List.length args
+          if ffunction.arity <= List.length args
           then
             let fun_id = f.fun_id in
             let ffunctions = FunMap.find f.closure_funs
@@ -484,7 +487,15 @@ let inlining inlining_kind analysis lam =
                 should_inline constants toplevel ffunction args
             in
             if not ffunctions.recursives && should_go
-            then inline_simple func fun_id ffunction args
+            then
+              let used_args = take_n ffunction.arity args in
+              let remaining_args = drop_n ffunction.arity args in
+              let call_result = inline_simple func fun_id ffunction used_args in
+              match remaining_args with
+              | [] -> call_result
+              | _::_ ->
+                (* Format.eprintf "partial: %a@." Printflambda.flambda func; *)
+                Fapply(call_result, remaining_args, None, dbg, node_data)
             else tree
           else tree
     end
