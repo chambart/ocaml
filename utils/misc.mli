@@ -38,6 +38,10 @@ val split_last: 'a list -> 'a list * 'a
 val samelist: ('a -> 'a -> bool) -> 'a list -> 'a list -> bool
         (* Like [List.for_all2] but returns [false] if the two
            lists have different length. *)
+val take_n: int -> 'a list -> 'a list
+        (* [take_n n l] first n elements of l *)
+val drop_n: int -> 'a list -> 'a list
+        (* [drop_n n l] l without its first n elements *)
 
 val may: ('a -> unit) -> 'a option -> unit
 val may_map: ('a -> 'b) -> 'a option -> 'b option
