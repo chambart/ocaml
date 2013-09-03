@@ -837,6 +837,64 @@ let const = function
   | Fconst_float_array _ -> value_floatarray
   | Fconst_immstring _ -> value_string
 
+(* Kind: test if a value is simple (not a union) *)
+
+type kind =
+  | Kind_block
+  | Kind_const_ptr
+  | Kind_int
+
+let is_not_other = function
+  | { v_other = Value_none } -> true
+  | _ -> false
+
+let is_not_closure v =
+  FunMap.is_empty v.v_clos
+
+let is_not_const_ptr v =
+  IntSet.is_empty v.v_cstptr
+
+let is_not_block v =
+  IntMap.is_empty v.v_block
+
+let is_simple_block v =
+  IntMap.cardinal v.v_block = 1
+
+let is_simple_const_ptr v =
+  IntSet.cardinal v.v_cstptr = 1
+
+let is_simple_int = function
+  | { v_other = Value_integer _ } -> true
+  | _ -> false
+
+let is_block v =
+  is_not_other v &&
+  is_not_closure v &&
+  is_not_const_ptr v &&
+  is_simple_block v
+
+let is_const_ptr v =
+  is_not_other v &&
+  is_not_closure v &&
+  is_not_block v &&
+  is_simple_const_ptr v
+
+let is_int v =
+  is_simple_int v &&
+  is_not_closure v &&
+  is_not_const_ptr v &&
+  is_not_block v
+
+let value_kind v =
+  if is_block v
+  then Some Kind_block
+  else if is_const_ptr v
+  then Some Kind_const_ptr
+  else if is_int v
+  then Some Kind_int
+  else None
+
+(* Printing *)
 
 let rec print ppf {
     v_clos;

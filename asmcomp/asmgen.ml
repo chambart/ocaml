@@ -227,7 +227,10 @@ let optimise ppf flambda =
     if n <= 0 then flambda else
       aux (n-1) (optimise_one ppf flambda)
   in
-  aux 1 flambda
+  let flambda = aux 1 flambda in
+  let exported = Flambdainfo.export_info flambda in
+  Compilenv.set_global_approx_info exported;
+  flambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =

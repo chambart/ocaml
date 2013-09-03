@@ -143,6 +143,7 @@ let build_package_cmx members cmxfile =
           union(List.map (fun info -> info.ui_send_fun) units);
       ui_force_link =
           List.exists (fun info -> info.ui_force_link) units;
+      ui_approx_info = ui.ui_approx_info;
     } in
   Compilenv.write_unit_info pkg_infos cmxfile
 
