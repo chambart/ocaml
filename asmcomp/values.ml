@@ -816,7 +816,7 @@ let prim p l =
   | Pphyscomp _ ->
     value_any_bool
 
-  (* | Pgetglobalfield _ *)
+  | Pgetglobalfield _
   | Psetglobalfield _
   | Prevapply _ | Pdirapply _ | Pgetglobal _ | Psetglobal _
   | Pmakeblock _ | Pfield _ | Psetfield _ | Pduprecord _

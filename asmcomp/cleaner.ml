@@ -707,13 +707,13 @@ let extract_constants (alias:Constants.alias_result) tree =
 
   let global_var, global_index = Flambdautils.global_index tree in
 
-  let global_id id =
-    try
-      let gid = IdentTbl.find global_var id in
-      if gid.Ident.name = Compilenv.current_unit_name ()
-      then Some gid
-      else None
-    with Not_found -> None in
+  (* let global_id id = *)
+  (*   try *)
+  (*     let gid = IdentTbl.find global_var id in *)
+  (*     if gid.Ident.name = Compilenv.current_unit_name () *)
+  (*     then Some gid *)
+  (*     else None *)
+  (*   with Not_found -> None in *)
 
   (* constants extracted *)
   let bindings = ref [] in
@@ -865,17 +865,15 @@ let extract_constants (alias:Constants.alias_result) tree =
       (* Printf.printf "rebind %s => %s\n%!" *)
       (*   (Ident.unique_name var) (Ident.unique_name ren); *)
       Fvar(rename_rval var,eid)
-    | Fprim(Pfield i,[Fvar(id,_)], _, eid) ->
-      begin match global_id id with
-        | None -> tree
-        | Some gid ->
-          if IntTbl.mem global_index i
-          then
-            let var = IntTbl.find global_index i in
-            let var = rename_rval var in
-            Fvar(var, eid)
-          else tree
-      end
+    | Fprim(Pgetglobalfield(id,i),[], _, eid) ->
+      if (id.Ident.name = Compilenv.current_unit_name ()) &&
+         (IntTbl.mem global_index i)
+      then
+        let var = IntTbl.find global_index i in
+        let var = rename_rval var in
+        Fvar(var, eid)
+      else tree
+
     | _ -> tree in
 
   let tree = Flambdautils.map2 mapper' () tree in

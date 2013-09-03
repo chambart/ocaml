@@ -298,11 +298,12 @@ module Run(Param:Fparam) = struct
         | Immutable ->
           let vlam = List.map mu lams in
           New (value_block tag (Array.of_list vlam)))
-    (* | Fprim(Pgetglobalfield(id,n), arg, _, _) -> *)
-    (*   assert(arg = []); *)
-    (*   if id.Ident.name = Compilenv.current_unit_name () *)
-    (*   then NewOld(Values.field n (value global_val)) *)
-    (*   else New unknown_value (\* ... *\) *)
+
+    | Fprim(Pgetglobalfield(id,n), arg, _, _) ->
+      assert(arg = []);
+      if id.Ident.name = Compilenv.current_unit_name ()
+      then NewOld(Values.field n (value global_val))
+      else New unknown_value
 
     | Fprim(Pfield n, args, _, _) ->
       (match args with
