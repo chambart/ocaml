@@ -13,6 +13,7 @@ let pure_prim = function
 
   | Pmakeblock _ -> true
 
+  | Psetglobalfield _
   | Psetfield _
   | Pfloatfield _
   | Psetfloatfield _ -> false
@@ -102,6 +103,8 @@ let effectless_prim = function
     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
     Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
     Parraysetu _ | Parraysets _ | Pbigarrayset _
+
+  | Psetglobalfield _
 
   | Pstringrefs | Parrayrefs _ | Pbigarrayref (false,_,_,_)
 

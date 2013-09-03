@@ -212,19 +212,10 @@ module NotConstants(P:Param) = struct
     (*   then add_depend curr (Global i) *)
     (*   else mark_curr curr *)
 
-    | Fprim(Psetfield (i,_), [Fvar(obj_id,_);Fvar(value_id,_)], _, _) ->
-      (* This case Requires an entry in ANF *)
-      (* reference between global constants should have been eliminated
-         when transforming to clambda
-         TODO: check that this is effectively the case *)
-      add_depend curr (Var obj_id);
-      add_depend curr (Var value_id);
+    | Fprim(Psetglobalfield i, [f], _, _) ->
       mark_curr curr;
-      begin match global_id obj_id with
-        | None -> ()
-        | Some gid ->
-          add_depend [Global i] (Var value_id)
-      end
+      (* adds 'f in NC => global i in NC' *)
+      mark_loop [Global i] f
 
     (* Not constant cases: we mark directly 'curr in NC' and mark
        bound variables as in NC also *)
@@ -371,23 +362,22 @@ module ConstantAlias(P:AliasParam) = struct
 
   and abstract_offset =
     { offset_field : Ident.t;
-      offset_var : offset_var }
-
-  and offset_var =
-    | Direct of abstract_values
-    (* value inside the closure. Usefull if there is no offset value *)
-    | Indirect of Ident.t
+      offset_abstract : abstract_values }
 
   and abstract_env_field =
     { env_offset : Ident.t; env_field_var : Ident.t; env_fun : Ident.t }
 
   (* Table representing potential aliases *)
   let abstr_table : abstract_values IdentTbl.t = IdentTbl.create 100
-  let abstr_globals : Ident.t IntTbl.t = IntTbl.create 100
+  let abstr_globals : abstract_values IntTbl.t = IntTbl.create 100
 
   let add_abstr id = function
     | None -> ()
     | Some v -> IdentTbl.add abstr_table id v
+
+  let add_abstr_global n = function
+    | None -> ()
+    | Some v -> IntTbl.add abstr_globals n v
 
   let rec mark_alias v =
     ignore (mark_alias_result v:abstract_values option)
@@ -419,7 +409,7 @@ module ConstantAlias(P:AliasParam) = struct
       IdentMap.iter (fun fun_id ffunc ->
           Misc.may (fun result -> add_abstr fun_id
                        (Some (Voffset { offset_field = fun_id;
-                                        offset_var = Direct result })))
+                                        offset_abstract = result })))
             result;
           mark_alias ffunc.body) funcs.funs;
       result
@@ -436,7 +426,7 @@ module ConstantAlias(P:AliasParam) = struct
       mark_alias f1;
       begin match f1 with
         | Fvar(offset_var,_) ->
-          Some (Voffset { offset_field; offset_var = Indirect offset_var })
+          Some (Voffset { offset_field; offset_abstract = Vvar offset_var })
         | _ -> assert false (* assumes ANF *)
       end
 
@@ -461,12 +451,9 @@ module ConstantAlias(P:AliasParam) = struct
         | Some gid -> Some (Vglobal i)
       end
 
-    | Fprim(Psetfield (i,_), [Fvar(obj_id,_);Fvar(value_id,_)], _, _) ->
-      (* This case Requires an entry in ANF *)
-      begin match global_id obj_id with
-        | None -> ()
-        | Some gid -> IntTbl.add abstr_globals i value_id
-      end;
+    | Fprim(Psetglobalfield i, [lam], _, _) ->
+      let lam_res = mark_alias_result lam in
+      add_abstr_global i lam_res;
       None
 
     | Fassign (id, f1, _) ->
@@ -561,10 +548,8 @@ module ConstantAlias(P:AliasParam) = struct
            (* This can happen with impossible branch not yet
               eliminated by specialisation *)
            None, Vunreachable)
-      | Voffset { offset_field; offset_var } ->
-        let res = match offset_var with
-          | Direct res -> None, res
-          | Indirect offset_var -> resolve offset_var in
+      | Voffset { offset_field; offset_abstract } ->
+        let res = resolve_abs offset_abstract in
         (match res with
          | _, Vclosure (None, map) ->
            None, Vclosure (Some offset_field, map)
@@ -579,8 +564,7 @@ module ConstantAlias(P:AliasParam) = struct
            assert false)
       | Vglobal i ->
         assert(IntTbl.mem abstr_globals i);
-        let var = IntTbl.find abstr_globals i in
-        resolve var
+        resolve_abs (IntTbl.find abstr_globals i)
       | Vunreachable ->
         None, Vunreachable
     in

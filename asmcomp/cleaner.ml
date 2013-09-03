@@ -869,9 +869,12 @@ let extract_constants (alias:Constants.alias_result) tree =
       begin match global_id id with
         | None -> tree
         | Some gid ->
-          let var = IntTbl.find global_index i in
-          let var = rename_rval var in
-          Fvar(var, eid)
+          if IntTbl.mem global_index i
+          then
+            let var = IntTbl.find global_index i in
+            let var = rename_rval var in
+            Fvar(var, eid)
+          else tree
       end
     | _ -> tree in
 
@@ -1010,7 +1013,9 @@ let elim_let constant unpure_expr expr =
   let should_elim id eid =
     let count = try Some (IdentTbl.find count id) with _ -> None in
     match count with
-    | None | Some (Zero | Many | Loop) -> false
+    | None | Some (Zero) ->
+      not (ExprSet.mem eid unpure_expr.Purity.effectful_expr)
+    | Some (Many | Loop) -> false
     | Some One ->
       (IdentSet.mem id constant.Constants.not_constant_id) &&
       (* if the value is a constant, it will be compiled more

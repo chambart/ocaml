@@ -95,6 +95,10 @@ let rec close sb = function
   (* | Lprim(Pfield i, [Lprim(Pgetglobal id, [])]) -> *)
   (*   Fprim(Pgetglobalfield(id,i), [], Debuginfo.none, *)
   (*         nid ~name:"getglobalfield" ()) *)
+  | Lprim(Psetfield(i,_), [Lprim(Pgetglobal id, []); lam]) ->
+    assert(id.Ident.name = Compilenv.current_unit_name ());
+    Fprim(Psetglobalfield i, [close sb lam], Debuginfo.none,
+          nid ~name:"setglobalfield" ())
   | Lprim(p, args) ->
     Fprim(p, close_list sb args, Debuginfo.none,
         nid ~name:"prim" ())

@@ -770,7 +770,8 @@ let rec decompose binds = function
     binds, Fsend (kind, meth, obj, args, dbg, eid)
 
 and tovar ?(id="anf") binds = function
-  | (Fvar _ | Fconst _) as expr -> binds, expr
+  | Fvar _ as expr -> binds, expr
+  (* | Fconst _ as expr -> binds, expr *)
   | expr ->
     let id = Ident.create id in
     Simple(Strict, id, expr) :: binds, Fvar(id, ExprId.create ())
@@ -1236,10 +1237,8 @@ let global_index expr =
   let iter = function
     | Flet(_,id,lam,_,_) -> add id lam
     | Fletrec(defs,_,_) -> List.iter (fun (id,lam) -> add id lam) defs
-    | Fprim(Psetfield (i,_),[Fvar(obj_id,_);Fvar(val_id,_)],_,_) ->
-      if IdentTbl.mem global_tbl obj_id
-        (* assumes that setfield on a global is only on the current module *)
-      then IntTbl.add set_tbl i val_id
+    | Fprim(Psetglobalfield i,[Fvar(val_id,_)],_,_) ->
+      IntTbl.add set_tbl i val_id
     | _ -> ()
   in
   iter_all iter expr;
