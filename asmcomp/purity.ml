@@ -24,7 +24,7 @@ let pure_prim = function
   | Pbittest -> false
 
   (* maybe this one could be considered pure: assigned only one time *)
-  (* | Pgetglobalfield _ -> false *)
+  | Pgetglobalfield _ -> false
 
   | Plazyforce
   | Pccall _

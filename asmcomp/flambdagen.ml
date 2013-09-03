@@ -92,9 +92,9 @@ let rec close sb = function
     close sb (Lapply(funct, [arg], loc))
   | Lprim(Praise, [Levent(arg, ev)]) ->
     Fprim(Praise, [close sb arg], Debuginfo.from_raise ev, nid ())
-  (* | Lprim(Pfield i, [Lprim(Pgetglobal id, [])]) -> *)
-  (*   Fprim(Pgetglobalfield(id,i), [], Debuginfo.none, *)
-  (*         nid ~name:"getglobalfield" ()) *)
+  | Lprim(Pfield i, [Lprim(Pgetglobal id, [])]) ->
+    Fprim(Pgetglobalfield(id,i), [], Debuginfo.none,
+          nid ~name:"getglobalfield" ())
   | Lprim(Psetfield(i,_), [Lprim(Pgetglobal id, []); lam]) ->
     assert(id.Ident.name = Compilenv.current_unit_name ());
     Fprim(Psetglobalfield i, [close sb lam], Debuginfo.none,

@@ -58,14 +58,6 @@ module NotConstants(P:Param) = struct
   let global_var = P.global_var
   let for_clambda = P.for_clambda
 
-  let global_id id =
-    try
-      let gid = IdentTbl.find global_var id in
-      if gid.Ident.name = Compilenv.current_unit_name ()
-      then Some gid
-      else None
-    with Not_found -> None
-
   type dep =
     | Closure of FunId.t
     | Var of Ident.t
@@ -182,35 +174,24 @@ module NotConstants(P:Param) = struct
       if not (Ident.is_predef_exn id)
       then mark_curr curr
 
-    | Fprim(Pfield i, [Fvar(id,_)], _, _) ->
-      (* This case Requires an entry in ANF if for_clambda is false
-         Notice that if for_clambda is true then it does the same
-         thing that the default Fprim case *)
+    | Fprim(Pgetglobalfield(id,i), [], _, _) ->
+      (* adds 'global i in NC => curr in NC' *)
       if for_clambda
       then mark_curr curr
       else
-        begin match global_id id with
-          | None ->
-            (* This is correct only if there is a rebind phase after !
-               Clambdagen cannot handle this *)
-            (* if some inlining produced some unreachable code like
-               {[let a = 0 in
-                 if a
-                 then a.(0)
-                 else ... ]}
-               then a.(0) cannot be compiled. There must be a specialisation
-               phase after that eliminating the then branch and a dead code
-               elimination eliminating potential reference to a.(0) *)
-            add_depend curr (Var id)
-          | Some gid ->
-            add_depend curr (Global i)
-        end
-
-    (* | Fprim(Pgetglobalfield(id,i), [], _, _) -> *)
-    (*   (\* adds 'id in NC => curr in NC' *\) *)
-    (*   if id.Ident.name = Compilenv.current_unit_name () *)
-    (*   then add_depend curr (Global i) *)
-    (*   else mark_curr curr *)
+        (* This is correct only if there is a rebind phase after !
+           Clambdagen cannot handle this *)
+        (* if some inlining produced some unreachable code like
+           {[let a = 0 in
+             if a
+             then a.(0)
+             else ... ]}
+           then a.(0) cannot be compiled. There must be a specialisation
+           phase after that eliminating the then branch and a dead code
+           elimination eliminating potential reference to a.(0) *)
+      if id.Ident.name = Compilenv.current_unit_name ()
+      then add_depend curr (Global i)
+      else mark_curr curr
 
     | Fprim(Psetglobalfield i, [f], _, _) ->
       mark_curr curr;
@@ -340,19 +321,11 @@ module ConstantAlias(P:AliasParam) = struct
   let is_constant id = not (IdentSet.mem id P.const_result.not_constant_id)
   let global_var = P.global_var
 
-  let global_id id =
-    try
-      let gid = IdentTbl.find global_var id in
-      if gid.Ident.name = Compilenv.current_unit_name ()
-      then Some gid
-      else None
-    with Not_found -> None
-
   type abstract_values =
     | Vvar of Ident.t
     | Vblock of abstract_values array
     | Vclosure of (Ident.t option) * (abstract_values IdentMap.t)
-    | Vfield of int * Ident.t
+    | Vfield of int * abstract_values
     | Vglobal of int
     | Voffset of abstract_offset
     | Venv_field of abstract_env_field
@@ -365,7 +338,7 @@ module ConstantAlias(P:AliasParam) = struct
       offset_abstract : abstract_values }
 
   and abstract_env_field =
-    { env_offset : Ident.t; env_field_var : Ident.t; env_fun : Ident.t }
+    { env_offset : Ident.t; env_field_val : abstract_values; env_fun : Ident.t }
 
   (* Table representing potential aliases *)
   let abstr_table : abstract_values IdentTbl.t = IdentTbl.create 100
@@ -424,18 +397,18 @@ module ConstantAlias(P:AliasParam) = struct
 
     | Foffset (f1, offset_field,_) ->
       mark_alias f1;
-      begin match f1 with
-        | Fvar(offset_var,_) ->
-          Some (Voffset { offset_field; offset_abstract = Vvar offset_var })
-        | _ -> assert false (* assumes ANF *)
+      begin match mark_alias_result f1 with
+        | Some offset_abstract ->
+          Some (Voffset { offset_field; offset_abstract })
+        | None -> assert false
       end
 
     | Fenv_field ({env = f1; env_var; env_fun_id = env_fun},_) ->
       mark_alias f1;
-      begin match f1 with
-        | Fvar(env_field_var,_) ->
-          Some (Venv_field { env_offset=env_var; env_field_var; env_fun })
-        | _ -> assert false (* assumes ANF *)
+      begin match mark_alias_result f1 with
+        | Some env_field_val ->
+          Some (Venv_field { env_offset=env_var; env_field_val; env_fun })
+        | None -> assert false
       end
 
     (* predefined exceptions are constants *)
@@ -444,11 +417,15 @@ module ConstantAlias(P:AliasParam) = struct
       then Some (Vpredef_exn id)
       else None
 
-    | Fprim(Pfield i, [Fvar(id,_)], _, _) ->
-      (* This case Requires an entry in ANF *)
-      begin match global_id id with
-        | None -> Some (Vfield (i,id))
-        | Some gid -> Some (Vglobal i)
+    | Fprim(Pgetglobalfield(id,i), [], _, _) ->
+      if id.Ident.name = Compilenv.current_unit_name ()
+      then Some (Vglobal i)
+      else None
+
+    | Fprim(Pfield i, [f1], _, _) ->
+      begin match mark_alias_result f1 with
+        | Some abs -> Some (Vfield (i,abs))
+        | None -> assert false
       end
 
     | Fprim(Psetglobalfield i, [lam], _, _) ->
@@ -476,7 +453,9 @@ module ConstantAlias(P:AliasParam) = struct
       mark_alias f3;
       None
 
-    | Fsequence (f1,f2,_) -> assert false (* assumes ANF *)
+    | Fsequence (f1,f2,_) ->
+      mark_alias f1;
+      mark_alias_result f2
 
     | Fwhile (f1,f2,_) ->
       mark_alias f1;
@@ -538,8 +517,8 @@ module ConstantAlias(P:AliasParam) = struct
           | None, res -> Some id, res
           | res -> res
         end
-      | Vfield (i,id) ->
-        (match resolve id with
+      | Vfield (i,abs) ->
+        (match resolve_abs abs with
          | _, Vblock a ->
            if Array.length a <= i
            then None, Vunreachable
@@ -554,8 +533,8 @@ module ConstantAlias(P:AliasParam) = struct
          | _, Vclosure (None, map) ->
            None, Vclosure (Some offset_field, map)
          | _ -> assert false)
-      | Venv_field { env_offset; env_field_var; env_fun } ->
-        (match resolve env_field_var with
+      | Venv_field { env_offset; env_field_val; env_fun } ->
+        (match resolve_abs env_field_val with
          | _, Vclosure (Some fun_id, map) ->
            assert(Ident.same fun_id env_fun);
            assert(IdentMap.mem env_offset map);
