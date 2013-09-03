@@ -45,7 +45,8 @@ let current_unit =
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
-    ui_force_link = false }
+    ui_force_link = false;
+    ui_approx_info = Flambdaexport.empty_export }
 
 let symbolname_for_pack pack name =
   match pack with
@@ -75,6 +76,7 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
+  current_unit.ui_approx_info <- Flambdaexport.empty_export;
   structured_constants := [];
   Hashtbl.clear symbol_alias;
   Hashtbl.clear symbol_back_alias
@@ -180,6 +182,11 @@ let global_approx id =
       | None -> Value_unknown
       | Some ui -> ui.ui_approx
 
+let global_approx_info id =
+  match get_global_info id with
+  | None -> Flambdaexport.empty_export
+  | Some ui -> ui.ui_approx_info
+
 (* Return the symbol used to refer to a global identifier *)
 
 let symbol_for_global id =
@@ -195,6 +202,9 @@ let symbol_for_global id =
 
 let set_global_approx approx =
   current_unit.ui_approx <- approx
+
+let set_global_approx_info approx =
+  current_unit.ui_approx_info <- approx
 
 (* Record that a currying function or application function is needed *)
 

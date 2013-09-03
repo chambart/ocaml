@@ -34,3 +34,5 @@ type analysis_result = {
 }
 
 val analyse : ExprId.t flambda -> analysis_result
+
+val export_info : ExprId.t flambda -> Flambdaexport.exported
