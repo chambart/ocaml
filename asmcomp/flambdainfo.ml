@@ -28,14 +28,8 @@ let list_functions t =
 
 let global_size t =
   let r = ref (-1) in
-  let globals = ref IdentSet.empty in
   let aux = function
-    | Flet(_,id,Fprim(Pgetglobal gid, arg, _, _), _, _) ->
-      globals := IdentSet.add id !globals
-    | Fprim(Psetfield(n, _), [Fvar(id,_); lam], _, _) ->
-      if IdentSet.mem id !globals
-      then r := max !r n
-    | Fprim(Psetfield(n, _), [Fprim(Pgetglobal id, arg, _, _); lam], _, _) ->
+    | Fprim(Psetglobalfield n, _, _, _) ->
       r := max !r n;
     | _ -> ()
   in
@@ -324,14 +318,16 @@ module Run(Param:Fparam) = struct
 
     | Fprim(Psetfield(n, _), args, _, _) ->
       List.iter (aux) args;
+      assert(List.length args = 2);
+      New value_unit
+
+    | Fprim(Psetglobalfield n, args, _, _) ->
+      List.iter (aux) args;
       (match args with
-       | [] | [_] | _::_::_::_ -> assert false
-       | [a;arg] ->
-         if ValSet.equal (mu a) (ValSet.singleton global_val)
-         then begin
-           set_global (set_field n (value global_val) (mu arg))
-         end;
-         New value_unit)
+       | [arg] ->
+         set_global (set_field n (value global_val) (mu arg));
+         New value_unit
+       | _ -> assert false)
 
     | Fprim(Pmakearray kind, args, _, _) ->
       List.iter (aux) args;
