@@ -332,6 +332,7 @@ module ConstantAlias(P:AliasParam) = struct
     | Vpredef_exn of Ident.t
     | Vbase_const
     | Vunreachable
+    | Vnot_constant
 
   and abstract_offset =
     { offset_field : Ident.t;
@@ -344,21 +345,18 @@ module ConstantAlias(P:AliasParam) = struct
   let abstr_table : abstract_values IdentTbl.t = IdentTbl.create 100
   let abstr_globals : abstract_values IntTbl.t = IntTbl.create 100
 
-  let add_abstr id = function
-    | None -> ()
-    | Some v -> IdentTbl.add abstr_table id v
+  let add_abstr id v = IdentTbl.add abstr_table id v
 
-  let add_abstr_global n = function
-    | None -> ()
-    | Some v -> IntTbl.add abstr_globals n v
+  let add_abstr_global n v = IntTbl.add abstr_globals n v
 
   let rec mark_alias v =
-    ignore (mark_alias_result v:abstract_values option)
+    ignore (mark_alias_result v:abstract_values)
 
   and mark_alias_result = function
     | Flet(str, id, lam, body, _) ->
       let lam_res = mark_alias_result lam in
-      add_abstr id lam_res;
+      if not (str = Variable && not (is_constant id))
+      then add_abstr id lam_res;
       mark_alias_result body
 
     | Fletrec(defs, body, _) ->
@@ -368,90 +366,74 @@ module ConstantAlias(P:AliasParam) = struct
       mark_alias_result body
 
     | Fvar (id,_) ->
-      Some (Vvar id)
+      Vvar id
 
     | Fclosure (funcs,fv,_) ->
       let closure = IdentMap.mapi (fun inner_id lam -> mark_alias_result lam) fv in
       IdentMap.iter add_abstr closure;
-      (* build closure approximation *)
-      let result =
-        try Some (Vclosure (None, IdentMap.fold (fun inner_id v acc -> match v with
-            | None -> raise Exit (* Not a constant: no approximation *)
-            | Some v -> IdentMap.add inner_id v acc) closure IdentMap.empty))
-        with Exit -> None in
+      let result = Vclosure (None, closure) in
       IdentMap.iter (fun fun_id ffunc ->
-          Misc.may (fun result -> add_abstr fun_id
-                       (Some (Voffset { offset_field = fun_id;
-                                        offset_abstract = result })))
-            result;
+          add_abstr fun_id
+            (Voffset { offset_field = fun_id;
+                       offset_abstract = result });
           mark_alias ffunc.body) funcs.funs;
       result
 
     | Fconst (cst,_) ->
-      Some Vbase_const
+      Vbase_const
 
     | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
       let r = List.map mark_alias_result args in
-      Misc.may_map (fun x -> Vblock x)
-        (Misc.lift_option_array (Array.of_list r))
+      Vblock (Array.of_list r)
 
     | Foffset (f1, offset_field,_) ->
       mark_alias f1;
-      begin match mark_alias_result f1 with
-        | Some offset_abstract ->
-          Some (Voffset { offset_field; offset_abstract })
-        | None -> assert false
-      end
+      Voffset { offset_field; offset_abstract = mark_alias_result f1 }
 
     | Fenv_field ({env = f1; env_var; env_fun_id = env_fun},_) ->
       mark_alias f1;
-      begin match mark_alias_result f1 with
-        | Some env_field_val ->
-          Some (Venv_field { env_offset=env_var; env_field_val; env_fun })
-        | None -> assert false
-      end
+      Venv_field { env_offset = env_var;
+                   env_field_val = mark_alias_result f1;
+                   env_fun }
 
     (* predefined exceptions are constants *)
     | Fprim(Pgetglobal id, [], _, _) ->
       if Ident.is_predef_exn id
-      then Some (Vpredef_exn id)
-      else None
+      then Vpredef_exn id
+      else Vnot_constant
 
     | Fprim(Pgetglobalfield(id,i), [], _, _) ->
       if id.Ident.name = Compilenv.current_unit_name ()
-      then Some (Vglobal i)
-      else None
+      then Vglobal i
+      else Vnot_constant
 
     | Fprim(Pfield i, [f1], _, _) ->
-      begin match mark_alias_result f1 with
-        | Some abs -> Some (Vfield (i,abs))
-        | None -> assert false
-      end
+      Vfield (i,mark_alias_result f1)
 
     | Fprim(Psetglobalfield i, [lam], _, _) ->
       let lam_res = mark_alias_result lam in
       add_abstr_global i lam_res;
-      None
+      Vnot_constant
 
     | Fassign (id, f1, _) ->
       mark_alias f1;
-      None
+      Vnot_constant
 
     | Ftrywith (f1,id,f2,_) ->
       mark_alias f1;
       mark_alias f2;
-      None
+      Vnot_constant
 
     | Fcatch (_,ids,f1,f2,_) ->
       mark_alias f1;
       mark_alias f2;
-      None
+      Vnot_constant
 
     | Ffor (id,f1,f2,_,f3,_) ->
       mark_alias f1;
       mark_alias f2;
       mark_alias f3;
-      None
+      Vnot_constant
 
     | Fsequence (f1,f2,_) ->
       mark_alias f1;
@@ -460,38 +442,38 @@ module ConstantAlias(P:AliasParam) = struct
     | Fwhile (f1,f2,_) ->
       mark_alias f1;
       mark_alias f2;
-      None
+      Vnot_constant
 
     | Fifthenelse (f1,f2,f3,_) ->
       mark_alias f1;
       mark_alias f2;
       mark_alias f3;
-      None
+      Vnot_constant
 
     | Fstaticfail (_,l,_)
     | Fprim (_,l,_,_) ->
       List.iter mark_alias l;
-      None
+      Vnot_constant
 
     | Fapply (f1,fl,_,_,_) ->
       mark_alias f1;
       List.iter mark_alias fl;
-      None
+      Vnot_constant
 
     | Fswitch (arg,sw,_) ->
       List.iter (fun (_,l) -> mark_alias l) sw.fs_consts;
       List.iter (fun (_,l) -> mark_alias l) sw.fs_blocks;
       Misc.may (fun l -> mark_alias l) sw.fs_failaction;
-      None
+      Vnot_constant
 
     | Fsend (_,f1,f2,fl,_,_) ->
       mark_alias f1;
       mark_alias f2;
       List.iter mark_alias fl;
-      None
+      Vnot_constant
 
     | Funreachable _ ->
-      Some Vunreachable
+      Vunreachable
 
   (* third loop: propagate alias informations of constants *)
   let propagate_alias () =
@@ -511,6 +493,9 @@ module ConstantAlias(P:AliasParam) = struct
     and resolve_abs : _ -> (Ident.t option * abstract_values) = function
       | (Vblock _ | Vclosure _ | Vpredef_exn _ |
          Vbase_const) as v ->
+        None, v
+      | Vnot_constant as v ->
+        Printf.printf "\n\npar ici !!!!!\n\n%!";
         None, v
       | Vvar id ->
         begin match resolve id with
