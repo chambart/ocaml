@@ -20,7 +20,7 @@ open Flambda
 let make_symbols info =
   let open Constants in
   let open Flambdaexport in
-  let make_symbol id = Compilenv.make_symbol (Some (Ident.unique_name id)) in
+  let make_symbol id = Compilenv.make_symbol (Some ((Ident.unique_name id) ^ "_global")) in
   let not_constant id =
     IdentSet.mem id info.export_constant.not_constant_id in
   let desc eid = EidMap.find eid info.export_values in
@@ -47,8 +47,11 @@ let make_symbols info =
             IdentTbl.add id_symbols id symbol
   in
   IdentMap.iter aux info.export_mapping;
-  IdentTbl.fold (fun id v map -> IdentMap.add id v map)
-    id_symbols IdentMap.empty
+  let id_map = IdentTbl.fold (fun id v map -> IdentMap.add id v map)
+      id_symbols IdentMap.empty in
+  let eid_map = EidTbl.fold (fun eid v map -> EidMap.add eid v map)
+      eid_symbols EidMap.empty in
+  id_map, eid_map
 
 module type Param1 = sig
   type t
@@ -581,12 +584,19 @@ let convert (type a) (expr:a Flambda.flambda) =
     let module O = Offsets(P1) in
     O.res
   in
+  let assigned_symbols, ex_id_symbol = make_symbols export_info in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
     let fv_offset_table = fv_offset_table
     let fv_pos_table = fv_pos_table
     let not_constants = not_constants
-    let assigned_symbols = make_symbols export_info
+    let assigned_symbols = assigned_symbols
   end in
   let module C = Conv(P2) in
-  C.res
+  let exported =
+    let open Flambdaexport in
+    { ex_functions = Flambdautils.exportable_functions expr;
+      ex_values = export_info.Constants.export_values;
+      ex_global = export_info.Constants.export_global;
+      ex_id_symbol } in
+  C.res, exported

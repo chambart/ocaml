@@ -569,7 +569,7 @@ module ConstantAlias(P:AliasParam) = struct
 
   let global_abstract () =
     let global_size =
-      let r = ref 0 in
+      let r = ref (-1) in
       IntTbl.iter (fun i _ -> r := max !r i) abstr_globals;
       !r in
     let a = Array.init (global_size+1)
@@ -637,9 +637,9 @@ let export_informations
     | Some alias_id, _ ->
       add_id acc alias_id
     | None,
-      (Vvar _ | Vfield _ | Voffset _ | Vnot_constant |
-       Vglobal _ | Venv_field _ | Vunreachable |
-       Vclosure (_, None, _)) ->
+      (Vvar _ | Vfield _ | Vnot_constant |
+       Vglobal _ | Venv_field _ | Vunreachable | Vpredef_exn _ |
+       Vclosure _ | Vbase_const Vconst_other ) ->
       Value_unknown, acc
     | None, abstr ->
       let export_id = ExportId.create () in
@@ -650,9 +650,9 @@ let export_informations
           let mapping = IdentMap.add id approx acc.mapping in
           { acc with mapping } in
       let descr, acc = match abstr with
-        | Vvar _ | Vfield _ | Voffset _ | Vnot_constant
-        | Vglobal _ | Venv_field _ | Vunreachable
-        | Vclosure (_, None, _) ->
+        | Vvar _ | Vfield _ | Vnot_constant
+        | Vglobal _ | Venv_field _ | Vunreachable | Vpredef_exn _
+        | Vclosure _ | Vbase_const Vconst_other ->
           assert false
         | Vbase_const (Vconst_int i) ->
           Value_int i, acc
@@ -660,9 +660,11 @@ let export_informations
           Value_constptr i, acc
         | Vblock(tag, fields) ->
           aux_block acc tag fields
-        | Vclosure (closure_id, Some fun_id, bound_var) ->
-          aux_fun acc closure_id fun_id bound_var
-        | _ -> failwith "TODO.!."
+        | Voffset _ -> begin match resolved with
+            | Vclosure (closure_id, Some fun_id, bound_var) ->
+              aux_fun acc closure_id fun_id bound_var
+            | _ -> assert false
+          end
       in
       approx, { acc with values = EidMap.add export_id descr acc.values }
 

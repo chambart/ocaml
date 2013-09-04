@@ -228,9 +228,13 @@ let optimise ppf flambda =
       aux (n-1) (optimise_one ppf flambda)
   in
   let flambda = aux 1 flambda in
-  let exported = Flambdainfo.export_info flambda in
-  Compilenv.set_global_approx_info exported;
   flambda
+
+let set_global_approx ppf (clambda, exported) =
+  if !dump_clambda
+  then Format.fprintf ppf "%a@." Flambdaexport.print_approx exported;
+  Compilenv.set_global_approx_info exported;
+  clambda
 
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
@@ -247,6 +251,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     ++ optimise ppf
     ++ text "clambdagen"
     ++ Clambdagen.convert
+    ++ set_global_approx ppf
     ++ clambda_dump_if ppf
     ++ text "cmmgen"
     ++ Cmmgen.compunit size

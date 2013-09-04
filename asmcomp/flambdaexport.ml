@@ -28,7 +28,7 @@ and approx =
   | Value_id of ExportId.t
 
 type exported = {
-  ex_functions : ExprId.t ffunctions FunMap.t;
+  ex_functions : unit ffunctions FunMap.t;
   ex_values : descr EidMap.t;
   ex_global : approx;
   ex_id_symbol : symbol EidMap.t;
@@ -41,7 +41,8 @@ let empty_export = {
   ex_id_symbol = EidMap.empty;
 }
 
-let print_approx ppf (values, approx) =
+let print_approx ppf export =
+  let values = export.ex_values in
   let open Format in
   let printed = ref EidSet.empty in
   let printed_closure = ref FunSet.empty in
@@ -79,4 +80,4 @@ let print_approx ppf (values, approx) =
           Ident.print id
           print_approx approx) bound_var
   in
-  print_approx ppf approx
+  print_approx ppf export.ex_global
