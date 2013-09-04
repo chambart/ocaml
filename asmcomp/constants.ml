@@ -308,6 +308,34 @@ let not_constants (type a) ~for_clambda (expr:a Flambda.flambda) =
   let module A = NotConstants(P) in
   A.res
 
+type tag = int
+
+type abstract_values =
+  | Vvar of Ident.t
+  | Vblock of tag * abstract_values array
+  | Vclosure of FunId.t * (Ident.t option) * (abstract_values IdentMap.t)
+  | Vfield of int * abstract_values
+  | Vglobal of int
+  | Voffset of abstract_offset
+  | Venv_field of abstract_env_field
+  | Vpredef_exn of Ident.t
+  | Vbase_const of base_constant
+  | Vunreachable
+  | Vnot_constant
+
+and base_constant =
+  | Vconst_int of int
+  | Vconst_pointer of int
+  | Vconst_other
+
+and abstract_offset =
+  { offset_field : Ident.t;
+    offset_abstract : abstract_values }
+
+and abstract_env_field =
+  { env_offset : Ident.t; env_field_val : abstract_values; env_fun : Ident.t }
+
+type abstract_table = abstract_values IdentTbl.t
 
 module type AliasParam = sig
   type t
@@ -320,26 +348,6 @@ module ConstantAlias(P:AliasParam) = struct
 
   let is_constant id = not (IdentSet.mem id P.const_result.not_constant_id)
   let global_var = P.global_var
-
-  type abstract_values =
-    | Vvar of Ident.t
-    | Vblock of abstract_values array
-    | Vclosure of (Ident.t option) * (abstract_values IdentMap.t)
-    | Vfield of int * abstract_values
-    | Vglobal of int
-    | Voffset of abstract_offset
-    | Venv_field of abstract_env_field
-    | Vpredef_exn of Ident.t
-    | Vbase_const
-    | Vunreachable
-    | Vnot_constant
-
-  and abstract_offset =
-    { offset_field : Ident.t;
-      offset_abstract : abstract_values }
-
-  and abstract_env_field =
-    { env_offset : Ident.t; env_field_val : abstract_values; env_fun : Ident.t }
 
   (* Table representing potential aliases *)
   let abstr_table : abstract_values IdentTbl.t = IdentTbl.create 100
@@ -371,7 +379,7 @@ module ConstantAlias(P:AliasParam) = struct
     | Fclosure (funcs,fv,_) ->
       let closure = IdentMap.mapi (fun inner_id lam -> mark_alias_result lam) fv in
       IdentMap.iter add_abstr closure;
-      let result = Vclosure (None, closure) in
+      let result = Vclosure (funcs.ident, None, closure) in
       IdentMap.iter (fun fun_id ffunc ->
           add_abstr fun_id
             (Voffset { offset_field = fun_id;
@@ -380,11 +388,17 @@ module ConstantAlias(P:AliasParam) = struct
       result
 
     | Fconst (cst,_) ->
-      Vbase_const
+      let base_cons = match cst with
+        | Fconst_pointer i -> Vconst_pointer i
+        | Fconst_base (Const_int i) -> Vconst_int i
+        | Fconst_base (Const_char c) -> Vconst_int (Char.code c)
+        | _ -> Vconst_other
+      in
+      Vbase_const base_cons
 
     | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
       let r = List.map mark_alias_result args in
-      Vblock (Array.of_list r)
+      Vblock (tag, Array.of_list r)
 
     | Foffset (f1, offset_field,_) ->
       mark_alias f1;
@@ -475,77 +489,92 @@ module ConstantAlias(P:AliasParam) = struct
     | Funreachable _ ->
       Vunreachable
 
+  (* alias analysis *)
+
   (* third loop: propagate alias informations of constants *)
+
+  let result : (Ident.t option * abstract_values) IdentTbl.t =
+    IdentTbl.create 100
+
+  let rec resolve id : (Ident.t option * abstract_values) =
+    (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
+    try IdentTbl.find result id with Not_found ->
+      (* assert (is_constant id); (\* only consider constants *\) *)
+      (* assert (IdentTbl.mem abstr_table id); *)
+      let res =
+        if IdentTbl.mem abstr_table id
+        then resolve_abs (IdentTbl.find abstr_table id)
+        else None, Vnot_constant in
+      IdentTbl.add result id res;
+      res
+
+  and resolve_abs : _ -> (Ident.t option * abstract_values) = function
+    | (Vblock _ | Vclosure _ | Vpredef_exn _ |
+       Vbase_const _) as v ->
+      None, v
+    | Vnot_constant as v ->
+      None, v
+    | Vvar id ->
+      begin match resolve id with
+        | None, res -> Some id, res
+        | res -> res
+      end
+    | Vfield (i,abs) ->
+      (match resolve_abs abs with
+       | _, Vblock (_,a) ->
+         if Array.length a <= i
+         then None, Vunreachable
+         else resolve_abs a.(i)
+       | _ ->
+         (* This can happen with impossible branch not yet
+            eliminated by specialisation *)
+         None, Vunreachable)
+    | Voffset { offset_field; offset_abstract } ->
+      let res = resolve_abs offset_abstract in
+      (match res with
+       | _, Vclosure (clos_id, None, map) ->
+         None, Vclosure (clos_id, Some offset_field, map)
+       | _ -> assert false)
+    | Venv_field { env_offset; env_field_val; env_fun } ->
+      (match resolve_abs env_field_val with
+       | _, Vclosure (_, Some fun_id, map) ->
+         assert(Ident.same fun_id env_fun);
+         assert(IdentMap.mem env_offset map);
+         resolve_abs (IdentMap.find env_offset map)
+       | _ ->
+         assert false)
+    | Vglobal i ->
+      assert(IntTbl.mem abstr_globals i);
+      resolve_abs (IntTbl.find abstr_globals i)
+    | Vunreachable ->
+      None, Vunreachable
+
   let propagate_alias () =
+    (* let resolve id _ = *)
+    (*   if is_constant id (\* only call on constants *\) *)
+    (*   then ignore (resolve id:_ * _) in *)
 
-    let result : (Ident.t option * abstract_values) IdentTbl.t =
-      IdentTbl.create 100 in
+    let resolve id _ = ignore (resolve id:_ * _) in
+    IdentTbl.iter resolve abstr_table
 
-    let rec resolve id : (Ident.t option * abstract_values) =
-      (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
-      try IdentTbl.find result id with Not_found ->
-        assert (is_constant id); (* only consider constants *)
-        assert (IdentTbl.mem abstr_table id);
-        let res = resolve_abs (IdentTbl.find abstr_table id) in
-        IdentTbl.add result id res;
-        res
+  let () = mark_alias P.expr
 
-    and resolve_abs : _ -> (Ident.t option * abstract_values) = function
-      | (Vblock _ | Vclosure _ | Vpredef_exn _ |
-         Vbase_const) as v ->
-        None, v
-      | Vnot_constant as v ->
-        Printf.printf "\n\npar ici !!!!!\n\n%!";
-        None, v
-      | Vvar id ->
-        begin match resolve id with
-          | None, res -> Some id, res
-          | res -> res
-        end
-      | Vfield (i,abs) ->
-        (match resolve_abs abs with
-         | _, Vblock a ->
-           if Array.length a <= i
-           then None, Vunreachable
-           else resolve_abs a.(i)
-         | _ ->
-           (* This can happen with impossible branch not yet
-              eliminated by specialisation *)
-           None, Vunreachable)
-      | Voffset { offset_field; offset_abstract } ->
-        let res = resolve_abs offset_abstract in
-        (match res with
-         | _, Vclosure (None, map) ->
-           None, Vclosure (Some offset_field, map)
-         | _ -> assert false)
-      | Venv_field { env_offset; env_field_val; env_fun } ->
-        (match resolve_abs env_field_val with
-         | _, Vclosure (Some fun_id, map) ->
-           assert(Ident.same fun_id env_fun);
-           assert(IdentMap.mem env_offset map);
-           resolve_abs (IdentMap.find env_offset map)
-         | _ ->
-           assert false)
-      | Vglobal i ->
-        assert(IntTbl.mem abstr_globals i);
-        resolve_abs (IntTbl.find abstr_globals i)
-      | Vunreachable ->
-        None, Vunreachable
-    in
-
-    let resolve id _ =
-      if is_constant id (* only call on constants *)
-      then ignore (resolve id:_ * _) in
-
-    IdentTbl.iter resolve abstr_table;
-
+  let alias () =
+    propagate_alias ();
     IdentTbl.fold (fun key abs map -> match abs with
         | Some aid, _ -> IdentMap.add key aid map
         | _ -> map) result IdentMap.empty
 
-  let res =
-    mark_alias P.expr;
-    propagate_alias ()
+  (* global abstraction *)
+
+  let global_abstract () =
+    let global_size =
+      let r = ref 0 in
+      IntTbl.iter (fun i _ -> r := max !r i) abstr_globals;
+      !r in
+    let a = Array.init (global_size+1)
+        (fun i -> IntTbl.find abstr_globals i) in
+    Vblock(0,a)
 
 end
 
@@ -562,4 +591,135 @@ let alias (type a) (expr:a Flambda.flambda) =
   end in
   let module A = ConstantAlias(P) in
   { constant_result = P.const_result;
-    constant_alias = A.res }
+    constant_alias = A.alias () }
+
+
+
+
+(** Export *)
+
+open Flambdaexport
+
+type acc =
+  { mapping : approx Flambda.IdentMap.t;
+    values : descr Flambdaexport.EidMap.t;
+    closures : value_closure Flambda.FunMap.t }
+
+let export_informations
+    not_constants
+    (root:abstract_values)
+    (abstr_table:abstract_table)
+    (resolve_abs:abstract_values -> (Ident.t option * abstract_values)) =
+
+  let find_id id =
+    try Some (IdentTbl.find abstr_table id) with Not_found -> None in
+
+  let rec add_id
+      (acc:acc)
+      (id:Ident.t) =
+    try IdentMap.find id acc.mapping, acc with
+    | Not_found ->
+      match find_id id with
+      | None ->
+        (* value unknown *)
+        let approx = Value_unknown in
+        let mapping = IdentMap.add id approx acc.mapping in
+        approx, { acc with mapping }
+      | Some abstr ->
+        add_abs acc (Some id) abstr
+
+  and add_abs
+      (acc:acc)
+      (id:Ident.t option)
+      (abstr:abstract_values) =
+    let alias_id, resolved = resolve_abs abstr in
+    match alias_id, abstr with
+    | Some alias_id, _ ->
+      add_id acc alias_id
+    | None,
+      (Vvar _ | Vfield _ | Voffset _ | Vnot_constant |
+       Vglobal _ | Venv_field _ | Vunreachable |
+       Vclosure (_, None, _)) ->
+      Value_unknown, acc
+    | None, abstr ->
+      let export_id = ExportId.create () in
+      let approx = Value_id export_id in
+      let acc = match id with
+        | None -> acc
+        | Some id ->
+          let mapping = IdentMap.add id approx acc.mapping in
+          { acc with mapping } in
+      let descr, acc = match abstr with
+        | Vvar _ | Vfield _ | Voffset _ | Vnot_constant
+        | Vglobal _ | Venv_field _ | Vunreachable
+        | Vclosure (_, None, _) ->
+          assert false
+        | Vbase_const (Vconst_int i) ->
+          Value_int i, acc
+        | Vbase_const (Vconst_pointer i) ->
+          Value_constptr i, acc
+        | Vblock(tag, fields) ->
+          aux_block acc tag fields
+        | Vclosure (closure_id, Some fun_id, bound_var) ->
+          aux_fun acc closure_id fun_id bound_var
+        | _ -> failwith "TODO.!."
+      in
+      approx, { acc with values = EidMap.add export_id descr acc.values }
+
+  and aux_block acc tag fields =
+    let fields, acc =
+      Array.fold_right (fun abs (list_acc, acc) ->
+          let approx, acc = add_abs acc None abs in
+          approx :: list_acc, acc) fields
+        ([], acc) in
+    Value_block (tag, Array.of_list fields), acc
+
+  and aux_fun acc closure_id fun_id bound_var =
+    let closure, acc = aux_closure acc closure_id bound_var in
+    Value_closure { fun_id; closure }, acc
+
+  and aux_closure acc closure_id bound_var =
+    try FunMap.find closure_id acc.closures, acc with
+    | Not_found ->
+      let f id abs (bound_var, acc) =
+        let approx, acc = add_abs acc (Some id) abs in
+        IdentMap.add id approx bound_var, acc
+      in
+      let bound_var, acc = IdentMap.fold f bound_var
+          (IdentMap.empty, acc) in
+      let closure = { closure_id; bound_var } in
+      let closures = FunMap.add closure_id closure acc.closures in
+      closure, { acc with closures }
+  in
+
+  let acc = { mapping = IdentMap.empty;
+              values = EidMap.empty;
+              closures = FunMap.empty } in
+  let approx, acc = add_abs acc None root in
+  approx, acc
+
+type export_result =
+  { export_constant : constant_result;
+    export_global : approx;
+    export_values : descr EidMap.t;
+    export_mapping : approx Flambda.IdentMap.t }
+
+let export_info (type a) (expr:a Flambda.flambda) =
+  let module P = struct
+    type t = a
+    let expr = expr
+    let global_var = Flambdautils.global_var expr
+    let const_result = not_constants ~for_clambda:true expr
+  end in
+  let module A = ConstantAlias(P) in
+  let approx, acc =
+    export_informations
+      P.const_result
+      (A.global_abstract ())
+      A.abstr_table
+      A.resolve_abs
+  in
+  { export_constant = P.const_result;
+    export_global = approx;
+    export_values = acc.values;
+    export_mapping = acc.mapping }

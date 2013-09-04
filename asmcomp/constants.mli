@@ -13,3 +13,11 @@ type alias_result =
 
 val alias : 'a Flambda.flambda -> alias_result
 (** [alias expr] *)
+
+type export_result =
+  { export_constant : constant_result;
+    export_global : Flambdaexport.approx;
+    export_values : Flambdaexport.descr Flambdaexport.EidMap.t;
+    export_mapping : Flambdaexport.approx Flambda.IdentMap.t }
+
+val export_info : 'a Flambda.flambda -> export_result

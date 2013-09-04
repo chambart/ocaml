@@ -13,19 +13,6 @@ let splitn n l =
       | t::q -> aux (n-1) q (t::acc) in
   aux n l []
 
-let list_functions t =
-  let r = ref FunMap.empty in
-  let rec aux = function
-    | Fclosure (funcs,_,_) ->
-      r := FunMap.add funcs.ident funcs !r;
-      IdentMap.iter (fun _ ffunc -> iter_tree ffunc.body) funcs.funs
-    | _ -> ()
-  and iter_tree t =
-    Flambdautils.iter_flambda aux t
-  in
-  iter_tree t;
-  !r
-
 let global_size t =
   let r = ref (-1) in
   let aux = function
@@ -42,7 +29,7 @@ type code_informations = {
 }
 
 let prepare_informations t =
-  { functions = list_functions t;
+  { functions = Flambdautils.list_functions t;
     global_size = global_size t }
 
 type ret =
@@ -536,14 +523,6 @@ let analyse tree =
 
 (** Export *)
 
-let rec (-->) x y =
-  if x > y
-  then []
-  else x :: (x + 1) --> y
-
-let export_value _ =
-  Flambdaexport.Value_unknown
-
 let export_informations analysis =
   let open Flambdaexport in
   let rec add_ids
@@ -623,8 +602,7 @@ let export_analysis analysis =
   { ex_functions;
     ex_values;
     ex_global;
-    ex_id_symbol = EidMap.empty;
-    ex_symbol_id = SymbolMap.empty; }
+    ex_id_symbol = EidMap.empty }
 
 let export_info tree =
   export_analysis (analyse tree)
