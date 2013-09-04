@@ -43,3 +43,5 @@ val global_index : 'a Flambda.flambda ->
     table mapping global field to the variable set into it.
 
     It assumes expr is in ANF. *)
+
+val list_functions : 'a Flambda.flambda -> 'a Flambda.ffunctions Flambda.FunMap.t

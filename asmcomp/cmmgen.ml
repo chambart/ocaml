@@ -1936,14 +1936,19 @@ let rec transl_all_functions already_translated cont =
   with Queue.Empty ->
     cont, already_translated
 
-let cdefine_symbol symb =
-  let l = symb :: (Compilenv.symbol_alias symb) in
-  List.map (fun v -> Cdefine_symbol v) l
-
-let cdefine_offseted_symbol symb pos =
-  let l = symb :: (Compilenv.symbol_alias symb) in
+let cdefine_symbol (global,symb) =
+  let l = (global, symb) :: (Compilenv.symbol_alias symb) in
   List.flatten
-    (List.map (fun v -> cdefine_symbol (v ^ "_" ^ (string_of_int pos))) l)
+    (List.map (fun (global,v) ->
+         if global
+         then [Cglobal_symbol v; Cdefine_symbol v]
+         else [Cdefine_symbol v]) l)
+
+let cdefine_offseted_symbol (global,symb) pos =
+  let l = (global,symb) :: (Compilenv.symbol_alias symb) in
+  List.flatten
+    (List.map (fun (global,v) ->
+         cdefine_symbol (global,v ^ "_" ^ (string_of_int pos))) l)
 
 (* Emit structured constants *)
 
@@ -2119,10 +2124,7 @@ let emit_all_constants cont =
   let c = ref cont in
   List.iter
     (fun (lbl, global, cst) ->
-       let cst = emit_constant lbl cst [] in
-       let cst = if global then
-         Cglobal_symbol lbl :: cst
-       else cst in
+       let cst = emit_constant (global,lbl) cst [] in
          c:= Cdata(cst):: !c)
     (Compilenv.structured_constants());
   Compilenv.clear_structured_constants ();
@@ -2130,7 +2132,7 @@ let emit_all_constants cont =
   Hashtbl.clear immstrings;   (* PR#3979 *)
   List.iter
     (fun (symb, fundecls, clos_vars) ->
-        c := Cdata(emit_constant_closure symb fundecls clos_vars []) :: !c)
+       c := Cdata(emit_constant_closure (false,symb) fundecls clos_vars []) :: !c)
     !constant_closures;
   constant_closures := [];
   !c
@@ -2500,8 +2502,7 @@ let reference_symbols namelist =
   Cdata(List.map mksym namelist)
 
 let global_data name v =
-  Cdata(Cglobal_symbol name ::
-          emit_constant name
+  Cdata(emit_constant (true,name)
           (Uconst_base (Const_string (Marshal.to_string v [], None))) [])
 
 let globals_map v = global_data "caml_globals_map" v
@@ -2540,8 +2541,8 @@ let code_segment_table namelist =
 let predef_exception name =
   let bucketname = "caml_bucket_" ^ name in
   let symname = "caml_exn_" ^ name in
-  Cdata(Cglobal_symbol symname ::
-        emit_constant symname (Uconst_block(0,[Uconst_base(Const_string (name,None))]))
+  Cdata(emit_constant (true,symname)
+          (Uconst_block(0,[Uconst_base(Const_string (name,None))]))
         [ Cglobal_symbol bucketname;
           Cint(block_header 0 1);
           Cdefine_symbol bucketname;

@@ -30,7 +30,7 @@ let global_infos_table =
 let structured_constants =
   ref ([] : (string * bool * Clambda.ustructured_constant) list)
 
-let symbol_alias : (string,string list) Hashtbl.t = Hashtbl.create 10
+let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
 let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
@@ -259,23 +259,23 @@ let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
 
-let set_symbol_alias ~orig ~alias =
+let set_symbol_alias ~orig ~alias global =
   let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
-  Hashtbl.replace symbol_alias orig (alias::l);
+  Hashtbl.replace symbol_alias orig ((global,alias)::l);
   assert(not (Hashtbl.mem symbol_back_alias alias));
   Hashtbl.add symbol_back_alias alias orig
 
-let rec new_symbol_alias ~orig ~alias =
+let rec new_symbol_alias ~orig ~alias global =
   match (try Some (Hashtbl.find symbol_back_alias orig) with _ -> None) with
-  | Some orig -> new_symbol_alias ~orig ~alias
-  | None -> set_symbol_alias ~orig ~alias
+  | Some orig -> new_symbol_alias ~orig ~alias global
+  | None -> set_symbol_alias ~orig ~alias global
 
 let symbol_alias s =
-  let rec aux s =
+  let rec aux (_,s) =
     let l = try Hashtbl.find symbol_alias s with Not_found -> [] in
     List.concat (l::(List.map aux l))
   in
-  aux s
+  aux (false,s)
 
 
 (* Error report *)

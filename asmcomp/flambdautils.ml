@@ -1243,3 +1243,16 @@ let global_index expr =
   in
   iter_all iter expr;
   global_tbl, set_tbl
+
+let list_functions t =
+  let r = ref FunMap.empty in
+  let rec aux = function
+    | Fclosure (funcs,_,_) ->
+      r := FunMap.add funcs.ident funcs !r;
+      IdentMap.iter (fun _ ffunc -> iter_tree ffunc.body) funcs.funs
+    | _ -> ()
+  and iter_tree t =
+    iter_flambda aux t
+  in
+  iter_tree t;
+  !r

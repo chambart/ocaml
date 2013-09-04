@@ -17,6 +17,39 @@ open Flambda
    For everything else, it is basically the identity.
 *)
 
+let make_symbols info =
+  let open Constants in
+  let open Flambdaexport in
+  let make_symbol id = Compilenv.make_symbol (Some (Ident.unique_name id)) in
+  let not_constant id =
+    IdentSet.mem id info.export_constant.not_constant_id in
+  let desc eid = EidMap.find eid info.export_values in
+  let eid_symbols = EidTbl.create 10 in
+  let id_symbols = IdentTbl.create 10 in
+  let aux id approx =
+    if not (not_constant id)
+    then match approx with
+      | Value_unknown -> ()
+      | Value_id eid ->
+        try
+          let symbol = EidTbl.find eid_symbols eid in
+          IdentTbl.add id_symbols id symbol
+        with Not_found ->
+          match desc eid with
+          | Value_int _ | Value_constptr _ -> ()
+          | Value_block _ ->
+            let symbol = make_symbol id in
+            EidTbl.add eid_symbols eid symbol;
+            IdentTbl.add id_symbols id symbol
+          | Value_closure { fun_id } ->
+            let symbol = make_symbol fun_id in
+            EidTbl.add eid_symbols eid symbol;
+            IdentTbl.add id_symbols id symbol
+  in
+  IdentMap.iter aux info.export_mapping;
+  IdentTbl.fold (fun id v map -> IdentMap.add id v map)
+    id_symbols IdentMap.empty
+
 module type Param1 = sig
   type t
   val expr : t Flambda.flambda
@@ -96,6 +129,7 @@ module type Param2 = sig
   val fv_offset_table : int IdentMap.t
   val fv_pos_table : int FunMap.t
   val not_constants : Constants.constant_result
+  val assigned_symbols : string IdentMap.t
 end
 
 type const_lbl =
@@ -112,6 +146,12 @@ module Conv(P:Param2) = struct
   let fv_pos_table = P.fv_pos_table
 
   let not_constants = P.not_constants
+
+  let add_global_alias id lbl =
+    try
+      let assigned = IdentMap.find id P.assigned_symbols in
+      Compilenv.new_symbol_alias ~orig:lbl ~alias:assigned true
+    with Not_found -> ()
 
   let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
     | Fvar (id,_) ->
@@ -135,18 +175,18 @@ module Conv(P:Param2) = struct
       Uconst (conv_const sb cm cst, None)
 
     | Flet(str, id, lam, body, _) ->
-      (* we need to ensure that definitions are converted before the
-         body to be able to use the offset of function defined inside
-         it. *)
       let lam = conv sb cm lam in
       if IdentSet.mem id not_constants.Constants.not_constant_id
       then Ulet(id, lam, conv sb cm body)
       else begin match constant_label lam with
         | No_lbl ->
+          (* no label: the value is an integer substitute it *)
           let sb = IdentMap.add id lam sb in
           conv sb cm body
         | Lbl lbl ->
+          (* label: the value is a block: reference it *)
           let cm = IdentMap.add id lbl cm in
+          add_global_alias id lbl;
           conv sb cm body
         | Not_const ->
           Format.printf "%a@." Ident.print id;
@@ -179,8 +219,11 @@ module Conv(P:Param2) = struct
             | _ ->
               let lbl = Compilenv.new_const_symbol () in
               let cm = IdentMap.add id lbl cm in
-              sb, cm, (lbl,def)::acc) (sb, cm,[]) consts in
-      List.iter (fun (lbl,def) -> set_label lbl (conv sb cm def)) consts;
+              sb, cm, (id,lbl,def)::acc) (sb, cm,[]) consts in
+      List.iter (fun (id,lbl,def) ->
+          set_label lbl (conv sb cm def);
+          add_global_alias id lbl)
+        consts;
 
       let not_consts = List.map (fun (id,def) -> id, conv sb cm def) not_consts in
       begin match not_consts with
@@ -517,7 +560,7 @@ module Conv(P:Param2) = struct
     | Uconst(Uconst_label lbl, _)
     | Uconst(_, Some lbl) ->
       if lbl <> set_lbl
-      then Compilenv.new_symbol_alias ~orig:lbl ~alias:set_lbl
+      then Compilenv.new_symbol_alias ~orig:lbl ~alias:set_lbl false
     | Uconst(cst, None) ->
       Compilenv.add_structured_constant set_lbl cst false
     | _ -> assert false
@@ -527,7 +570,8 @@ module Conv(P:Param2) = struct
 end
 
 let convert (type a) (expr:a Flambda.flambda) =
-  let not_constants = Constants.not_constants ~for_clambda:true expr in
+  let export_info = Constants.export_info expr in
+  let not_constants = export_info.Constants.export_constant in
   let module P1 = struct
     type t = a
     let expr = expr
@@ -542,6 +586,7 @@ let convert (type a) (expr:a Flambda.flambda) =
     let fv_offset_table = fv_offset_table
     let fv_pos_table = fv_pos_table
     let not_constants = not_constants
+    let assigned_symbols = make_symbols export_info
   end in
   let module C = Conv(P2) in
   C.res
