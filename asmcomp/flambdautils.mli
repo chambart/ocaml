@@ -25,6 +25,8 @@ val anf :
 val reindex :
   Flambda.ExprId.t Flambda.flambda -> Flambda.ExprId.t Flambda.flambda
 
+val map_index : ('a -> 'b) -> 'a Flambda.flambda -> 'b Flambda.flambda
+
 val all_assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t
 val assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t
 
@@ -45,3 +47,6 @@ val global_index : 'a Flambda.flambda ->
     It assumes expr is in ANF. *)
 
 val list_functions : 'a Flambda.flambda -> 'a Flambda.ffunctions Flambda.FunMap.t
+
+val exportable_functions : 'a Flambda.flambda ->
+  unit Flambda.ffunctions Flambda.FunMap.t

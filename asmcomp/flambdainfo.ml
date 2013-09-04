@@ -595,14 +595,3 @@ let export_informations analysis =
 
   approx, values
 
-let export_analysis analysis =
-  let open Flambdaexport in
-  let ex_functions = analysis.info.functions in
-  let ex_global, ex_values = export_informations analysis in
-  { ex_functions;
-    ex_values;
-    ex_global;
-    ex_id_symbol = EidMap.empty }
-
-let export_info tree =
-  export_analysis (analyse tree)

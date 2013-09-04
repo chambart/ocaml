@@ -1082,32 +1082,59 @@ let empty_used_var = {
 (*   dead_code_elimination *)
 (*     (stupid_purity_annotation t) *)
 
-(* let reindex (type t) (tree:t flambda) = *)
-(*   let eid () = ExprId.create () in *)
-(*   let mapper (type t) : (t flambda) -> 'a = function *)
-(*     | Fvar (id,_) -> Fvar (id,eid ()) *)
-(*     | Fconst (cst,_) -> Fconst (cst,eid ()) *)
-(*     | Flet(str, id, lam, body,_) -> Flet(str, id, lam, body,eid ()) *)
-(*     | Fletrec(defs, body,_) -> Fletrec(defs, body,eid ()) *)
-(*     | Fclosure(funct, fv,_) -> Fclosure(funct, fv,eid ()) *)
-(*     | Foffset(lam,id,_) -> Foffset(lam,id,eid ()) *)
-(*     | Fenv_field(env,_) -> Fenv_field(env,eid ()) *)
-(*     | Fapply(funct, args, direct, dbg, _) -> *)
-(*       Fapply(funct, args, direct, dbg, eid ()) *)
-(*     | Fswitch(arg, sw,_) -> Fswitch(arg, sw,eid ()) *)
-(*     | Fsend(kind, met, obj, args, dbg, _) -> *)
-(*       Fsend(kind, met, obj, args, dbg,eid ()) *)
-(*     | Fprim(prim, args, dbg, _) -> Fprim(prim, args, dbg, eid ()) *)
-(*     | Fstaticfail (i, args,_) -> Fstaticfail (i, args,eid ()) *)
-(*     | Fcatch (i, vars, body, handler,_) -> Fcatch (i, vars, body, handler,eid ()) *)
-(*     | Ftrywith(body, id, handler,_) -> Ftrywith(body, id, handler,eid ()) *)
-(*     | Fifthenelse(arg, ifso, ifnot,_) -> Fifthenelse(arg, ifso, ifnot,eid ()) *)
-(*     | Fsequence(lam1, lam2,_) -> Fsequence(lam1, lam2,eid ()) *)
-(*     | Fwhile(cond, body,_) -> Fwhile(cond, body,eid ()) *)
-(*     | Ffor(id, lo, hi, dir, body,_) -> Ffor(id, lo, hi, dir, body,eid ()) *)
-(*     | Fassign(id, lam,_) -> Fassign(id, lam,eid ()) *)
-(*   in *)
-(*   map mapper tree *)
+let map_index (type t1) (type t2) (f:t1 -> t2) (tree:t1 flambda) : t2 flambda =
+  let rec mapper : t1 flambda -> t2 flambda = function
+    | Fvar (id, v) -> Fvar (id, f v)
+    | Fconst (cst, v) -> Fconst (cst, f v)
+    | Flet(str, id, lam, body, v) ->
+      Flet(str, id, mapper lam, mapper body, f v)
+    | Fletrec(defs, body, v) ->
+      let defs = List.map (fun (id,def) -> (id, mapper def)) defs in
+      Fletrec( defs, mapper body, f v)
+    | Fclosure(funcs, fv, v) ->
+      let funcs =
+        { funcs with
+          funs = IdentMap.map
+              (fun ffunc -> { ffunc with body = mapper ffunc.body })
+              funcs.funs } in
+      let fv = IdentMap.map mapper fv in
+      Fclosure(funcs, fv, f v)
+    | Foffset(lam,id, v) -> Foffset(mapper lam,id, f v)
+    | Fenv_field(env, v) ->
+      let env = { env with env = mapper env.env } in
+      Fenv_field(env, f v)
+    | Fapply(funct, args, direct, dbg, v) ->
+      Fapply(mapper funct, list_mapper args, direct, dbg, f v)
+    | Fswitch(arg, sw, v) ->
+      let aux l = List.map (fun (i,v) -> i, mapper v) l in
+      let sw = { sw with
+                 fs_consts = aux sw.fs_consts;
+                 fs_blocks = aux sw.fs_blocks;
+                 fs_failaction = Misc.may_map mapper sw.fs_failaction } in
+      Fswitch(mapper arg, sw, f v)
+    | Fsend(kind, met, obj, args, dbg, v) ->
+      Fsend(kind, mapper met, mapper obj, list_mapper args, dbg, f v)
+    | Fprim(prim, args, dbg, v) ->
+      Fprim(prim, list_mapper args, dbg, f v)
+    | Fstaticfail (i, args, v) ->
+      Fstaticfail (i, list_mapper args, f v)
+    | Fcatch (i, vars, body, handler, v) ->
+      Fcatch (i, vars, mapper body, mapper handler, f v)
+    | Ftrywith(body, id, handler, v) ->
+      Ftrywith(mapper body, id, mapper handler, f v)
+    | Fifthenelse(arg, ifso, ifnot, v) ->
+      Fifthenelse(mapper arg, mapper ifso, mapper ifnot, f v)
+    | Fsequence(lam1, lam2, v) ->
+      Fsequence(mapper lam1, mapper lam2, f v)
+    | Fwhile(cond, body, v) ->
+      Fwhile(mapper cond, mapper body, f v)
+    | Ffor(id, lo, hi, dir, body, v) ->
+      Ffor(id, mapper lo, mapper hi, dir, mapper body, f v)
+    | Fassign(id, lam, v) ->
+      Fassign(id, mapper lam, f v)
+    | Funreachable v -> Funreachable (f v)
+  and list_mapper l = List.map mapper l in
+  mapper tree
 
 let reindex tree =
   let eid prev_id =
@@ -1256,3 +1283,12 @@ let list_functions t =
   in
   iter_tree t;
   !r
+
+let exportable_functions (type t) (t:t flambda) =
+  let functions = list_functions t in
+  FunMap.map (fun funcs ->
+      { funcs with
+        funs = IdentMap.map
+            (fun ffunc -> { ffunc with body = map_index ignore ffunc.body })
+            funcs.funs })
+    functions
