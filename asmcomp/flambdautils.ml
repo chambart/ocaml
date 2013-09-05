@@ -8,6 +8,7 @@ let iter_all f t =
   let rec aux t =
     f t;
     match t with
+    | Fsymbol _
     | Fvar _
     | Fconst _ -> ()
 
@@ -59,6 +60,7 @@ let iter_flambda f t =
   let rec aux t =
     f t;
     match t with
+    | Fsymbol _
     | Fvar _
     | Fconst _ -> ()
 
@@ -105,6 +107,7 @@ let iter_flambda f t =
 
 let iter2_flambda (f: ('env -> 'a flambda -> unit) -> 'env -> 'a flambda -> unit) init_env t =
   let rec aux2 env = function
+    | Fsymbol _
     | Fvar _
     | Fconst _ -> ()
 
@@ -455,6 +458,7 @@ let iter2_flambda (f: ('env -> 'a flambda -> unit) -> 'env -> 'a flambda -> unit
 let map_no_closure f tree =
   let rec aux tree =
     let exp = match tree with
+      | Fsymbol _ -> tree
       | Fvar (id,annot) -> tree
       | Fconst (cst,annot) -> tree
       | Fapply (funct, args, direc, dbg, annot) ->
@@ -531,6 +535,7 @@ let map_no_closure f tree =
 let map f tree =
   let rec aux tree =
     let exp = match tree with
+      | Fsymbol _ -> tree
       | Fvar (id,annot) -> tree
       | Fconst (cst,annot) -> tree
       | Fapply (funct, args, direc, dbg, annot) ->
@@ -613,6 +618,7 @@ let map2 :
    'env -> 'a Flambda.flambda -> 'a Flambda.flambda) ->
   'env -> 'a Flambda.flambda -> 'a Flambda.flambda = fun f env tree ->
   let rec aux1 env tree = match tree with
+    | Fsymbol _ -> tree
     | Fvar (id,annot) -> tree
     | Fconst (cst,annot) -> tree
     | Fapply (funct, args, direc, dbg, annot) ->
@@ -693,6 +699,7 @@ type 'a binds =
   | Rec of (Ident.t * 'a flambda) list
 
 let rec decompose binds = function
+  | Fsymbol _ as expr -> binds, expr
   | Fvar _ as expr -> binds, expr
   | Fconst _ as expr -> binds, expr
   | Funreachable _ as expr -> binds, expr
@@ -1084,6 +1091,7 @@ let empty_used_var = {
 
 let map_index (type t1) (type t2) (f:t1 -> t2) (tree:t1 flambda) : t2 flambda =
   let rec mapper : t1 flambda -> t2 flambda = function
+    | Fsymbol (sym, v) -> Fsymbol (sym, f v)
     | Fvar (id, v) -> Fvar (id, f v)
     | Fconst (cst, v) -> Fconst (cst, f v)
     | Flet(str, id, lam, body, v) ->
@@ -1136,11 +1144,18 @@ let map_index (type t1) (type t2) (f:t1 -> t2) (tree:t1 flambda) : t2 flambda =
   and list_mapper l = List.map mapper l in
   mapper tree
 
+let map_index_ffunctions f funcs =
+  { funcs with
+    funs = IdentMap.map
+        (fun ffunc -> { ffunc with body = map_index f ffunc.body })
+        funcs.funs }
+
 let reindex tree =
   let eid prev_id =
     let name = ExprId.name prev_id in
     ExprId.create ?name () in
   let mapper = function
+    | Fsymbol (sym, pid) -> Fsymbol (sym, eid pid)
     | Fvar (id,pid) -> Fvar (id,eid pid)
     | Fconst (cst,pid) -> Fconst (cst,eid pid)
     | Flet(str, id, lam, body,pid) -> Flet(str, id, lam, body,eid pid)

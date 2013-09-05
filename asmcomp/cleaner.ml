@@ -4,12 +4,17 @@ open Flambda
 open Flambdainfo
 open Values
 
+let find_funid id map =
+  try FunMap.find id map with
+  | Not_found ->
+    Compilenv.find_funid id
+
 let one_value_function analysis value =
   match possible_closure value with
   | No_function | Many_functions -> None
   | One_function f ->
     let fun_id = f.fun_id in
-    let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
+    let ffunctions = find_funid f.closure_funs analysis.info.functions in
     Some (f, IdentMap.find fun_id ffunctions.funs)
 
 module type CleanerParam = sig
@@ -176,7 +181,7 @@ module Cleaner(Param:CleanerParam) = struct
         | Some (f, ffunction) ->
           (* Format.eprintf "some: %a@." Printflambda.flambda funct; *)
           let fun_id = f.fun_id in
-          let ffunctions = FunMap.find f.closure_funs analysis.info.functions in
+          let ffunctions = find_funid f.closure_funs analysis.info.functions in
           let ffunction = IdentMap.find fun_id ffunctions.funs in
           match ffunction.kind with
           | Tupled -> tree (* TODO: tupled functions ! *)
@@ -210,9 +215,16 @@ module Cleaner(Param:CleanerParam) = struct
 
 end
 
+let print_info a =
+  let open Format in
+  ValMap.iter (fun id (_,sym) ->
+      printf "%s -> %a@." sym ValId.print id) a.symbols
+
 module Rebinder(Param:CleanerParam) = struct
   let analysis = Param.analysis
   let external_val = analysis.external_val
+
+  (* let () = print_info analysis *)
 
   let is_effectless expr =
     let eid = Flambda.data expr in
@@ -230,8 +242,18 @@ module Rebinder(Param:CleanerParam) = struct
     let eid = data expr in
     try Some (ExprMap.find eid analysis.expr) with Not_found -> None
 
+  type binding =
+    | Var of Ident.t
+    | Symbol of Symbol.t
+    | No_binding
+
   let recover_binding map v =
-    try Some (ValMap.find v map) with Not_found -> None
+    try Var (ValMap.find v map) with
+    | Not_found ->
+      try
+        let symbol = ValMap.find v analysis.symbols in
+        Symbol symbol
+      with Not_found -> No_binding
 
   let add map id =
     match find_binding id with
@@ -252,30 +274,41 @@ module Rebinder(Param:CleanerParam) = struct
         match ValSet.elements v with
         | [] | _::_::_ -> tree
         | [v] -> match recover_binding map v with
-          | None -> tree
-          | Some id ->
-            match tree with
-            | Fconst _ -> tree
-            | Fvar (id',data) ->
-              if not (Ident.same id id')
-              then begin
-                (* Printf.printf "\n\ncas redir\n\n%!"; *)
-                Fvar (id,data)
-              end
-              else tree
-            | _ ->
-              (* Printf.printf "\n\ncas utile\n\n%!"; *)
-              if is_effectless tree
-              then Fvar (id,data tree)
-              else tree
+          | No_binding -> tree
+          | Var id ->
+            begin match tree with
+              | Fconst _ -> tree
+              | Fvar (id',data) ->
+                if not (Ident.same id id')
+                then begin
+                  (* Printf.printf "\n\ncas redir\n\n%!"; *)
+                  Fvar (id,data)
+                end
+                else tree
+              | _ ->
+                (* Printf.printf "\n\ncas utile\n\n%!"; *)
+                if is_effectless tree
+                then Fvar (id,data tree)
+                else tree
               (* let eid1 = ExprId.create () in *)
               (* let eid2 = ExprId.create () in *)
               (* fsequence (tree,Fvar (id,eid1),eid2) *)
               (* tree *)
+            end
+          | Symbol sym ->
+            (* Printf.printf "found symbol %s\n%!" (snd sym); *)
+            begin match tree with
+              | Fconst _ -> tree
+              | _ ->
+                if is_effectless tree
+                then Fsymbol (sym,data tree)
+                else tree
+            end
     in
     let rec aux map tree =
       let exp = match tree with
         | Fvar (id,annot) -> tree
+        | Fsymbol (sym,annot) -> tree
         | Fconst (cst,annot) -> tree
         | Fapply (funct, args, direc, dbg, annot) ->
           Fapply ((aux map) funct, List.map (aux map) args, direc, dbg, annot)
@@ -478,7 +511,7 @@ let inlining inlining_kind analysis lam =
           if ffunction.arity <= List.length args
           then
             let fun_id = f.fun_id in
-            let ffunctions = FunMap.find f.closure_funs
+            let ffunctions = find_funid f.closure_funs
                 !functions_map in
             let ffunction = IdentMap.find fun_id ffunctions.funs in
             let should_go = match inlining_kind with

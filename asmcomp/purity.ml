@@ -120,6 +120,7 @@ type kind = Pure | Effectful
 
 let effectful_node kind unpure_var = function
   | Fvar (id,_) -> IdentSet.mem id unpure_var
+  | Fsymbol _
   | Fconst _
   | Flet _
   | Fletrec _

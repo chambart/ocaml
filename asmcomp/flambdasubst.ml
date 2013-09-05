@@ -2,14 +2,19 @@ open Flambda
 
 module StringMap = Map.Make(String)
 
-let substitute sb lam =
-  let offset_subst_table = ref IdentMap.empty in
-  let fun_label_subst_table = ref StringMap.empty in
+module type Param = sig
+  val sb : IdentSet.elt IdentMap.t
+end
+
+module Subst(P:Param) = struct
+  let offset_subst_table = ref IdentMap.empty
+  let fun_label_subst_table = ref StringMap.empty
+
   let rec aux exn_sb sb orig = match orig with
     | Fvar (id,annot) ->
       begin try Fvar(IdentMap.find id sb,annot) with
         | Not_found -> orig end
-    | Fconst (cst,annot) -> orig
+    | Fsymbol _ | Fconst _ -> orig
     | Fapply (funct, args, direct, dbg, annot) ->
       let args = aux_list exn_sb sb args in
       let funct = aux exn_sb sb funct in
@@ -162,7 +167,22 @@ let substitute sb lam =
 
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l
 
-  in
-  let res = aux IntMap.empty sb lam in
-  res, !offset_subst_table
+  let expr lam =
+    let res = aux IntMap.empty P.sb lam in
+    res, !offset_subst_table
 
+  let closures clos =
+    let res = List.map (aux_closure P.sb) clos in
+    res, !offset_subst_table
+
+end
+
+let substitute sb lam =
+  let module P = struct let sb = sb end in
+  let module S = Subst(P) in
+  S.expr lam
+
+let substitute_closures sb clos =
+  let module P = struct let sb = sb end in
+  let module S = Subst(P) in
+  S.closures clos

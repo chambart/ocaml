@@ -20,7 +20,8 @@ open Flambda
 let make_symbols info =
   let open Constants in
   let open Flambdaexport in
-  let make_symbol id = Compilenv.make_symbol (Some ((Ident.unique_name id) ^ "_global")) in
+  let make_symbol id =
+    Compilenv.make_symbol (Some ((Ident.unique_name id) ^ "_global")) in
   let not_constant id =
     IdentSet.mem id info.export_constant.not_constant_id in
   let desc eid = EidMap.find eid info.export_values in
@@ -36,7 +37,7 @@ let make_symbols info =
           IdentTbl.add id_symbols id symbol
         with Not_found ->
           match desc eid with
-          | Value_int _ | Value_constptr _ -> ()
+          | Value_symbol _ | Value_int _ | Value_constptr _ -> ()
           | Value_block _ ->
             let symbol = make_symbol id in
             EidTbl.add eid_symbols eid symbol;
@@ -173,6 +174,9 @@ module Conv(P:Param2) = struct
           try IdentMap.find id sb
           with Not_found -> Uvar id
       end
+
+    | Fsymbol ((_,sym),_) ->
+      Uconst (Uconst_label sym, None)
 
     | Fconst (cst,_) ->
       Uconst (conv_const sb cm cst, None)
@@ -593,10 +597,12 @@ let convert (type a) (expr:a Flambda.flambda) =
     let assigned_symbols = assigned_symbols
   end in
   let module C = Conv(P2) in
+  let current_unit_id = Ident.create_persistent
+      (Compilenv.current_unit_name ()) in
   let exported =
     let open Flambdaexport in
     { ex_functions = Flambdautils.exportable_functions expr;
       ex_values = export_info.Constants.export_values;
       ex_global = export_info.Constants.export_global;
-      ex_id_symbol } in
+      ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol} in
   C.res, exported

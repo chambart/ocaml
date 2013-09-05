@@ -5,8 +5,6 @@ module EidMap = ExtMap(ExportId)
 module EidSet = ExtSet(ExportId)
 module EidTbl = ExtHashtbl(ExportId)
 
-type symbol = string
-
 type tag = int
 
 type descr =
@@ -14,6 +12,7 @@ type descr =
   | Value_int of int
   | Value_constptr of int
   | Value_closure of value_offset
+  | Value_symbol of symbol
 
 and value_offset =
   { fun_id : Ident.t;
@@ -63,6 +62,7 @@ let print_approx ppf export =
     | Value_block (tag, fields) -> fprintf ppf "[%i:%a]" tag print_fields fields
     | Value_closure {fun_id; closure} ->
       fprintf ppf "(function %a, %a)" Ident.print fun_id print_closure closure
+    | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
   and print_fields ppf fields =
     Array.iter (fun approx -> fprintf ppf "%a " print_approx approx) fields
   and print_closure ppf { closure_id; bound_var } =
@@ -81,3 +81,10 @@ let print_approx ppf export =
           print_approx approx) bound_var
   in
   print_approx ppf export.ex_global
+
+let print_symbols ppf export =
+  let open Format in
+  let print_symbol eid (id,sym) =
+    fprintf ppf "%a %s -> %a@." Ident.print id sym ExportId.print eid
+  in
+  EidMap.iter print_symbol export.ex_id_symbol

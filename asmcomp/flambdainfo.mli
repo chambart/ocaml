@@ -26,6 +26,9 @@ type analysis_result = {
   (* values potentially returned by static fails *)
   staticfails : ValSet.t list IntMap.t;
 
+  (* external symbols associated to a value *)
+  symbols : Symbol.t ValMap.t;
+
   (* the value representing the global module *)
   global_val : ValId.t;
   (* a special value representing values comming from outside the

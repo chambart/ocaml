@@ -26,9 +26,15 @@ exception Error of error
 
 let global_infos_table =
   (Hashtbl.create 17 : (string, unit_infos option) Hashtbl.t)
+let global_approx_infos_table =
+  (Hashtbl.create 17 : (string, Flambdaexport.exported) Hashtbl.t)
 
 let structured_constants =
   ref ([] : (string * bool * Clambda.ustructured_constant) list)
+
+let merged_environment = ref Flambdaexport.empty_export
+let merged_symbol_map = ref Flambda.SymbolMap.empty
+let fun_table = Flambda.FunTbl.create 10
 
 let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
 let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
@@ -65,6 +71,10 @@ let symbolname_for_pack pack name =
 
 let reset ?packname name =
   Hashtbl.clear global_infos_table;
+  Hashtbl.clear global_approx_infos_table;
+  merged_environment := Flambdaexport.empty_export;
+  merged_symbol_map := Flambda.SymbolMap.empty;
+  Flambda.FunTbl.clear fun_table;
   let symbol = symbolname_for_pack packname name in
   current_unit_id := Ident.create_persistent name;
   current_unit.ui_name <- name;
@@ -183,9 +193,34 @@ let global_approx id =
       | Some ui -> ui.ui_approx
 
 let global_approx_info id =
-  match get_global_info id with
-  | None -> Flambdaexport.empty_export
-  | Some ui -> ui.ui_approx_info
+  let modname = Ident.name id in
+  try Hashtbl.find global_approx_infos_table modname with
+  | Not_found ->
+    let exported = match get_global_info id with
+      | None -> Flambdaexport.empty_export
+      | Some ui -> ui.ui_approx_info
+    in
+    let imported = Flambdaimport.import exported in
+    let symbol_map = Flambdaimport.reverse_symbol_map imported in
+    merged_environment := Flambdaimport.merge imported !merged_environment;
+    merged_symbol_map := Flambdaimport.merge_symbol_map
+        symbol_map !merged_symbol_map;
+    Hashtbl.add global_approx_infos_table modname imported;
+    imported
+
+let approx_env () = !merged_environment
+let symbol_map () = !merged_symbol_map
+
+let find_funid id =
+  try Flambda.FunTbl.find fun_table id with
+  | Not_found ->
+    let funcs = Flambda.FunMap.find id
+        (approx_env ()).Flambdaexport.ex_functions in
+    let funcs = Flambdautils.map_index_ffunctions
+        (fun () -> Flambda.ExprId.create ())
+        funcs in
+    Flambda.FunTbl.add fun_table id funcs;
+    funcs
 
 (* Return the symbol used to refer to a global identifier *)
 
