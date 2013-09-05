@@ -232,7 +232,10 @@ let optimise ppf flambda =
 
 let set_global_approx ppf (clambda, exported) =
   if !dump_clambda
-  then Format.fprintf ppf "%a@." Flambdaexport.print_approx exported;
+  then begin
+    Format.fprintf ppf "%a@." Flambdaexport.print_approx exported;
+    Flambdaexport.print_symbols ppf exported;
+  end;
   Compilenv.set_global_approx_info exported;
   clambda
 

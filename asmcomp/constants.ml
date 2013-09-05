@@ -151,7 +151,7 @@ module NotConstants(P:Param) = struct
         List.iter (fun id -> mark_curr [Var id]) ffunc.params;
         mark_loop [] ffunc.body) funcs.funs
 
-    | Fconst (cst,_) -> ()
+    | Fsymbol _ | Fconst _ -> ()
 
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block
@@ -311,6 +311,7 @@ let not_constants (type a) ~for_clambda (expr:a Flambda.flambda) =
 type tag = int
 
 type abstract_values =
+  | Vsymbol of symbol
   | Vvar of Ident.t
   | Vblock of tag * abstract_values array
   | Vclosure of FunId.t * (Ident.t option) * (abstract_values IdentMap.t)
@@ -386,6 +387,9 @@ module ConstantAlias(P:AliasParam) = struct
                        offset_abstract = result });
           mark_alias ffunc.body) funcs.funs;
       result
+
+    | Fsymbol (sym,_) ->
+      Vsymbol sym
 
     | Fconst (cst,_) ->
       let base_cons = match cst with
@@ -510,7 +514,7 @@ module ConstantAlias(P:AliasParam) = struct
 
   and resolve_abs : _ -> (Ident.t option * abstract_values) = function
     | (Vblock _ | Vclosure _ | Vpredef_exn _ |
-       Vbase_const _) as v ->
+       Vbase_const _ | Vsymbol _) as v ->
       None, v
     | Vnot_constant as v ->
       None, v
@@ -525,6 +529,9 @@ module ConstantAlias(P:AliasParam) = struct
          if Array.length a <= i
          then None, Vunreachable
          else resolve_abs a.(i)
+       | _, Vsymbol _ ->
+         (* TODO *)
+         None, Vnot_constant
        | _ ->
          (* This can happen with impossible branch not yet
             eliminated by specialisation *)
@@ -541,6 +548,9 @@ module ConstantAlias(P:AliasParam) = struct
          assert(Ident.same fun_id env_fun);
          assert(IdentMap.mem env_offset map);
          resolve_abs (IdentMap.find env_offset map)
+       | _, Vsymbol _ ->
+         (* TODO *)
+         None, Vnot_constant
        | _ ->
          assert false)
     | Vglobal i ->
@@ -654,6 +664,8 @@ let export_informations
         | Vglobal _ | Venv_field _ | Vunreachable | Vpredef_exn _
         | Vclosure _ | Vbase_const Vconst_other ->
           assert false
+        | Vsymbol sym ->
+          Value_symbol sym, acc
         | Vbase_const (Vconst_int i) ->
           Value_int i, acc
         | Vbase_const (Vconst_pointer i) ->

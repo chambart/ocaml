@@ -57,6 +57,9 @@ type analysis_result = {
   (* values potentially returned by static fails *)
   staticfails : ValSet.t list IntMap.t;
 
+  (* external symbols associated to a value *)
+  symbols : Symbol.t ValMap.t;
+
   (* the value representing the global module *)
   global_val : ValId.t;
   (* a special value representing values comming from outside the
@@ -77,6 +80,9 @@ module Run(Param:Fparam) = struct
   let info = prepare_informations Param.tree
 
   let bindings : ValSet.t IdentTbl.t = IdentTbl.create 1000
+  let symbols : ValId.t SymbolTbl.t = SymbolTbl.create 10
+  let back_symbols : Symbol.t ValTbl.t = ValTbl.create 10
+  let imported : ValId.t Flambdaexport.EidTbl.t = Flambdaexport.EidTbl.create 10
 
   let val_tbl : values ValTbl.t = ValTbl.create 1000
 
@@ -172,20 +178,83 @@ module Run(Param:Fparam) = struct
         List.map2 ValSet.union l values_list in
     IntTbl.replace staticfails i l
 
+  let rec import_export_id exid =
+    let open Flambdaexport in
+    let desc exid =
+      try EidMap.find exid (Compilenv.approx_env ()).ex_values
+      with Not_found -> Format.printf "%a@." ExportId.print exid;
+        raise Not_found in
+    try EidTbl.find imported exid with
+    | Not_found ->
+      (* Format.printf "import %a@." ExportId.print exid; *)
+      match desc exid with
+      | Value_symbol sym ->
+        let _ = Compilenv.global_approx_info (fst sym) in
+        (* Format.printf "val sym %s@." (snd sym); *)
+        import_sym sym
+      | _ ->
+        let vid = ValId.create ~name:"imported" () in
+        EidTbl.add imported exid vid;
+        begin
+          try
+            let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
+            SymbolTbl.add symbols sym vid;
+            ValTbl.add back_symbols vid sym
+          with Not_found -> ()
+        end;
+        let value = match desc exid with
+          | Value_int i -> Values.value_int i
+          | Value_constptr i -> Values.value_constptr i
+          | Value_block (tag, fields) ->
+            let fields = Array.map import_value fields in
+            Values.value_block tag fields
+          | Value_closure { fun_id; closure } ->
+            let bound_var = IdentMap.map import_value closure.bound_var in
+            let clos = value_unoffseted_closure closure.closure_id bound_var in
+            set_closure_funid clos fun_id
+          | Value_symbol sym -> assert false
+        in
+        ValTbl.replace val_tbl vid value;
+        vid
+  and import_value v =
+    let open Flambdaexport in
+    match v with
+    | Value_unknown ->
+      let vid = ValId.create ~name:"unknown" () in
+      ValTbl.replace val_tbl vid unknown_value;
+      ValSet.singleton vid
+    | Value_id exid ->
+      ValSet.singleton (import_export_id exid)
+  and import_sym sym =
+    (* Format.printf "import sym %s@." (snd sym); *)
+    let symbol_map = Compilenv.symbol_map () in
+    let exid = SymbolMap.find sym symbol_map in
+    import_export_id exid
+
+  let import_symbol sym =
+    try SymbolTbl.find symbols sym with
+    | Not_found ->
+      let (modul,name) = sym in
+      (* Format.printf "import %s@." name; *)
+      let _ = Compilenv.global_approx_info modul in
+      let symbol_map = Compilenv.symbol_map () in
+      let exid = SymbolMap.find sym symbol_map in
+      let vid = import_export_id exid in
+      vid
+
   let find_global id =
-    (* TODO: remove *)
     let global_approx id =
       if Ident.is_predef_exn id
       then New unknown_value
       else
-        ((* ignore (Compilenv.global_approx id); *)
-         New unknown_value) in
+        let info = Compilenv.global_approx_info id in
+        (* Printf.printf "import %s\n%!" (Ident.name id); *)
+        Old (import_value info.Flambdaexport.ex_global)
+    in
 
     if id.Ident.name = Compilenv.current_unit_name ()
     then Old (ValSet.singleton global_val)
     else global_approx id
-  (* TODO change:
-     Compilenv.global_approx id *)
 
   let rec aux ?set_id exp =
     let eid = data exp in
@@ -222,6 +291,9 @@ module Run(Param:Fparam) = struct
     | Not_found -> ExprTbl.replace expr eid vids
 
   and aux' = function
+    | Fsymbol (sym, _) ->
+      Old (ValSet.singleton (import_symbol sym))
+
     | Fvar (id,_) ->
       (try Old (IdentTbl.find bindings id) with
        | Not_found ->
@@ -493,6 +565,7 @@ module Run(Param:Fparam) = struct
       expr_val = ExprTbl.to_map expr_val;
       var_val = IdentTbl.to_map var_val;
       staticfails = IntTbl.to_map staticfails;
+      symbols = ValTbl.to_map back_symbols;
 
       global_val;
       external_val;

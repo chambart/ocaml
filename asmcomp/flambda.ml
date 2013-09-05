@@ -27,6 +27,10 @@ module ExtMap(M:PrintableHashOrdered) = struct
         | Some _, Some _ -> failwith "ExtMap.disjoint_union") m1 m2
   let rename m v =
     try find v m with Not_found -> v
+  let print f ppf s =
+    let elts ppf s = iter (fun id v ->
+        Format.fprintf ppf "@ (%a %a)" M.print id f v) s in
+    Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
 end
 
 module ExtSet(M:PrintableHashOrdered) = struct
@@ -156,9 +160,24 @@ module Int = struct
   let print = Format.pp_print_int
 end
 
+type symbol = Ident.t * string (* module * label *)
+
+module Symbol = struct
+  type t = symbol
+  let compare (_,s1) (_,s2) = String.compare s1 s2
+  let output c (_,s) = output_string c s
+  let hash (_,(i:string)) = Hashtbl.hash i
+  let equal (_,(i:string)) (_,j) = i = j
+  let print ppf (id,s) = Format.fprintf ppf "%a - %s" Ident.print id s
+end
+
 module IntSet = ExtSet(Int)
 module IntMap = ExtMap(Int)
 module IntTbl = ExtHashtbl(Int)
+
+module SymbolSet = ExtSet(Symbol)
+module SymbolMap = ExtMap(Symbol)
+module SymbolTbl = ExtHashtbl(Symbol)
 
 module ExprId : Id = Id(Empty)
 module ExprMap = ExtMap(ExprId)
@@ -206,6 +225,7 @@ type closed = Closed | NotClosed
 (* A data is attached to each node. It is often used to uniquely
    identify an expression *)
 type 'a flambda =
+  | Fsymbol of symbol * 'a
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
   | Fapply of 'a flambda * 'a flambda list *
@@ -368,6 +388,7 @@ let empty_env env =
   { env with bound_variables = IdentSet.empty }
 
 let rec check env = function
+  | Fsymbol _ -> ()
   | Fvar (id,_) ->
     if not (IdentSet.mem id env.bound_variables)
     then fatal_error (Printf.sprintf "Flambda.check: unbound variable %s"
@@ -533,6 +554,7 @@ let check flam =
   check_fun_env_var !(env.need_env_var) !(env.seen_fun_env_var)
 
 let data = function
+  | Fsymbol (_,data) -> data
   | Fvar (id,data) -> data
   | Fconst (cst,data) -> data
   | Flet(str, id, lam, body,data) -> data
@@ -555,6 +577,7 @@ let data = function
   | Funreachable data -> data
 
 let string_desc = function
+  | Fsymbol ((_,symbol),_) -> Printf.sprintf "%%%s" symbol
   | Fvar (id,data) -> Ident.unique_name id
   | Fconst (cst,data) -> "const"
   | Flet(str, id, lam, body,data) ->

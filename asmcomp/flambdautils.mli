@@ -26,6 +26,8 @@ val reindex :
   Flambda.ExprId.t Flambda.flambda -> Flambda.ExprId.t Flambda.flambda
 
 val map_index : ('a -> 'b) -> 'a Flambda.flambda -> 'b Flambda.flambda
+val map_index_ffunctions : ('a -> 'b) -> 'a Flambda.ffunctions ->
+  'b Flambda.ffunctions
 
 val all_assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t
 val assigned_var : 'a Flambda.flambda -> Flambda.IdentSet.t

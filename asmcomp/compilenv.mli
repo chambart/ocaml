@@ -46,6 +46,10 @@ val global_approx_info: Ident.t -> Flambdaexport.exported
 val set_global_approx_info: Flambdaexport.exported -> unit
         (* Record the approximation of the unit being compiled *)
 
+val approx_env: unit -> Flambdaexport.exported
+val symbol_map: unit -> Flambdaexport.ExportId.t Flambda.SymbolMap.t
+val find_funid: Flambda.FunId.t -> Flambda.ExprId.t Flambda.ffunctions
+
 val need_curry_fun: int -> unit
 val need_apply_fun: int -> unit
 val need_send_fun: int -> unit

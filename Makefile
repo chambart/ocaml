@@ -81,15 +81,16 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/flambda.cmo asmcomp/printflambda.cmo \
   asmcomp/values.cmo \
   asmcomp/flambdaexport.cmo \
+  asmcomp/flambdaimport.cmo \
+  asmcomp/flambdautils.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/flambdagen.cmo \
-  asmcomp/flambdautils.cmo \
+  asmcomp/flambdasubst.cmo \
   asmcomp/flambdasort.cmo \
   asmcomp/flambdainfo.cmo \
   asmcomp/purity.cmo \
   asmcomp/dead_code.cmo \
   asmcomp/constants.cmo \
-  asmcomp/flambdasubst.cmo \
   asmcomp/cleaner.cmo \
   asmcomp/clambdagen.cmo \
   asmcomp/cmmgen.cmo \

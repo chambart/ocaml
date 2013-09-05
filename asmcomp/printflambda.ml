@@ -20,6 +20,8 @@ let rec pr_idents ppf = function
   | h::t -> fprintf ppf "%a %a" Ident.print h pr_idents t
 
 let rec lam ppf = function
+  | Fsymbol ((_,symbol),_) ->
+    pp_print_string ppf symbol
   | Fvar (id,_) ->
     Ident.print ppf id
   | Fconst (cst,_) ->
