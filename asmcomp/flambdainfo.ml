@@ -209,6 +209,7 @@ module Run(Param:Fparam) = struct
           with Not_found -> ()
         end;
         let value = match desc exid with
+          | Value_predef_exn _ -> Values.unknown_value
           | Value_int i -> Values.value_int i
           | Value_constptr i -> Values.value_constptr i
           | Value_block (tag, fields) ->

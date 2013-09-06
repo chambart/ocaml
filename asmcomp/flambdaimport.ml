@@ -34,7 +34,7 @@ let import exported =
         bound_var = OffsetMap.map rename closure.bound_var }
   in
   let rename_val = function
-    | Value_int _ | Value_constptr _ as v -> v
+    | Value_int _ | Value_constptr _ | Value_predef_exn _ as v -> v
     | Value_symbol sym as v ->
       (* Format.printf "get val_sym %a@." Symbol.print sym; *)
       v
