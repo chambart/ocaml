@@ -14,29 +14,24 @@ let import exported =
     | Value_id id -> Value_id (EidMap.rename eid_map id)
   in
   let closures = FunTbl.create 10 in
-  let subst = ref IdentMap.empty in
-  let add_rename_id id =
-    try IdentMap.find id !subst with
-    | Not_found ->
+  (* let subst = ref IdentMap.empty in *)
+  (* let add_rename_id id = *)
+  (*   try IdentMap.find id !subst with *)
+  (*   | Not_found -> *)
 
-      id
-      (* TODO: correct substitution !!! *)
+  (*     id *)
+  (*     (\* TODO: correct substitution !!! *\) *)
 
-      (* let new_id = Ident.rename id in *)
-      (* subst := IdentMap.add id new_id !subst; *)
-      (* new_id *)
+  (*     (\* let new_id = Ident.rename id in *\) *)
+  (*     (\* subst := IdentMap.add id new_id !subst; *\) *)
+  (*     (\* new_id *\) *)
 
-  in
-  let rename_bound_var map =
-    let l = List.map (fun (id,approx) -> add_rename_id id, rename approx)
-        (IdentMap.bindings map) in
-    IdentMap.of_list l
-  in
+  (* in *)
   let map_closure closure =
     try FunTbl.find closures closure.closure_id with
     | Not_found ->
       { closure_id = FunMap.rename closure_id_map closure.closure_id;
-        bound_var = rename_bound_var closure.bound_var }
+        bound_var = OffsetMap.map rename closure.bound_var }
   in
   let rename_val = function
     | Value_int _ | Value_constptr _ as v -> v
@@ -46,7 +41,7 @@ let import exported =
     | Value_block (tag, fields) ->
       Value_block (tag, Array.map rename fields)
     | Value_closure {fun_id; closure} ->
-      Value_closure {fun_id = add_rename_id fun_id;
+      Value_closure {fun_id = fun_id;
                      closure = map_closure closure }
   in
   let ex_id_symbol =
@@ -65,7 +60,8 @@ let import exported =
   { ex_values = EidMap.of_list ex_values;
     ex_global = rename exported.ex_global;
     ex_functions = ex_functions;
-    ex_id_symbol = EidMap.of_list ex_id_symbol }
+    ex_id_symbol = EidMap.of_list ex_id_symbol;
+    ex_offset = exported.ex_offset }
 
 let reverse_symbol_map exported =
   EidMap.fold (fun id sym map -> SymbolMap.add sym id map)
@@ -79,6 +75,7 @@ let merge e1 e2 =
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
     ex_global = Value_unknown; (* there is no global value in a merge *)
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
-    ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol }
+    ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
+    ex_offset = IdentMap.disjoint_union e1.ex_offset e2.ex_offset }
 
 let merge_symbol_map m1 m2 = SymbolMap.disjoint_union m1 m2

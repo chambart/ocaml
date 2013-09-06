@@ -23,6 +23,12 @@ let global_size t =
   Flambdautils.iter_flambda aux t;
   !r + 1
 
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+
+let to_offset_map idmap =
+  IdentMap.fold (fun id v map -> OffsetMap.add (offset id) v map)
+    idmap OffsetMap.empty
+
 type code_informations = {
   functions : ExprId.t ffunctions FunMap.t;
   global_size : int;
@@ -209,7 +215,7 @@ module Run(Param:Fparam) = struct
             let fields = Array.map import_value fields in
             Values.value_block tag fields
           | Value_closure { fun_id; closure } ->
-            let bound_var = IdentMap.map import_value closure.bound_var in
+            let bound_var = OffsetMap.map import_value closure.bound_var in
             let clos = value_unoffseted_closure closure.closure_id bound_var in
             set_closure_funid clos fun_id
           | Value_symbol sym -> assert false
@@ -445,7 +451,7 @@ module Run(Param:Fparam) = struct
       IdentMap.iter (fun id lam ->
           aux lam;
           bind id (mu lam)) fv;
-      let fv' = IdentMap.map mu fv in
+      let fv' = to_offset_map (IdentMap.map mu fv) in
       Queue.push (functions.ident,fv') closures;
       New (value_unoffseted_closure functions.ident fv')
 
@@ -545,7 +551,7 @@ module Run(Param:Fparam) = struct
       bind id (ValSet.singleton vid))
       ffunction.params;
 
-    IdentMap.iter bind free_vars;
+    OffsetMap.iter (fun {off_id} v -> bind off_id v) free_vars;
 
     aux_count ffunction.body fun_id
 

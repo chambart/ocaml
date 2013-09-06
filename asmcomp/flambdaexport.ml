@@ -15,12 +15,12 @@ type descr =
   | Value_symbol of symbol
 
 and value_offset =
-  { fun_id : Ident.t;
+  { fun_id : offset;
     closure : value_closure }
 
 and value_closure =
   { closure_id : FunId.t;
-    bound_var : approx IdentMap.t }
+    bound_var : approx OffsetMap.t }
 
 and approx =
   | Value_unknown
@@ -31,6 +31,7 @@ type exported = {
   ex_values : descr EidMap.t;
   ex_global : approx;
   ex_id_symbol : symbol EidMap.t;
+  ex_offset : int IdentMap.t
 }
 
 let empty_export = {
@@ -38,6 +39,7 @@ let empty_export = {
   ex_values = EidMap.empty;
   ex_global = Value_unknown;
   ex_id_symbol = EidMap.empty;
+  ex_offset = IdentMap.empty;
 }
 
 let print_approx ppf export =
@@ -61,7 +63,7 @@ let print_approx ppf export =
     | Value_constptr i -> fprintf ppf "%ip" i
     | Value_block (tag, fields) -> fprintf ppf "[%i:%a]" tag print_fields fields
     | Value_closure {fun_id; closure} ->
-      fprintf ppf "(function %a, %a)" Ident.print fun_id print_closure closure
+      fprintf ppf "(function %a, %a)" Offset.print fun_id print_closure closure
     | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
   and print_fields ppf fields =
     Array.iter (fun approx -> fprintf ppf "%a " print_approx approx) fields
@@ -75,9 +77,9 @@ let print_approx ppf export =
         print_binding bound_var
     end
   and print_binding ppf bound_var =
-    IdentMap.iter (fun id approx ->
+    OffsetMap.iter (fun {off_id} approx ->
         fprintf ppf "%a -> %a, "
-          Ident.print id
+          Ident.print off_id
           print_approx approx) bound_var
   in
   print_approx ppf export.ex_global

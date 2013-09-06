@@ -12,11 +12,11 @@ type partial_parameters =
          we fuse all the parameter as this one *)
 
 type function_description =
-  { fun_id: Ident.t;
+  { fun_id: offset;
     closure_funs: FunId.t;
     (* !!! -> This ident must include current module name to avoid
        conflict with function imported from other modules *)
-    closure_vars: ValSet.t IdentMap.t;
+    closure_vars: ValSet.t OffsetMap.t;
     (* already applied parameters: If this list is not empty then
        offset and field access are impossible *)
     partial_application: partial_parameters }
@@ -26,7 +26,7 @@ type block_description =
     fields : ValSet.t array }
 
 type other_values =
-  | Value_unoffseted_closure of (FunId.t * ValSet.t IdentMap.t)
+  | Value_unoffseted_closure of (FunId.t * ValSet.t OffsetMap.t)
   | Value_mutable
   | Value_string
   | Value_floatarray
@@ -40,14 +40,14 @@ type other_values =
   | Value_none        (* no other case possible *)
 
 type values = {
-  v_clos : function_description IdentMap.t FunMap.t;
+  v_clos : function_description OffsetMap.t FunMap.t;
   v_cstptr: IntSet.t;
   v_block: block_description IntMap.t;
   v_other: other_values;
 }
 
 let content_fun_desc fd acc =
-  let acc = IdentMap.fold
+  let acc = OffsetMap.fold
       (fun _ set1 set2 -> ValSet.union set1 set2) fd.closure_vars acc in
   match fd.partial_application with
   | Unknown set -> ValSet.union acc set
@@ -58,7 +58,7 @@ let content_fun_desc fd acc =
 
 (* all values explicitely mentionned inside the value *)
 let linked_values v =
-  let acc = FunMap.fold (fun _ -> IdentMap.fold (fun _ -> content_fun_desc))
+  let acc = FunMap.fold (fun _ -> OffsetMap.fold (fun _ -> content_fun_desc))
       v.v_clos ValSet.empty in
   IntMap.fold (fun _ b acc -> Array.fold_right ValSet.union b.fields acc)
     v.v_block acc
@@ -76,9 +76,9 @@ let equal_partial_appl v1 v2 = match v1, v2 with
   | _, _ -> false
 
 let equal_fundesc fd1 fd2 =
-  Ident.same fd1.fun_id fd2.fun_id
+  Offset.equal fd1.fun_id fd2.fun_id
   && FunId.equal fd1.closure_funs fd2.closure_funs
-  && IdentMap.equal ValSet.equal fd1.closure_vars fd2.closure_vars
+  && OffsetMap.equal ValSet.equal fd1.closure_vars fd2.closure_vars
   && equal_partial_appl fd1.partial_application fd2.partial_application
 
 let equal_block b1 b2 =
@@ -88,7 +88,7 @@ let equal_block b1 b2 =
     (Array.to_list b2.fields)
 
 let equal v1 v2 =
-  FunMap.equal (IdentMap.equal equal_fundesc) v1.v_clos v2.v_clos
+  FunMap.equal (OffsetMap.equal equal_fundesc) v1.v_clos v2.v_clos
   && IntSet.equal v1.v_cstptr v2.v_cstptr
   && IntMap.equal equal_block v1.v_block v2.v_block
   && v1.v_other = v2.v_other
@@ -141,7 +141,7 @@ let set_closure_funid value fun_id =
               closure_funs;
               closure_vars;
               partial_application = Known [] } in
-    FunMap.singleton closure_funs (IdentMap.singleton fun_id v)
+    FunMap.singleton closure_funs (OffsetMap.singleton fun_id v)
   in
   let v_block = IntMap.empty in
   let v_cstptr = IntSet.empty in
@@ -185,7 +185,7 @@ let union_fundesc id f1 f2 =
   in
   { f1 with
     partial_application;
-    closure_vars = IdentMap.merge aux_closure_vars
+    closure_vars = OffsetMap.merge aux_closure_vars
         f1.closure_vars f2.closure_vars }
 
 let union_closure c1 c2 =
@@ -194,7 +194,7 @@ let union_closure c1 c2 =
     | Some desc1, Some desc2 -> Some (union_fundesc id desc1 desc2) in
   let aux_funmap _ map1 map2 = match map1, map2 with
     | None, map | map, None -> map
-    | Some map1, Some map2 -> Some (IdentMap.merge aux_idmap map1 map2) in
+    | Some map1, Some map2 -> Some (OffsetMap.merge aux_idmap map1 map2) in
   FunMap.merge aux_funmap c1 c2
 
 let union_cstptr s1 s2 = IntSet.union s1 s2
@@ -221,7 +221,7 @@ let union_block b1 b2 =
 let union_unoffseted_closure (fid1, clos1) (fid2, clos2) =
   assert(fid1 = fid2);
   let clos =
-    IdentMap.merge (fun _ s1 s2 -> match s1, s2 with
+    OffsetMap.merge (fun _ s1 s2 -> match s1, s2 with
       | None, s | s, None -> s
       | Some s1, Some s2 -> Some (ValSet.union s1 s2)) clos1 clos2 in
   Value_unoffseted_closure (fid1, clos)
@@ -314,11 +314,11 @@ let env_field id v =
     if clos.partial_application = Known []
     then
       try
-        let vals = IdentMap.find id clos.closure_vars in
+        let vals = OffsetMap.find id clos.closure_vars in
         ValSet.union vals set
       with Not_found -> set
     else set in
-  let aux_funmap _ fun_map set = IdentMap.fold aux_identmap fun_map set in
+  let aux_funmap _ fun_map set = OffsetMap.fold aux_identmap fun_map set in
   let values = FunMap.fold aux_funmap v.v_clos ValSet.empty in
   v_other, values
 
@@ -454,7 +454,7 @@ let possible_closure v =
     | 0 -> No_function
     | 1 ->
       let _, clos_map = FunMap.choose v.v_clos in
-      let functions = IdentMap.bindings clos_map in
+      let functions = OffsetMap.bindings clos_map in
       begin match functions with
         | [] -> No_function
         | [_, f] -> One_function f

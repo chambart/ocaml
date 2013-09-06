@@ -7,8 +7,14 @@ module type Param = sig
 end
 
 module Subst(P:Param) = struct
-  let offset_subst_table = ref IdentMap.empty
+  let offset_subst_table = ref OffsetMap.empty
   let fun_label_subst_table = ref StringMap.empty
+
+  let add_offset id id' =
+    let off_unit = Compilenv.current_unit_id () in
+    let off_id = { off_id = id; off_unit } in
+    let off_id' = { off_id = id'; off_unit } in
+    offset_subst_table := OffsetMap.add off_id off_id' !offset_subst_table
 
   let rec aux exn_sb sb orig = match orig with
     | Fvar (id,annot) ->
@@ -35,20 +41,20 @@ module Subst(P:Param) = struct
     | Foffset (flam, off, annot) ->
       let flam = aux exn_sb sb flam in
       let off =
-        try IdentMap.find off !offset_subst_table with
+        try OffsetMap.find off !offset_subst_table with
         | Not_found -> off in
       Foffset (flam, off, annot)
 
     | Fenv_field ({ env = flam; env_var = off; env_fun_id }, annot) ->
       let flam = aux exn_sb sb flam in
       let off =
-        try IdentMap.find off !offset_subst_table with
+        try OffsetMap.find off !offset_subst_table with
         | Not_found ->
           (* Printf.printf "not found %s\n%!" (Ident.unique_name off); *)
           off in
       let env_fun_id =
         try
-          let e = IdentMap.find env_fun_id !offset_subst_table in
+          let e = OffsetMap.find env_fun_id !offset_subst_table in
           (* Printf.printf "rename %s -> %s\n%!" *)
           (*   (Ident.unique_name env_fun_id) *)
           (*   (Ident.unique_name e); *)
@@ -125,7 +131,7 @@ module Subst(P:Param) = struct
       IdentMap.fold (fun id value (sb, map) ->
         let id' = Ident.rename id in
         (* Printf.printf "rename closure params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        offset_subst_table := IdentMap.add id id' !offset_subst_table;
+        add_offset id id';
         let map = IdentMap.add id' value map in
         let sb = IdentMap.add id id' sb in
         sb, map) fv (IdentMap.empty, IdentMap.empty) in
@@ -136,7 +142,7 @@ module Subst(P:Param) = struct
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
         (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        offset_subst_table := IdentMap.add id id' !offset_subst_table;
+        add_offset id id';
         IdentMap.add id id' map)
         ffuns.funs sb_fv in
     let aux_ffunction fun_id ffun =
