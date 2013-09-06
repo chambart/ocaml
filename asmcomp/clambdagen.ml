@@ -175,12 +175,12 @@ module Conv(P:Param2) = struct
     Ident.same (Compilenv.current_unit_id ()) id
 
   let get_fun_offset off =
-    if is_current_unit off.off_unit
-    then
-      if not (OffsetMap.mem off fun_offset_table)
-      then fatal_error (Format.asprintf "missing offset %a" Offset.print off)
-      else OffsetMap.find off fun_offset_table
-    else OffsetMap.find off extern_offset_table
+    try
+      if is_current_unit off.off_unit
+      then OffsetMap.find off fun_offset_table
+      else OffsetMap.find off extern_offset_table
+    with Not_found ->
+      fatal_error (Format.asprintf "missing offset %a" Offset.print off)
 
   let get_fv_offset off =
     if is_current_unit off.off_unit

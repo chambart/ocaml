@@ -21,10 +21,12 @@ module ExtMap(M:PrintableHashOrdered) = struct
   let of_list l =
     List.fold_left (fun map (id,v) -> add id v map) empty l
   let disjoint_union m1 m2 =
-    merge (fun _ x y -> match x, y with
+    merge (fun id x y -> match x, y with
         | None, None -> None
         | None, Some v | Some v, None -> Some v
-        | Some _, Some _ -> failwith "ExtMap.disjoint_union") m1 m2
+        | Some _, Some _ ->
+          let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
+          fatal_error err) m1 m2
   let rename m v =
     try find v m with Not_found -> v
   let print f ppf s =
@@ -191,7 +193,11 @@ module FunTbl = ExtHashtbl(FunId)
 
 module Idt = struct
   type t = Ident.t
-  let compare x y = compare x.Ident.stamp y.Ident.stamp
+  let compare x y =
+    let c = compare x.Ident.stamp y.Ident.stamp in
+    if c = 0
+    then compare x.Ident.name y.Ident.name
+    else c
   let output oc id = output_string oc (Ident.unique_name id)
   let print = Ident.print
   let hash i = (Char.code i.Ident.name.[0]) lxor i.Ident.stamp

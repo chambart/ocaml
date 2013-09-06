@@ -68,10 +68,14 @@ let reverse_symbol_map exported =
     exported.ex_id_symbol SymbolMap.empty
 
 let merge e1 e2 =
-  (* let e = EidMap.disjoint_union e1.ex_values e2.ex_values in *)
   (* Format.printf "%a@." (EidMap.print (fun _ _ -> ())) e1.ex_values; *)
   (* Format.printf "%a@." (EidMap.print (fun _ _ -> ())) e2.ex_values; *)
+  (* let e = EidMap.disjoint_union e1.ex_values e2.ex_values in *)
   (* Format.printf "%a@." (EidMap.print (fun _ _ -> ())) e; *)
+  (* Format.printf "%a@." (OffsetMap.print (fun _ _ -> ())) e1.ex_offset; *)
+  (* Format.printf "%a@." (OffsetMap.print (fun _ _ -> ())) e2.ex_offset; *)
+  (* let e = OffsetMap.disjoint_union e1.ex_offset e2.ex_offset in *)
+  (* Format.printf "%a@." (OffsetMap.print (fun _ _ -> ())) e; *)
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
     ex_global = Value_unknown; (* there is no global value in a merge *)
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;

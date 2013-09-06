@@ -11,6 +11,8 @@ module Subst(P:Param) = struct
   let fun_label_subst_table = ref StringMap.empty
 
   let add_offset id id' =
+    (* FAUX: si la fonction vient d'une autre unitée de compilation son
+       off_unit est différent ! *)
     let off_unit = Compilenv.current_unit_id () in
     let off_id = { off_id = id; off_unit } in
     let off_id' = { off_id = id'; off_unit } in

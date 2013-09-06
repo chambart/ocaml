@@ -338,6 +338,20 @@ and abstract_offset =
 and abstract_env_field =
   { env_offset : offset; env_field_val : abstract_values; env_fun : offset }
 
+let print_abs ppf v = let open Format in match v with
+  | Vsymbol sym -> fprintf ppf "Sym %a" Symbol.print sym
+  | Vvar id -> fprintf ppf "Var %a" Ident.print id
+  | Vblock (tag,_) -> fprintf ppf "Block %i" tag
+  | Vclosure _ -> fprintf ppf "Closure"
+  | Vfield _ -> fprintf ppf "Field"
+  | Vglobal i -> fprintf ppf "Global %i" i
+  | Voffset _ -> fprintf ppf "Offset"
+  | Venv_field _ -> fprintf ppf "Env_field"
+  | Vpredef_exn _ -> fprintf ppf "Predef_exn"
+  | Vbase_const _ -> fprintf ppf "Const"
+  | Vunreachable -> fprintf ppf "Unreachable"
+  | Vnot_constant -> fprintf ppf "Not_const"
+
 type abstract_table = abstract_values IdentTbl.t
 
 module type AliasParam = sig
@@ -514,7 +528,16 @@ module ConstantAlias(P:AliasParam) = struct
       IdentTbl.add result id res;
       res
 
-  and resolve_abs : _ -> (Ident.t option * abstract_values) = function
+  and resolve_abs v =
+    (* only for debugging *)
+    let (_,r) as res = resolve_abs' v in
+    match r with
+    | Vvar id ->
+      Format.printf "resolve to var %a %a@." print_abs v Ident.print id;
+      assert false
+    | _ -> res
+
+  and resolve_abs' : _ -> (Ident.t option * abstract_values) = function
     | (Vblock _ | Vclosure _ | Vpredef_exn _ |
        Vbase_const _ | Vsymbol _) as v ->
       None, v
@@ -522,6 +545,9 @@ module ConstantAlias(P:AliasParam) = struct
       None, v
     | Vvar id ->
       begin match resolve id with
+        | _, Vvar r ->
+          Format.printf "resolve to var %a %a@." Ident.print id Ident.print r;
+          assert false
         | None, res -> Some id, res
         | res -> res
       end
@@ -534,7 +560,10 @@ module ConstantAlias(P:AliasParam) = struct
        | _, Vsymbol _ ->
          (* TODO *)
          None, Vnot_constant
-       | _ ->
+       | _, Vnot_constant ->
+         None, Vnot_constant
+       | _, a ->
+         Format.printf "make unreachable %a@." print_abs a;
          (* This can happen with impossible branch not yet
             eliminated by specialisation *)
          None, Vunreachable)
@@ -550,10 +579,13 @@ module ConstantAlias(P:AliasParam) = struct
          assert(Offset.equal fun_id env_fun);
          assert(IdentMap.mem env_offset.off_id map);
          resolve_abs (IdentMap.find env_offset.off_id map)
+       | _, Vnot_constant ->
+         None, Vnot_constant
        | _, Vsymbol _ ->
          (* TODO *)
          None, Vnot_constant
-       | _ ->
+       | _, abs ->
+         Format.printf "%a@." print_abs abs;
          assert false)
     | Vglobal i ->
       assert(IntTbl.mem abstr_globals i);
