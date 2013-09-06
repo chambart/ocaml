@@ -39,6 +39,8 @@ let fun_table = Flambda.FunTbl.create 10
 let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
 let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
 
+let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
+
 let current_unit =
   { ui_name = "";
     ui_symbol = "";
@@ -74,6 +76,7 @@ let reset ?packname name =
   merged_symbol_map := Flambda.SymbolMap.empty;
   Flambda.FunTbl.clear fun_table;
   let symbol = symbolname_for_pack packname name in
+  current_unit_id := Ident.create_persistent name;
   current_unit.ui_name <- name;
   current_unit.ui_symbol <- symbol;
   current_unit.ui_defines <- [symbol];
@@ -93,6 +96,8 @@ let current_unit_infos () =
 
 let current_unit_name () =
   current_unit.ui_name
+
+let current_unit_id () = !current_unit_id
 
 let make_symbol ?(unitname = current_unit.ui_symbol) idopt =
   let prefix = "caml" ^ unitname in

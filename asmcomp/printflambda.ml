@@ -31,10 +31,11 @@ let rec lam ppf = function
       List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
     let direct = match direct_name with | None -> "" | Some _ -> "*" in
     fprintf ppf "@[<2>(apply%s@ %a%a)@]" direct lam lfun lams largs
-  | Foffset(l,id,_) -> fprintf ppf "@[<2>(offset@ %a@ %a)@]" Ident.print id lam l
+  | Foffset(l,off,_) ->
+    fprintf ppf "@[<2>(offset@ %a@ %a)@]" Offset.print off lam l
   | Fenv_field({env;env_fun_id;env_var},_) ->
     fprintf ppf "@[<2>(env@ %a@ %a@ %a)@]"
-      Ident.print env_var Ident.print env_fun_id lam env
+      Offset.print env_var Offset.print env_fun_id lam env
   | Fclosure(clos,fv,_) ->
     let idents ppf =
       List.iter (fprintf ppf "@ %a" Ident.print) in

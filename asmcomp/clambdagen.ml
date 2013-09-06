@@ -17,6 +17,8 @@ open Flambda
    For everything else, it is basically the identity.
 *)
 
+let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+
 let make_symbols info =
   let open Constants in
   let open Flambdaexport in
@@ -43,7 +45,7 @@ let make_symbols info =
             EidTbl.add eid_symbols eid symbol;
             IdentTbl.add id_symbols id symbol
           | Value_closure { fun_id } ->
-            let symbol = make_symbol fun_id in
+            let symbol = make_symbol fun_id.off_id in
             EidTbl.add eid_symbols eid symbol;
             IdentTbl.add id_symbols id symbol
   in
@@ -66,10 +68,10 @@ module Offsets(P:Param1) = struct
 
   (* The offset table associate a function label to its offset
      inside a closure *)
-  let fun_offset_table = ref IdentMap.empty
+  let fun_offset_table = ref OffsetMap.empty
   (* The offset table associate a free variable to its offset inside a
      closure *)
-  let fv_offset_table = ref IdentMap.empty
+  let fv_offset_table = ref OffsetMap.empty
   (* table associating closures to the first free variable offset in
      the closure *)
   let fv_pos_table = ref FunMap.empty
@@ -96,7 +98,7 @@ module Offsets(P:Param1) = struct
       (* if IdentMap.mem id map *)
       (* then Printf.printf "seen offset %s\n%!" (Ident.unique_name id); *)
       (* assert(not (IdentMap.mem id map)); *)
-      let map = IdentMap.add id pos map in
+      let map = OffsetMap.add (to_offset id) pos map in
       (map,env_pos)
     in
     let fun_offset, fv_pos =
@@ -107,8 +109,9 @@ module Offsets(P:Param1) = struct
        substituted here. But if the function is inlined, it is
        possible that the closure is accessed from outside its body. *)
     let aux_fv_offset (map,pos) (id, _) =
-      assert(not (IdentMap.mem id map));
-      let map = IdentMap.add id pos map in
+      let off = to_offset id in
+      assert(not (OffsetMap.mem off map));
+      let map = OffsetMap.add off pos map in
       (map,pos + 1)
     in
     let fv_offset, _ = List.fold_left aux_fv_offset
@@ -129,8 +132,8 @@ end
 module type Param2 = sig
   type t
   val expr : t Flambda.flambda
-  val fun_offset_table : int IdentMap.t
-  val fv_offset_table : int IdentMap.t
+  val fun_offset_table : int OffsetMap.t
+  val fv_offset_table : int OffsetMap.t
   val fv_pos_table : int FunMap.t
   val not_constants : Constants.constant_result
   val assigned_symbols : string IdentMap.t
@@ -252,27 +255,27 @@ module Conv(P:Param2) = struct
          add a check in Flambda.check
       *)
       let ulam = conv sb cm lam in
-      if not (IdentMap.mem id fun_offset_table)
-      then fatal_error (Printf.sprintf "missing offset %s" (Ident.unique_name id));
-      let offset = IdentMap.find id fun_offset_table in
+      if not (OffsetMap.mem id fun_offset_table)
+      then fatal_error (Format.asprintf "missing offset %a" Offset.print id);
+      let offset = OffsetMap.find id fun_offset_table in
       make_offset ulam offset
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv sb cm lam in
-      if not (IdentMap.mem env_var fv_offset_table)
+      if not (OffsetMap.mem env_var fv_offset_table)
       then begin
-        Printf.printf "env field offset not found: %s\n%!"
-          (Ident.unique_name env_var);
+        Printf.printf "env field offset not found: %a\n%!"
+          Offset.output env_var;
         assert false
       end;
-      if not (IdentMap.mem env_fun_id fun_offset_table)
+      if not (OffsetMap.mem env_fun_id fun_offset_table)
       then begin
-        Printf.printf "fun_var not found: %s (when looking for %s)\n%!"
-          (Ident.unique_name env_fun_id) (Ident.unique_name env_var);
+        Printf.printf "fun_var not found: %a (when looking for %a)\n%!"
+          Offset.output env_fun_id Offset.output env_var;
         assert false
       end;
-      let fun_offset = IdentMap.find env_fun_id fun_offset_table in
-      let var_offset = IdentMap.find env_var fv_offset_table in
+      let fun_offset = OffsetMap.find env_fun_id fun_offset_table in
+      let var_offset = OffsetMap.find env_var fv_offset_table in
       let pos = var_offset - fun_offset in
       Uprim(Pfield pos, [ulam], Debuginfo.none)
 
@@ -450,8 +453,7 @@ module Conv(P:Param2) = struct
 
     let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
-
-      let fun_offset = IdentMap.find id fun_offset_table in
+      let fun_offset = OffsetMap.find (to_offset id) fun_offset_table in
 
       let env_param =
         if closed
@@ -493,7 +495,7 @@ module Conv(P:Param2) = struct
          * If the function is closed, we use a global variable named
            'closure_lbl_offset' defined. *)
         let add_offset_subst pos (sb,cm) (id,_) =
-          let offset = IdentMap.find id fun_offset_table in
+          let offset = OffsetMap.find (to_offset id) fun_offset_table in
           if closed
           then
             let lbl = offset_label closure_lbl offset in
@@ -597,12 +599,12 @@ let convert (type a) (expr:a Flambda.flambda) =
     let assigned_symbols = assigned_symbols
   end in
   let module C = Conv(P2) in
-  let current_unit_id = Ident.create_persistent
-      (Compilenv.current_unit_name ()) in
+  let current_unit_id = Compilenv.current_unit_id () in
   let exported =
     let open Flambdaexport in
     { ex_functions = Flambdautils.exportable_functions expr;
       ex_values = export_info.Constants.export_values;
       ex_global = export_info.Constants.export_global;
-      ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol} in
+      ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol;
+      ex_offset = IdentMap.empty } in
   C.res, exported

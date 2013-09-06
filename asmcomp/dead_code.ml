@@ -108,12 +108,14 @@ module Used(P:Param) = struct
             mark iter { env with curr_eid = None } lam) defs;
         mark iter { env with curr_eid = Some eid } body
 
-      | Foffset(expr, fun_id, eid) ->
-        add_depend_eid (Fun fun_id) (Some eid);
+      | Foffset(expr, {off_id}, eid) ->
+        (* TODO: distinguish offset and id *)
+        add_depend_eid (Fun off_id) (Some eid);
         mark iter { env with curr_eid = Some eid } expr
 
-      | Fenv_field({ env = expr; env_fun_id = fun_id; env_var = var }, eid) ->
-        add_depend_eid (Var var) (Some eid);
+      | Fenv_field({ env = expr; env_var = {off_id} }, eid) ->
+        (* TODO: distinguish offset and id *)
+        add_depend_eid (Var off_id) (Some eid);
         mark iter { env with curr_eid = Some eid } expr
 
       | Fclosure(funct, fv, eid) ->

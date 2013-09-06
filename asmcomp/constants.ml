@@ -308,13 +308,15 @@ let not_constants (type a) ~for_clambda (expr:a Flambda.flambda) =
   let module A = NotConstants(P) in
   A.res
 
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+
 type tag = int
 
 type abstract_values =
   | Vsymbol of symbol
   | Vvar of Ident.t
   | Vblock of tag * abstract_values array
-  | Vclosure of FunId.t * (Ident.t option) * (abstract_values IdentMap.t)
+  | Vclosure of FunId.t * (offset option) * (abstract_values IdentMap.t)
   | Vfield of int * abstract_values
   | Vglobal of int
   | Voffset of abstract_offset
@@ -330,11 +332,11 @@ and base_constant =
   | Vconst_other
 
 and abstract_offset =
-  { offset_field : Ident.t;
+  { offset_field : offset;
     offset_abstract : abstract_values }
 
 and abstract_env_field =
-  { env_offset : Ident.t; env_field_val : abstract_values; env_fun : Ident.t }
+  { env_offset : offset; env_field_val : abstract_values; env_fun : offset }
 
 type abstract_table = abstract_values IdentTbl.t
 
@@ -383,7 +385,7 @@ module ConstantAlias(P:AliasParam) = struct
       let result = Vclosure (funcs.ident, None, closure) in
       IdentMap.iter (fun fun_id ffunc ->
           add_abstr fun_id
-            (Voffset { offset_field = fun_id;
+            (Voffset { offset_field = offset fun_id;
                        offset_abstract = result });
           mark_alias ffunc.body) funcs.funs;
       result
@@ -545,9 +547,9 @@ module ConstantAlias(P:AliasParam) = struct
     | Venv_field { env_offset; env_field_val; env_fun } ->
       (match resolve_abs env_field_val with
        | _, Vclosure (_, Some fun_id, map) ->
-         assert(Ident.same fun_id env_fun);
-         assert(IdentMap.mem env_offset map);
-         resolve_abs (IdentMap.find env_offset map)
+         assert(Offset.equal fun_id env_fun);
+         assert(IdentMap.mem env_offset.off_id map);
+         resolve_abs (IdentMap.find env_offset.off_id map)
        | _, Vsymbol _ ->
          (* TODO *)
          None, Vnot_constant
@@ -697,10 +699,10 @@ let export_informations
     | Not_found ->
       let f id abs (bound_var, acc) =
         let approx, acc = add_abs acc (Some id) abs in
-        IdentMap.add id approx bound_var, acc
+        OffsetMap.add (offset id) approx bound_var, acc
       in
       let bound_var, acc = IdentMap.fold f bound_var
-          (IdentMap.empty, acc) in
+          (OffsetMap.empty, acc) in
       let closure = { closure_id; bound_var } in
       let closures = FunMap.add closure_id closure acc.closures in
       closure, { acc with closures }

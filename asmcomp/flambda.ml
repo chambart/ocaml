@@ -194,7 +194,7 @@ module Idt = struct
   let compare x y = compare x.Ident.stamp y.Ident.stamp
   let output oc id = output_string oc (Ident.unique_name id)
   let print = Ident.print
-  let hash i = i.Ident.stamp
+  let hash i = (Char.code i.Ident.name.[0]) lxor i.Ident.stamp
   let equal = Ident.same
 end
 
@@ -209,6 +209,34 @@ struct
 end
 module IdentMap = ExtMap(Idt)
 module IdentTbl = ExtHashtbl(Idt)
+
+type offset = {
+  off_id : Ident.t;
+  off_unit : Ident.t;
+}
+
+module Offset = struct
+  type t = offset
+  let compare x y =
+    let c = Idt.compare x.off_id y.off_id in
+    if c <> 0
+    then c
+    else Idt.compare x.off_unit y.off_unit
+  let output oc x =
+    Printf.fprintf oc "%a.%a"
+      Idt.output x.off_unit
+      Idt.output x.off_id
+  let print ppf x =
+    Format.fprintf ppf "%a.%a"
+      Idt.print x.off_unit
+      Idt.print x.off_id
+  let hash off = Hashtbl.hash off
+  let equal o1 o2 = compare o1 o2 = 0
+end
+
+module OffsetMap = ExtMap(Offset)
+module OffsetSet = ExtSet(Offset)
+module OffsetTbl = ExtHashtbl(Offset)
 
 module M : sig
   type function_label = private string
@@ -231,7 +259,7 @@ type 'a flambda =
   | Fapply of 'a flambda * 'a flambda list *
         (function_label*closed) option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
-  | Foffset of 'a flambda * Ident.t * 'a
+  | Foffset of 'a flambda * offset * 'a
     (* Foffset(closure, id) access to the function 'id' from the closure *)
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
@@ -280,8 +308,8 @@ and 'a ffunctions = {
 
 and 'a fenv_field = {
   env : 'a flambda;
-  env_fun_id : Ident.t;
-  env_var : Ident.t
+  env_fun_id : offset;
+  env_var : offset;
 }
 
 let same f1 f2 =
@@ -420,7 +448,7 @@ let rec check env = function
         else env.seen_env_var := IdentSet.add id !(env.seen_env_var);
         check env l) (IdentMap.bindings fv);
     check_closure env funct fv
-  | Foffset(lam,id,_) ->
+  | Foffset(lam,{ off_id = id },_) ->
     check env lam;
     let rec find_var_offset = function
       | Fclosure (ffun,fv,_) -> ffun,fv
@@ -443,7 +471,7 @@ let rec check env = function
                                       present in the closure"
           (Ident.unique_name id))
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
-    need_env_var env_fun_id env_var env;
+    need_env_var env_fun_id.off_id env_var.off_id env;
     let closure = match env_lam with
       | Fclosure (ffun,fv,_) -> Some (ffun,fv)
       | Fvar(id,_) ->
@@ -454,14 +482,14 @@ let rec check env = function
     begin match closure with
       | None -> () (* In recursive cases we can't know directly *)
       | Some (ffun,fv) ->
-        if not (IdentMap.mem env_var fv)
+        if not (IdentMap.mem env_var.off_id fv)
         then fatal_error (Printf.sprintf "Flambda.check: Fenv_field var %s not \
                                           present in the closure"
-              (Ident.unique_name env_var));
-        if not (IdentMap.mem env_fun_id ffun.funs)
+              (Ident.unique_name env_var.off_id));
+        if not (IdentMap.mem env_fun_id.off_id ffun.funs)
         then fatal_error (Printf.sprintf "Flambda.check: Fenv_field function %s \
                                           not present in the closure"
-              (Ident.unique_name env_fun_id))
+              (Ident.unique_name env_fun_id.off_id))
     end;
     check env env_lam
   | Fapply(funct, args, _, _,_) ->

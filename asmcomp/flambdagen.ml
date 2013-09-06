@@ -54,6 +54,9 @@ let add_subst sb ~replace ~by =
 
 let nid = ExprId.create
 
+let foffset (lam, off_id, v) =
+  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_id () }, v)
+
 let rec close sb = function
     Lvar id ->
     Fvar (subst sb id,
@@ -63,7 +66,7 @@ let rec close sb = function
     Flet(str, id, close_named id sb lam, close sb body, nid ~name:"let" ())
   | Lfunction(kind, params, body) as funct ->
     let id = Ident.create "fun" in
-    Foffset(close_functions sb [id,funct],id, nid ~name:"offset" ())
+    foffset(close_functions sb [id,funct],id, nid ~name:"offset" ())
   | Lapply(funct, args, loc) ->
     Fapply(close sb funct, close_list sb args, None, Debuginfo.none,
         nid ~name:"apply" ())
@@ -77,7 +80,7 @@ let rec close sb = function
       let clos = close_functions sb defs in
       let clos_ident = Ident.create "clos" in
       let body = List.fold_left (fun body (id,_) ->
-          Flet(Strict, id, Foffset(Fvar (clos_ident, nid ()), id, nid ()),
+          Flet(Strict, id, foffset(Fvar (clos_ident, nid ()), id, nid ()),
             body, nid ()))
           (close sb body) defs in
       Flet(Strict, clos_ident, clos, body, nid ())
@@ -184,7 +187,7 @@ and close_list sb l = List.map (close sb) l
 
 and close_named id sb = function
   | Lfunction(kind, params, body) as funct ->
-    Foffset(close_functions sb [id,funct],id, nid ())
+    foffset(close_functions sb [id,funct],id, nid ())
   | lam ->
     close sb lam
 

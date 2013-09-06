@@ -15,7 +15,9 @@ let one_value_function analysis value =
   | One_function f ->
     let fun_id = f.fun_id in
     let ffunctions = find_funid f.closure_funs analysis.info.functions in
-    Some (f, IdentMap.find fun_id ffunctions.funs)
+    Some (f, IdentMap.find fun_id.off_id ffunctions.funs)
+
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
 
 module type CleanerParam = sig
   val analysis : analysis_result
@@ -182,7 +184,7 @@ module Cleaner(Param:CleanerParam) = struct
           (* Format.eprintf "some: %a@." Printflambda.flambda funct; *)
           let fun_id = f.fun_id in
           let ffunctions = find_funid f.closure_funs analysis.info.functions in
-          let ffunction = IdentMap.find fun_id ffunctions.funs in
+          let ffunction = IdentMap.find fun_id.off_id ffunctions.funs in
           match ffunction.kind with
           | Tupled -> tree (* TODO: tupled functions ! *)
           | Curried ->
@@ -444,7 +446,8 @@ let inline_simple func fun_id ffun args =
   let sb, free_vars = IdentSet.fold (fun id (sb,free_vars) ->
       let id' = Ident.rename id in
       let sb = IdentMap.add id id' sb in
-      let free_vars = (id,id')::free_vars in
+      let off = { off_id = id; off_unit = fun_id.off_unit } in
+      let free_vars = (off,id')::free_vars in
       (sb, free_vars)) ffun.closure_params (IdentMap.empty,[]) in
 
   let sb, params = List.fold_right (fun id (sb,params) ->
@@ -459,11 +462,11 @@ let inline_simple func fun_id ffun args =
       params args body in
   let func_var = Ident.create "inlined_closure" in
   let body =
-    List.fold_right (fun (id,id') body ->
+    List.fold_right (fun (env_var,id') body ->
         let field =
           { env = Fvar(func_var,ExprId.create ());
             env_fun_id = fun_id;
-            env_var = id } in
+            env_var } in
         Flet(Strict,id',Fenv_field(field,ExprId.create ()),body,ExprId.create ()))
       free_vars body in
   Flet(Strict,func_var,func,body,ExprId.create ())
@@ -513,7 +516,7 @@ let inlining inlining_kind analysis lam =
             let fun_id = f.fun_id in
             let ffunctions = find_funid f.closure_funs
                 !functions_map in
-            let ffunction = IdentMap.find fun_id ffunctions.funs in
+            let ffunction = IdentMap.find fun_id.off_id ffunctions.funs in
             let should_go = match inlining_kind with
               | Minimal -> should_inline_minimal ffunction
               | With_local_functions constants ->
@@ -557,9 +560,11 @@ let inlining inlining_kind analysis lam =
 
 let used_variables_and_offsets tree =
   let vars = ref IdentSet.empty in
+  let offs = ref OffsetSet.empty in
   let rec aux = function
-    | Fenv_field({env_var = id}, _) (* env_fun_id also ? *)
-    | Foffset(_, id, _)
+    | Fenv_field({env_var = off}, _) (* env_fun_id also ? *)
+    | Foffset(_, off, _) ->
+      if not (OffsetSet.mem off !offs) then offs := OffsetSet.add off !offs
     | Fvar (id,_) ->
       if not (IdentSet.mem id !vars) then vars := IdentSet.add id !vars
     | Fclosure (funcs,_,_) ->
@@ -568,7 +573,7 @@ let used_variables_and_offsets tree =
     | _ -> ()
   in
   Flambdautils.iter_flambda aux tree;
-  !vars
+  !vars, !offs
 
 (* this is now done by dead code elimination *)
 
@@ -660,7 +665,7 @@ let remove_function_variables used fun_id ffunction =
     Some (new_ident, indent_in_closure, new_ffunction, cleaned_ffunction)
 
 let remove_unused_function_param tree =
-  let used = used_variables_and_offsets tree in
+  let used_var,used_offset = used_variables_and_offsets tree in
   let mapper tree = match tree with
     | Fclosure(ffunctions,fv,eid) ->
       if ffunctions.recursives
@@ -671,10 +676,11 @@ let remove_unused_function_param tree =
         | [] | _::_::_ -> assert false
         | [fun_id, ffunction] ->
           if List.length ffunction.params = 1 ||
-             List.for_all (fun id -> IdentSet.mem id used) ffunction.params
+             List.for_all (fun id -> IdentSet.mem id used_var) ffunction.params ||
+             List.for_all (fun id -> OffsetSet.mem (offset id) used_offset) ffunction.params
           then tree
           else
-            match remove_function_variables used fun_id ffunction with
+            match remove_function_variables used_var fun_id ffunction with
             | None -> tree
             | Some (new_ident, indent_in_closure,
                     new_ffunction, cleaned_ffunction) ->
@@ -693,7 +699,7 @@ let remove_unused_function_param tree =
               let new_closure = Fclosure(new_ffunctions,fv,ExprId.create ()) in
               let ret = Flet
                   (Strict,new_ident,
-                   Foffset(cleaned_closure, new_ident, ExprId.create ()),
+                   Foffset(cleaned_closure, offset new_ident, ExprId.create ()),
                    new_closure,
                    eid) in
               ret
@@ -1311,7 +1317,7 @@ let unclose_functions constants ffunctions
               (* stupid hack to give a name to the expression and ensure
                  this is the same as the function id.
                  TODO: This should be removed when flambdainfo is fixed *)
-              Foffset(Fvar(closure_id,nid ()), new_id, nid ()),
+              Foffset(Fvar(closure_id,nid ()), offset new_id, nid ()),
               Fvar(new_id, nid ()), nid ())
        in
        IdentMap.add clos_id expr fv)
