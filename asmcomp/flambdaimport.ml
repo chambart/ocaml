@@ -76,6 +76,6 @@ let merge e1 e2 =
     ex_global = Value_unknown; (* there is no global value in a merge *)
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
-    ex_offset = IdentMap.disjoint_union e1.ex_offset e2.ex_offset }
+    ex_offset = OffsetMap.disjoint_union e1.ex_offset e2.ex_offset }
 
 let merge_symbol_map m1 m2 = SymbolMap.disjoint_union m1 m2

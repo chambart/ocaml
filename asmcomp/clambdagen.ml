@@ -56,6 +56,20 @@ let make_symbols info =
       eid_symbols EidMap.empty in
   id_map, eid_map
 
+let exported_offsets info ~fv_offset_table ~fun_offset_table =
+  let open Flambdaexport in
+  let aux _ desc map = match desc with
+    | Value_closure { fun_id; closure = { bound_var } } ->
+      let map = OffsetMap.add fun_id
+          (OffsetMap.find fun_id fun_offset_table) map in
+      OffsetMap.fold (fun off _ map ->
+          OffsetMap.add off
+            (OffsetMap.find off fv_offset_table) map)
+        bound_var map
+    | _ -> map
+  in
+  EidMap.fold aux info.Constants.export_values OffsetMap.empty
+
 module type Param1 = sig
   type t
   val expr : t Flambda.flambda
@@ -151,6 +165,30 @@ module Conv(P:Param2) = struct
   let fun_offset_table = P.fun_offset_table
   let fv_offset_table = P.fv_offset_table
   let fv_pos_table = P.fv_pos_table
+
+  (* offsets of functions and free variables in closures comming from
+     a linked module *)
+  let extern_offset_table = (Compilenv.approx_env ()).Flambdaexport.ex_offset
+
+  let is_current_unit id =
+    Ident.same (Compilenv.current_unit_id ()) id
+
+  let get_fun_offset off =
+    if is_current_unit off.off_unit
+    then
+      if not (OffsetMap.mem off fun_offset_table)
+      then fatal_error (Format.asprintf "missing offset %a" Offset.print off)
+      else OffsetMap.find off fun_offset_table
+    else OffsetMap.find off extern_offset_table
+
+  let get_fv_offset off =
+    if is_current_unit off.off_unit
+    then
+      if not (OffsetMap.mem off fv_offset_table)
+      then fatal_error (Format.asprintf "env field offset not found: %a\n%!"
+                          Offset.print off)
+      else OffsetMap.find off fv_offset_table
+    else OffsetMap.find off extern_offset_table
 
   let not_constants = P.not_constants
 
@@ -255,27 +293,13 @@ module Conv(P:Param2) = struct
          add a check in Flambda.check
       *)
       let ulam = conv sb cm lam in
-      if not (OffsetMap.mem id fun_offset_table)
-      then fatal_error (Format.asprintf "missing offset %a" Offset.print id);
-      let offset = OffsetMap.find id fun_offset_table in
+      let offset = get_fun_offset id in
       make_offset ulam offset
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv sb cm lam in
-      if not (OffsetMap.mem env_var fv_offset_table)
-      then begin
-        Printf.printf "env field offset not found: %a\n%!"
-          Offset.output env_var;
-        assert false
-      end;
-      if not (OffsetMap.mem env_fun_id fun_offset_table)
-      then begin
-        Printf.printf "fun_var not found: %a (when looking for %a)\n%!"
-          Offset.output env_fun_id Offset.output env_var;
-        assert false
-      end;
-      let fun_offset = OffsetMap.find env_fun_id fun_offset_table in
-      let var_offset = OffsetMap.find env_var fv_offset_table in
+      let fun_offset = get_fun_offset env_fun_id in
+      let var_offset = get_fv_offset env_var in
       let pos = var_offset - fun_offset in
       Uprim(Pfield pos, [ulam], Debuginfo.none)
 
@@ -591,6 +615,8 @@ let convert (type a) (expr:a Flambda.flambda) =
     O.res
   in
   let assigned_symbols, ex_id_symbol = make_symbols export_info in
+  let ex_offset = exported_offsets export_info
+      ~fv_offset_table ~fun_offset_table in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
     let fv_offset_table = fv_offset_table
@@ -606,5 +632,5 @@ let convert (type a) (expr:a Flambda.flambda) =
       ex_values = export_info.Constants.export_values;
       ex_global = export_info.Constants.export_global;
       ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol;
-      ex_offset = IdentMap.empty } in
+      ex_offset } in
   C.res, exported
