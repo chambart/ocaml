@@ -39,7 +39,8 @@ let make_symbols info =
           IdentTbl.add id_symbols id symbol
         with Not_found ->
           match desc eid with
-          | Value_symbol _ | Value_int _ | Value_constptr _ -> ()
+          | Value_symbol _ | Value_int _
+          | Value_constptr _ | Value_predef_exn _ -> ()
           | Value_block _ ->
             let symbol = make_symbol id in
             EidTbl.add eid_symbols eid symbol;

@@ -650,7 +650,7 @@ let export_informations
       add_id acc alias_id
     | None,
       (Vvar _ | Vfield _ | Vnot_constant |
-       Vglobal _ | Venv_field _ | Vunreachable | Vpredef_exn _ |
+       Vglobal _ | Venv_field _ | Vunreachable |
        Vclosure _ | Vbase_const Vconst_other ) ->
       Value_unknown, acc
     | None, abstr ->
@@ -663,9 +663,10 @@ let export_informations
           { acc with mapping } in
       let descr, acc = match abstr with
         | Vvar _ | Vfield _ | Vnot_constant
-        | Vglobal _ | Venv_field _ | Vunreachable | Vpredef_exn _
+        | Vglobal _ | Venv_field _ | Vunreachable
         | Vclosure _ | Vbase_const Vconst_other ->
           assert false
+        | Vpredef_exn id -> Value_predef_exn id, acc
         | Vsymbol sym ->
           Value_symbol sym, acc
         | Vbase_const (Vconst_int i) ->

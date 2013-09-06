@@ -13,6 +13,7 @@ type descr =
   | Value_constptr of int
   | Value_closure of value_offset
   | Value_symbol of symbol
+  | Value_predef_exn of Ident.t
 
 and value_offset =
   { fun_id : offset;
@@ -65,6 +66,7 @@ let print_approx ppf export =
     | Value_closure {fun_id; closure} ->
       fprintf ppf "(function %a, %a)" Offset.print fun_id print_closure closure
     | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
+    | Value_predef_exn id -> Ident.print ppf id
   and print_fields ppf fields =
     Array.iter (fun approx -> fprintf ppf "%a " print_approx approx) fields
   and print_closure ppf { closure_id; bound_var } =
