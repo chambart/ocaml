@@ -309,6 +309,7 @@ and 'a ffunction = {
 and 'a ffunctions = {
   ident  : FunId.t;
   funs   : 'a ffunction IdentMap.t;
+  unit   : Ident.t;
   recursives : bool;
 }
 
