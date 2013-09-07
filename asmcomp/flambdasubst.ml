@@ -14,9 +14,8 @@ module Subst(P:Param) = struct
     (* FAUX: si la fonction vient d'une autre unitée de compilation son
        off_unit est différent ! *)
     let off_unit = Compilenv.current_unit_id () in
-    let off_id = { off_id = id; off_unit } in
     let off_id' = { off_id = id'; off_unit } in
-    offset_subst_table := OffsetMap.add off_id off_id' !offset_subst_table
+    offset_subst_table := OffsetMap.add id off_id' !offset_subst_table
 
   let rec aux exn_sb sb orig = match orig with
     | Fvar (id,annot) ->
@@ -37,7 +36,7 @@ module Subst(P:Param) = struct
       in
       Fapply (funct, args, direct, dbg, annot)
     | Fclosure (ffuns, fv, annot) ->
-      let sb_fv, fv = subst_free_vars fv in
+      let sb_fv, fv = subst_free_vars ffuns.unit fv in
       Fclosure (aux_closure sb_fv ffuns,
           IdentMap.map (aux exn_sb sb) fv, annot)
     | Foffset (flam, off, annot) ->
@@ -128,12 +127,12 @@ module Subst(P:Param) = struct
       Fswitch(aux exn_sb sb arg, sw, annot)
     | Funreachable _ -> orig
 
-  and subst_free_vars fv =
+  and subst_free_vars unit fv =
     let sb, fv' =
       IdentMap.fold (fun id value (sb, map) ->
         let id' = Ident.rename id in
         (* Printf.printf "rename closure params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        add_offset id id';
+        add_offset { off_id = id; off_unit = unit } id';
         let map = IdentMap.add id' value map in
         let sb = IdentMap.add id id' sb in
         sb, map) fv (IdentMap.empty, IdentMap.empty) in
@@ -144,7 +143,7 @@ module Subst(P:Param) = struct
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
         (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        add_offset id id';
+        add_offset { off_id = id; off_unit = ffuns.unit } id';
         IdentMap.add id id' map)
         ffuns.funs sb_fv in
     let aux_ffunction fun_id ffun =
@@ -171,7 +170,8 @@ module Subst(P:Param) = struct
       (* this ident is used only in value approximations,
          no need to propagate it *)
       funs;
-      recursives = ffuns.recursives }
+      recursives = ffuns.recursives;
+      unit = Compilenv.current_unit_id () }
 
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l
 

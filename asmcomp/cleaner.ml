@@ -687,11 +687,13 @@ let remove_unused_function_param tree =
               let cleaned_ffunctions =
                 { ident = FunId.create ();
                   funs = IdentMap.singleton new_ident cleaned_ffunction;
-                  recursives = false } in
+                  recursives = false;
+                  unit = ffunctions.unit } in
               let new_ffunctions =
                 { ident = ffunctions.ident;
                   funs = IdentMap.singleton fun_id new_ffunction;
-                  recursives = false } in
+                  recursives = false;
+                  unit = ffunctions.unit } in
               let cleaned_closure =
                 Fclosure(cleaned_ffunctions,IdentMap.empty,ExprId.create ()) in
               let fv = IdentMap.add indent_in_closure
@@ -1273,7 +1275,8 @@ let unclose_functions constants ffunctions
     let fun_renaming =
       List.map (fun (id,new_fun_id, _) -> (id,new_fun_id, Ident.rename id))
         funs_list in
-    { ident; funs; recursives = ffunctions.recursives }, fun_renaming
+    { ident; funs; recursives = ffunctions.recursives;
+      unit = ffunctions.unit }, fun_renaming
   in
 
   let external_ffunction ffunction internal_fun_id =
@@ -1307,7 +1310,7 @@ let unclose_functions constants ffunctions
         IdentMap.add id (external_ffunction ffunction clos_id) map)
         IdentMap.empty fun_renaming in
     { ident = ffunctions.ident; funs;
-      recursives = false } in
+      recursives = false; unit = ffunctions.unit } in
 
   let closure_id = Ident.create "unclosed" in
   let external_fv' =
