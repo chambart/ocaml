@@ -59,17 +59,18 @@ let make_symbols info =
 
 let exported_offsets info ~fv_offset_table ~fun_offset_table =
   let open Flambdaexport in
-  let aux _ desc map = match desc with
+  let aux _ desc ((map_fun, map_fv) as r) = match desc with
     | Value_closure { fun_id; closure = { bound_var } } ->
-      let map = OffsetMap.add fun_id
-          (OffsetMap.find fun_id fun_offset_table) map in
-      OffsetMap.fold (fun off _ map ->
+      let map_fun = OffsetMap.add fun_id
+          (OffsetMap.find fun_id fun_offset_table) map_fun in
+      let map_fv = OffsetMap.fold (fun off _ map_fv ->
           OffsetMap.add off
-            (OffsetMap.find off fv_offset_table) map)
-        bound_var map
-    | _ -> map
+            (OffsetMap.find off fv_offset_table) map_fv)
+          bound_var map_fv in
+      (map_fun, map_fv)
+    | _ -> r
   in
-  EidMap.fold aux info.Constants.export_values OffsetMap.empty
+  EidMap.fold aux info.Constants.export_values (OffsetMap.empty, OffsetMap.empty)
 
 module type Param1 = sig
   type t
@@ -169,7 +170,11 @@ module Conv(P:Param2) = struct
 
   (* offsets of functions and free variables in closures comming from
      a linked module *)
-  let extern_offset_table = (Compilenv.approx_env ()).Flambdaexport.ex_offset
+  let extern_fun_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun
+  let extern_fv_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv
+
 
   let is_current_unit id =
     Ident.same (Compilenv.current_unit_id ()) id
@@ -178,7 +183,7 @@ module Conv(P:Param2) = struct
     try
       if is_current_unit off.off_unit
       then OffsetMap.find off fun_offset_table
-      else OffsetMap.find off extern_offset_table
+      else OffsetMap.find off extern_fun_offset_table
     with Not_found ->
       fatal_error (Format.asprintf "missing offset %a" Offset.print off)
 
@@ -189,7 +194,7 @@ module Conv(P:Param2) = struct
       then fatal_error (Format.asprintf "env field offset not found: %a\n%!"
                           Offset.print off)
       else OffsetMap.find off fv_offset_table
-    else OffsetMap.find off extern_offset_table
+    else OffsetMap.find off extern_fv_offset_table
 
   let not_constants = P.not_constants
 
@@ -616,7 +621,7 @@ let convert (type a) (expr:a Flambda.flambda) =
     O.res
   in
   let assigned_symbols, ex_id_symbol = make_symbols export_info in
-  let ex_offset = exported_offsets export_info
+  let ex_offset_fun, ex_offset_fv = exported_offsets export_info
       ~fv_offset_table ~fun_offset_table in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
@@ -633,5 +638,5 @@ let convert (type a) (expr:a Flambda.flambda) =
       ex_values = export_info.Constants.export_values;
       ex_global = export_info.Constants.export_global;
       ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol;
-      ex_offset } in
+      ex_offset_fun; ex_offset_fv } in
   C.res, exported
