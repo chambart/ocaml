@@ -32,7 +32,8 @@ type exported = {
   ex_values : descr EidMap.t;
   ex_global : approx;
   ex_id_symbol : symbol EidMap.t;
-  ex_offset : int OffsetMap.t
+  ex_offset_fun : int OffsetMap.t;
+  ex_offset_fv : int OffsetMap.t;
 }
 
 let empty_export = {
@@ -40,7 +41,8 @@ let empty_export = {
   ex_values = EidMap.empty;
   ex_global = Value_unknown;
   ex_id_symbol = EidMap.empty;
-  ex_offset = OffsetMap.empty;
+  ex_offset_fun = OffsetMap.empty;
+  ex_offset_fv = OffsetMap.empty;
 }
 
 let print_approx ppf export =

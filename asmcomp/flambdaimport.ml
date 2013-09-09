@@ -61,7 +61,8 @@ let import exported =
     ex_global = rename exported.ex_global;
     ex_functions = ex_functions;
     ex_id_symbol = EidMap.of_list ex_id_symbol;
-    ex_offset = exported.ex_offset }
+    ex_offset_fun = exported.ex_offset_fun;
+    ex_offset_fv = exported.ex_offset_fv; }
 
 let reverse_symbol_map exported =
   EidMap.fold (fun id sym map -> SymbolMap.add sym id map)
@@ -80,6 +81,7 @@ let merge e1 e2 =
     ex_global = Value_unknown; (* there is no global value in a merge *)
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
-    ex_offset = OffsetMap.disjoint_union e1.ex_offset e2.ex_offset }
+    ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;
+    ex_offset_fv = OffsetMap.disjoint_union e1.ex_offset_fv e2.ex_offset_fv }
 
 let merge_symbol_map m1 m2 = SymbolMap.disjoint_union m1 m2
