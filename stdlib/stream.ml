@@ -11,13 +11,12 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(* The fields of type t are not mutable to preserve polymorphism of
-   the empty stream. This is type safe because the empty stream is never
-   patched. *)
+type 'a empty_t = { e_count : int; e_data : int }
 
-type 'a t = { count : int; data : 'a data }
+type 'a t = { mutable count : int; mutable data : 'a data }
 and 'a data =
-    Sempty
+    Sempty (* Sempty is assumed to be 0: sempty declaration use it to
+              avoid week type variables *)
   | Scons of 'a * 'a data
   | Sapp of 'a data * 'a data
   | Slazy of 'a data Lazy.t
@@ -30,11 +29,15 @@ and buffio =
 exception Failure;;
 exception Error of string;;
 
-external count : 'a t -> int = "%field0";;
-external set_count : 'a t -> int -> unit = "%setfield0";;
-let set_data (s : 'a t) (d : 'a data) =
-  Obj.set_field (Obj.repr s) 1 (Obj.repr d)
-;;
+(* external count : 'a t -> int = "%field0";; *)
+(* external set_count : 'a t -> int -> unit = "%setfield0";; *)
+(* let set_data (s : 'a t) (d : 'a data) = *)
+(*   Obj.set_field (Obj.repr s) 1 (Obj.repr d) *)
+(* ;; *)
+
+let count c = c.count
+let set_count c i = c.count <- i
+let set_data s d = s.data <- d
 
 let fill_buff b =
   b.len <- input b.ic b.buff 0 (String.length b.buff); b.ind <- 0
@@ -176,7 +179,11 @@ let lapp f s =
 let lcons f s = {count = 0; data = Slazy (lazy(Scons (f (), s.data)))};;
 let lsing f = {count = 0; data = Slazy (lazy(Scons (f (), Sempty)))};;
 
-let sempty = {count = 0; data = Sempty};;
+let sempty = Obj.magic {e_count = 0; e_data = 0}
+(* horrible hack to avoid week type variables: the empty case is
+   effectively immutable *)
+(* {count = 0; data = Sempty};; *)
+
 let slazy f = {count = 0; data = Slazy (lazy(f ()).data)};;
 
 (* For debugging use *)
