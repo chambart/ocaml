@@ -188,12 +188,10 @@ module Cleaner(Param:CleanerParam) = struct
           match ffunction.kind with
           | Tupled -> tree (* TODO: tupled functions ! *)
           | Curried ->
-            if ffunction.arity = List.length args
+            if ffunction.arity = List.length args &&
+               f.partial_application = Known []
             then
-              let closed = IdentSet.is_empty ffunction.closure_params
-                           && f.partial_application = Known [] in
-              let closed = if closed then Closed else NotClosed in
-              let direct = Some(ffunction.label,closed) in
+              let direct = Some fun_id in
               Fapply(funct, args, direct, dbg, eid)
             else tree
       end
@@ -688,11 +686,13 @@ let remove_unused_function_param tree =
                 { ident = FunId.create ();
                   funs = IdentMap.singleton new_ident cleaned_ffunction;
                   recursives = false;
+                  closed = false;
                   unit = ffunctions.unit } in
               let new_ffunctions =
                 { ident = ffunctions.ident;
                   funs = IdentMap.singleton fun_id new_ffunction;
                   recursives = false;
+                  closed = false;
                   unit = ffunctions.unit } in
               let cleaned_closure =
                 Fclosure(cleaned_ffunctions,IdentMap.empty,ExprId.create ()) in
@@ -1276,6 +1276,7 @@ let unclose_functions constants ffunctions
       List.map (fun (id,new_fun_id, _) -> (id,new_fun_id, Ident.rename id))
         funs_list in
     { ident; funs; recursives = ffunctions.recursives;
+      closed = false;
       unit = ffunctions.unit }, fun_renaming
   in
 
@@ -1310,7 +1311,8 @@ let unclose_functions constants ffunctions
         IdentMap.add id (external_ffunction ffunction clos_id) map)
         IdentMap.empty fun_renaming in
     { ident = ffunctions.ident; funs;
-      recursives = false; unit = ffunctions.unit } in
+      recursives = false; closed = false;
+      unit = ffunctions.unit } in
 
   let closure_id = Ident.create "unclosed" in
   let external_fv' =
