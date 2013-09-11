@@ -8,11 +8,8 @@ end
 
 module Subst(P:Param) = struct
   let offset_subst_table = ref OffsetMap.empty
-  let fun_label_subst_table = ref StringMap.empty
 
   let add_offset id id' =
-    (* FAUX: si la fonction vient d'une autre unitée de compilation son
-       off_unit est différent ! *)
     let off_unit = Compilenv.current_unit_id () in
     let off_id' = { off_id = id'; off_unit } in
     offset_subst_table := OffsetMap.add id off_id' !offset_subst_table
@@ -27,10 +24,10 @@ module Subst(P:Param) = struct
       let funct = aux exn_sb sb funct in
       let direct = match direct with
         | None -> None
-        | Some (lbl,closed) ->
+        | Some offset ->
           try
-            let label = StringMap.find (lbl:>string) !fun_label_subst_table in
-            Some (label,closed)
+            let offset = OffsetMap.find offset !offset_subst_table in
+            Some offset
           with
           | Not_found -> direct
       in
@@ -148,8 +145,6 @@ module Subst(P:Param) = struct
         ffuns.funs sb_fv in
     let aux_ffunction fun_id ffun =
       let label = Flambdagen.make_function_lbl fun_id in
-      fun_label_subst_table :=
-        StringMap.add (ffun.label:>string) label !fun_label_subst_table;
       let sb, params = List.fold_right (fun id (sb,l) ->
           let id' = Ident.rename id in
           (* Printf.printf "rename params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
@@ -171,6 +166,7 @@ module Subst(P:Param) = struct
          no need to propagate it *)
       funs;
       recursives = ffuns.recursives;
+      closed = false;
       unit = Compilenv.current_unit_id () }
 
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l

@@ -13,9 +13,25 @@ open Flambda
     * build the switch tables
     * add closure parameter for direct calls
     * detect constants values and transform them to Uconst
-
+    * mark closed functions
+    * assign label to exported variables
+    * prepare exported informations
    For everything else, it is basically the identity.
 *)
+
+(** annotate closed functions and build a label -> closed map *)
+let mark_closed not_constants expr =
+  let aux expr = match expr with
+    | Fclosure(functs, fv, data) ->
+      let closed =
+        (* A function is considered to be closed if all the free variables can be converted
+           to constant. i.e. if the whole closure will be compiled as a constant *)
+        not (FunSet.mem functs.ident not_constants.Constants.not_constant_closure) in
+      let functs = { functs with closed } in
+      Fclosure(functs, fv, data)
+    | e -> e
+  in
+  Flambdautils.map aux expr
 
 let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
 
@@ -153,6 +169,7 @@ module type Param2 = sig
   val fv_pos_table : int FunMap.t
   val not_constants : Constants.constant_result
   val assigned_symbols : string IdentMap.t
+  val closures : unit Flambda.ffunctions OffsetMap.t
 end
 
 type const_lbl =
@@ -167,6 +184,7 @@ module Conv(P:Param2) = struct
   let fun_offset_table = P.fun_offset_table
   let fv_offset_table = P.fv_offset_table
   let fv_pos_table = P.fv_pos_table
+  let closures = P.closures
 
   (* offsets of functions and free variables in closures comming from
      a linked module *)
@@ -309,11 +327,15 @@ module Conv(P:Param2) = struct
       let pos = var_offset - fun_offset in
       Uprim(Pfield pos, [ulam], Debuginfo.none)
 
-    | Fapply(funct, args, Some (direct_func,closed), dbg, _) ->
-      let args = match closed with Closed -> args | NotClosed -> args @ [funct] in
+    | Fapply(funct, args, Some direct_func, dbg, _) ->
+      let closed = (OffsetMap.find direct_func closures).closed in
+      let args = if closed then args else args @ [funct] in
+
       (* If usefull things are in ufunct they are eliminated: TODO
          replace funct field by an ident field *)
-      Udirect_apply((direct_func:>string), conv_list sb cm args, dbg)
+      let closure = OffsetMap.find direct_func closures in
+      let func = IdentMap.find direct_func.off_id closure.funs in
+      Udirect_apply((func.label:>string), conv_list sb cm args, dbg)
 
     | Fapply(funct, args, None, dbg, _) ->
       (* the closure parameter of the function is added by cmmgen, but
@@ -466,11 +488,7 @@ module Conv(P:Param2) = struct
 
     let funct = IdentMap.bindings functs.funs in
     let fv = IdentMap.bindings fv in
-
-    let closed =
-      (* A function is considered to be closed if all the free variables can be converted
-         to constant. i.e. if the whole closure will be compiled as a constant *)
-      not (FunSet.mem functs.ident not_constants.Constants.not_constant_closure) in
+    let closed = functs.closed in
 
     (* the environment variable used for non constant closures *)
     let env_var = Ident.create "env" in
@@ -608,9 +626,21 @@ module Conv(P:Param2) = struct
 
 end
 
+let offset_indexed_closures closures =
+  let aux_fun ffunctions off_id _ map =
+    OffsetMap.add {off_unit = ffunctions.unit; off_id} ffunctions map in
+  let aux _ f map = IdentMap.fold (aux_fun f) f.funs map in
+  FunMap.fold aux closures OffsetMap.empty
+
 let convert (type a) (expr:a Flambda.flambda) =
   let export_info = Constants.export_info expr in
   let not_constants = export_info.Constants.export_constant in
+  let expr = mark_closed not_constants expr in
+  let ex_functions = Flambdautils.exportable_functions expr in
+  let closures =
+    offset_indexed_closures
+      (FunMap.disjoint_union ex_functions
+         (Compilenv.approx_env ()).Flambdaexport.ex_functions) in
   let module P1 = struct
     type t = a
     let expr = expr
@@ -629,12 +659,13 @@ let convert (type a) (expr:a Flambda.flambda) =
     let fv_pos_table = fv_pos_table
     let not_constants = not_constants
     let assigned_symbols = assigned_symbols
+    let closures = closures
   end in
   let module C = Conv(P2) in
   let current_unit_id = Compilenv.current_unit_id () in
   let exported =
     let open Flambdaexport in
-    { ex_functions = Flambdautils.exportable_functions expr;
+    { ex_functions;
       ex_values = export_info.Constants.export_values;
       ex_global = export_info.Constants.export_global;
       ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol;

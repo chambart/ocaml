@@ -181,6 +181,7 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
       IdentMap.add id (close_one (id,f)) map) IdentMap.empty fun_defs in
   let ident = FunId.create () in
   Fclosure ({ ident; funs = functions; recursives = !recursives;
+              closed = false;
               unit = Compilenv.current_unit_id ()},
     clos_var, nid ())
 

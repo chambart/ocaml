@@ -254,8 +254,6 @@ end
 
 include M
 
-type closed = Closed | NotClosed
-
 (* A data is attached to each node. It is often used to uniquely
    identify an expression *)
 type 'a flambda =
@@ -263,7 +261,7 @@ type 'a flambda =
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
   | Fapply of 'a flambda * 'a flambda list *
-        (function_label*closed) option * Debuginfo.t * 'a
+                offset option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
   | Foffset of 'a flambda * offset * 'a
     (* Foffset(closure, id) access to the function 'id' from the closure *)
@@ -310,6 +308,7 @@ and 'a ffunctions = {
   ident  : FunId.t;
   funs   : 'a ffunction IdentMap.t;
   unit   : Ident.t;
+  closed : bool;
   recursives : bool;
 }
 
