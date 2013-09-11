@@ -340,6 +340,7 @@ let same f1 f2 =
 module StringSet = Set.Make(String)
 
 type 'a env = {
+  current_unit : Ident.t;
   bound_variables : IdentSet.t;
   seen_variables : IdentSet.t ref;
   seen_fun_label : StringSet.t ref;
@@ -454,7 +455,7 @@ let rec check env = function
         else env.seen_env_var := IdentSet.add id !(env.seen_env_var);
         check env l) (IdentMap.bindings fv);
     check_closure env funct fv
-  | Foffset(lam,{ off_id = id },_) ->
+  | Foffset(lam,{ off_unit; off_id = id },_) ->
     check env lam;
     let rec find_var_offset = function
       | Fclosure (ffun,fv,_) -> ffun,fv
@@ -469,33 +470,40 @@ let rec check env = function
         fatal_error (Printf.sprintf "Flambda.check: Foffset on neither a \
                                      variable nor a closure")
     in
-    let (ffun,fv) = find_var_offset lam in
 
-    (* TODO: also check the recursive flag *)
-    if not (IdentMap.mem id ffun.funs)
-    then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \
-                                      present in the closure"
-          (Ident.unique_name id))
+    if off_unit = env.current_unit
+    then
+      let (ffun,fv) = find_var_offset lam in
+
+      (* TODO: also check the recursive flag *)
+      if not (IdentMap.mem id ffun.funs)
+      then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \
+                                        present in the closure"
+                          (Ident.unique_name id))
+
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
-    need_env_var env_fun_id.off_id env_var.off_id env;
-    let closure = match env_lam with
-      | Fclosure (ffun,fv,_) -> Some (ffun,fv)
-      | Fvar(id,_) ->
-        (try Some (IdentMap.find id env.closure_variables)
-        with Not_found -> None)
-      | _ -> None
-    in
-    begin match closure with
-      | None -> () (* In recursive cases we can't know directly *)
-      | Some (ffun,fv) ->
-        if not (IdentMap.mem env_var.off_id fv)
-        then fatal_error (Printf.sprintf "Flambda.check: Fenv_field var %s not \
-                                          present in the closure"
-              (Ident.unique_name env_var.off_id));
-        if not (IdentMap.mem env_fun_id.off_id ffun.funs)
-        then fatal_error (Printf.sprintf "Flambda.check: Fenv_field function %s \
-                                          not present in the closure"
-              (Ident.unique_name env_fun_id.off_id))
+    if env_var.off_unit = env.current_unit && env_fun_id.off_unit = env.current_unit
+    then begin
+      need_env_var env_fun_id.off_id env_var.off_id env;
+      let closure = match env_lam with
+        | Fclosure (ffun,fv,_) -> Some (ffun,fv)
+        | Fvar(id,_) ->
+          (try Some (IdentMap.find id env.closure_variables)
+           with Not_found -> None)
+        | _ -> None
+      in
+      begin match closure with
+        | None -> () (* In recursive cases we can't know directly *)
+        | Some (ffun,fv) ->
+          if not (IdentMap.mem env_var.off_id fv)
+          then fatal_error (Printf.sprintf "Flambda.check: Fenv_field var %s not \
+                                            present in the closure"
+                              (Ident.unique_name env_var.off_id));
+          if not (IdentMap.mem env_fun_id.off_id ffun.funs)
+          then fatal_error (Printf.sprintf "Flambda.check: Fenv_field function %s \
+                                            not present in the closure"
+                              (Ident.unique_name env_fun_id.off_id))
+      end;
     end;
     check env env_lam
   | Fapply(funct, args, _, _,_) ->
@@ -574,8 +582,9 @@ let check_fun_env_var need seen =
                                        but not provided" (Ident.unique_name id)))
         diff) need
 
-let check flam =
-  let env = { bound_variables = IdentSet.empty;
+let check current_unit flam =
+  let env = { current_unit;
+              bound_variables = IdentSet.empty;
               seen_variables = ref IdentSet.empty;
               seen_fun_label = ref StringSet.empty;
               seen_static_catch = ref IntSet.empty;
