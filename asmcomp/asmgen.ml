@@ -57,7 +57,7 @@ let clambda_dump_if ppf ulambda =
 
 let flambda_dump_if ppf flambda =
   if !dump_flambda then (Printflambda.flambda ppf flambda; Format.fprintf ppf "@.");
-  Flambda.check flambda;
+  Flambda.check (Compilenv.current_unit_id ()) flambda;
   flambda
 
 let rec regalloc ppf round fd =
@@ -123,7 +123,7 @@ let compile_genfuns ppf f =
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
 let check flambda =
-  Flambda.check flambda;
+  Flambda.check (Compilenv.current_unit_id ()) flambda;
   flambda
 
 let specialise ppf flambda =
