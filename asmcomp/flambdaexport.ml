@@ -30,7 +30,7 @@ and approx =
 type exported = {
   ex_functions : unit ffunctions FunMap.t;
   ex_values : descr EidMap.t;
-  ex_global : approx;
+  ex_globals : approx IdentMap.t;
   ex_id_symbol : symbol EidMap.t;
   ex_offset_fun : int OffsetMap.t;
   ex_offset_fv : int OffsetMap.t;
@@ -39,7 +39,7 @@ type exported = {
 let empty_export = {
   ex_functions = FunMap.empty;
   ex_values = EidMap.empty;
-  ex_global = Value_unknown;
+  ex_globals = IdentMap.empty;
   ex_id_symbol = EidMap.empty;
   ex_offset_fun = OffsetMap.empty;
   ex_offset_fv = OffsetMap.empty;
@@ -86,7 +86,10 @@ let print_approx ppf export =
           Ident.print off_id
           print_approx approx) bound_var
   in
-  print_approx ppf export.ex_global
+  let print_approxs id approx =
+    fprintf ppf "%a -> %a;@ " Ident.print id print_approx approx
+  in
+  IdentMap.iter print_approxs export.ex_globals
 
 let print_symbols ppf export =
   let open Format in

@@ -163,6 +163,9 @@ module NotConstants(P:Param) = struct
     (* globals are symbols:constants *)
     | Fprim(Pgetglobal id, [], _, _) -> ()
 
+    (* globals are symbols:constants *)
+    | Fprim(Pgetglobal id, [], _, _) -> ()
+
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block
        - offset is compiled to a pointer inside a constant closure.

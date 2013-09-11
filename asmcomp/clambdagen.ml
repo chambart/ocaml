@@ -663,11 +663,20 @@ let convert (type a) (expr:a Flambda.flambda) =
   end in
   let module C = Conv(P2) in
   let current_unit_id = Compilenv.current_unit_id () in
+  let module_symbol = current_unit_id,
+                      Compilenv.symbol_for_global current_unit_id in
+  let open Flambdaexport in
+  let ex_id_symbol =
+    let tmp = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol in
+    match export_info.Constants.export_global with
+    | Value_unknown -> assert false
+    | Value_id eid -> EidMap.add eid module_symbol tmp
+  in
   let exported =
-    let open Flambdaexport in
     { ex_functions;
       ex_values = export_info.Constants.export_values;
-      ex_global = export_info.Constants.export_global;
-      ex_id_symbol = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol;
-      ex_offset_fun; ex_offset_fv } in
+      ex_globals =
+        IdentMap.singleton current_unit_id
+          export_info.Constants.export_global;
+      ex_id_symbol; ex_offset_fun; ex_offset_fv } in
   C.res, exported

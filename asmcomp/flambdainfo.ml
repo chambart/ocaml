@@ -256,7 +256,8 @@ module Run(Param:Fparam) = struct
       else
         let info = Compilenv.global_approx_info id in
         (* Printf.printf "import %s\n%!" (Ident.name id); *)
-        Old (import_value info.Flambdaexport.ex_global)
+        let approx = IdentMap.find id info.Flambdaexport.ex_globals in
+        Old (import_value approx)
     in
 
     if id.Ident.name = Compilenv.current_unit_name ()

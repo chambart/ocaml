@@ -58,7 +58,7 @@ let import exported =
     (* let l, _ = Flambdasubst.substitute_closures !subst l in *)
     List.fold_left (fun map f -> FunMap.add f.ident f map) FunMap.empty l in
   { ex_values = EidMap.of_list ex_values;
-    ex_global = rename exported.ex_global;
+    ex_globals = IdentMap.map rename exported.ex_globals;
     ex_functions = ex_functions;
     ex_id_symbol = EidMap.of_list ex_id_symbol;
     ex_offset_fun = exported.ex_offset_fun;
@@ -78,7 +78,7 @@ let merge e1 e2 =
   (* let e = OffsetMap.disjoint_union e1.ex_offset e2.ex_offset in *)
   (* Format.printf "%a@." (OffsetMap.print (fun _ _ -> ())) e; *)
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
-    ex_global = Value_unknown; (* there is no global value in a merge *)
+    ex_globals = IdentMap.disjoint_union e1.ex_globals e2.ex_globals;
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
     ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;

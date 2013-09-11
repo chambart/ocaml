@@ -123,6 +123,16 @@ let build_package_cmx members cmxfile =
         match m.pm_kind with PM_intf -> accu | PM_impl info -> info :: accu)
       members [] in
   let ui = Compilenv.current_unit_infos() in
+
+  let ui_approx_info =
+    let approx_infos = List.map (fun info ->
+        Compilenv.global_approx_info (Ident.create_persistent info.ui_name))
+        units in
+    (* List.fold_right (Flambdaimport.merge_pack (Compilenv.current_unit_id ())) *)
+    List.fold_right Flambdaimport.merge
+      approx_infos
+      ui.ui_approx_info
+  in
   let pkg_infos =
     { ui_name = ui.ui_name;
       ui_symbol = ui.ui_symbol;
@@ -143,7 +153,7 @@ let build_package_cmx members cmxfile =
           union(List.map (fun info -> info.ui_send_fun) units);
       ui_force_link =
           List.exists (fun info -> info.ui_force_link) units;
-      ui_approx_info = ui.ui_approx_info;
+      ui_approx_info;
     } in
   Compilenv.write_unit_info pkg_infos cmxfile
 
