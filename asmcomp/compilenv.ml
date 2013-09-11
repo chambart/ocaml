@@ -193,7 +193,11 @@ let global_approx_info id =
     merged_environment := Flambdaimport.merge imported !merged_environment;
     merged_symbol_map := Flambdaimport.merge_symbol_map
         symbol_map !merged_symbol_map;
-    Hashtbl.add global_approx_infos_table modname imported;
+    let register id _ =
+        let modname = Ident.name id in
+        Hashtbl.add global_approx_infos_table modname imported
+    in
+    Flambda.IdentMap.iter register imported.Flambdaexport.ex_globals;
     imported
 
 let approx_env () = !merged_environment

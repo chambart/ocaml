@@ -153,6 +153,9 @@ module NotConstants(P:Param) = struct
 
     | Fsymbol _ | Fconst _ -> ()
 
+    (* globals are symbols:constants *)
+    | Fprim(Pgetglobal id, [], _, _) -> ()
+
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block
        - offset is compiled to a pointer inside a constant closure.
@@ -168,11 +171,6 @@ module NotConstants(P:Param) = struct
       if for_clambda
       then mark_curr curr;
       mark_loop curr f1
-
-    (* predefined exceptions are constants *)
-    | Fprim(Pgetglobal id, [], _, _) ->
-      if not (Ident.is_predef_exn id)
-      then mark_curr curr
 
     | Fprim(Pgetglobalfield(id,i), [], _, _) ->
       (* adds 'global i in NC => curr in NC' *)
@@ -434,7 +432,7 @@ module ConstantAlias(P:AliasParam) = struct
     | Fprim(Pgetglobal id, [], _, _) ->
       if Ident.is_predef_exn id
       then Vpredef_exn id
-      else Vnot_constant
+      else Vsymbol (id, Compilenv.symbol_for_global id)
 
     | Fprim(Pgetglobalfield(id,i), [], _, _) ->
       if id.Ident.name = Compilenv.current_unit_name ()
