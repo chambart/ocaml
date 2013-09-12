@@ -235,8 +235,14 @@ module Run(Param:Fparam) = struct
   and import_sym sym =
     (* Format.printf "import sym %s@." (snd sym); *)
     let symbol_map = Compilenv.symbol_map () in
-    let exid = SymbolMap.find sym symbol_map in
-    import_export_id exid
+    let exid = try Some (SymbolMap.find sym symbol_map) with
+      | Not_found -> None
+        (* when missing cmx *)
+        (* TODO: verify that we are not missing present symbols *)
+    in
+    match exid with
+    | None -> external_val
+    | Some exid -> import_export_id exid
 
   let import_symbol sym =
     try SymbolTbl.find symbols sym with
@@ -245,9 +251,14 @@ module Run(Param:Fparam) = struct
       (* Format.printf "import sym %a %s@." Ident.print modul name; *)
       let _ = Compilenv.global_approx_info modul in
       let symbol_map = Compilenv.symbol_map () in
-      let exid = SymbolMap.find sym symbol_map in
-      let vid = import_export_id exid in
-      vid
+      let exid = try Some (SymbolMap.find sym symbol_map) with
+        | Not_found -> (* no cmx *) None in
+      match exid with
+      | Some exid ->
+        let vid = import_export_id exid in
+        vid
+      | None ->
+        external_val
 
   let find_global =
     let global_result = IdentTbl.create 10 in
