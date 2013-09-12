@@ -409,27 +409,28 @@ let fun_size ffun =
 type toplevel = Toplevel | Deep
 
 let should_inline constants toplevel ffunction args =
-  let should_inline_size () = fun_size ffunction < 30 in
-  let has_constant_param =
-    List.exists (function
-        | Fvar (id,_) ->
-          (* the parameter is a constant *)
-          not (IdentSet.mem id constants.Constants.not_constant_id)
-        | Fconst _ -> true
-        | _ -> fatal_error "not in ANF")
-      args
-  in
+  let should_inline_size () = fun_size ffunction < 10 in
+  let constant = function
+    | Fvar (id,_) ->
+      (* the parameter is a constant *)
+      not (IdentSet.mem id constants.Constants.not_constant_id)
+    | Fconst _ -> true
+    | _ -> fatal_error "not in ANF" in
+  let all_constants_param = List.for_all constant args in
+  let has_constant_param = List.exists constant args in
   (* Printf.printf "inline %s\n%!" (ffunction.label:>string); *)
   match toplevel with
   | Toplevel ->
     (* Printf.printf "toplevel\n"; *)
-    has_constant_param || should_inline_size ()
+    (* has_constant_param || should_inline_size () *)
+    all_constants_param ||
+    (has_constant_param && should_inline_size ())
   | Deep ->
     (* Printf.printf "deep\n"; *)
     has_constant_param && should_inline_size ()
 
 let should_inline_minimal ffun =
-  let max_size = 10 in
+  let max_size = 3 in
   let count = ref 0 in
   Flambdautils.iter_flambda (function
       | Fvar _ -> ()
