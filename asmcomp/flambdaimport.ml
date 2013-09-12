@@ -85,10 +85,13 @@ let merge e1 e2 =
     ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;
     ex_offset_fv = OffsetMap.disjoint_union e1.ex_offset_fv e2.ex_offset_fv }
 
+let prefix_offset off global_lbl =
+  { off with off_unit = global_lbl ^ "_" ^ off.off_unit }
+
 let map_ffuns unit_lbls units global_id global_lbl funs =
   let import_offset off =
     if StringSet.mem off.off_unit unit_lbls
-    then Some { off with off_unit = global_lbl }
+    then Some (prefix_offset off global_lbl)
     else None
   in
   let mapper = function
@@ -138,7 +141,7 @@ let import_pack units unit_lbls global_lbl global_id unit =
   let map_funs = map_ffuns unit_lbls units global_id global_lbl in
   let import_offset off =
     if StringSet.mem off.off_unit unit_lbls
-    then { off with off_unit = global_lbl }
+    then prefix_offset off global_lbl
     else off
   in
   let map_offset map =
