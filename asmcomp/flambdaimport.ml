@@ -78,10 +78,86 @@ let merge e1 e2 =
   (* let e = OffsetMap.disjoint_union e1.ex_offset e2.ex_offset in *)
   (* Format.printf "%a@." (OffsetMap.print (fun _ _ -> ())) e; *)
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
-    ex_globals = IdentMap.disjoint_union e1.ex_globals e2.ex_globals;
+    (* ex_globals = IdentMap.disjoint_union e1.ex_globals e2.ex_globals; *)
+    ex_globals = IdentMap.empty;
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
     ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;
     ex_offset_fv = OffsetMap.disjoint_union e1.ex_offset_fv e2.ex_offset_fv }
+
+let map_ffuns unit_lbls units global_id global_lbl funs =
+  let import_offset off =
+    if StringSet.mem off.off_unit unit_lbls
+    then Some { off with off_unit = global_lbl }
+    else None
+  in
+  let mapper = function
+    | Fsymbol ((modul,sym),d) as v ->
+      if IdentSet.mem modul units
+      then Fsymbol ((global_id,sym),d)
+      else v
+
+    | Foffset (f,off,d) as v ->
+      begin match import_offset off with
+        | None -> v
+        | Some off -> Foffset (f,off,d)
+      end
+
+    | Fapply (f,arg,off_opt,dbg,d) as v->
+      begin match Misc.may_map import_offset off_opt with
+        | None | Some None -> v
+        | Some off_opt -> Fapply (f,arg,off_opt,dbg,d)
+      end
+
+    | Fenv_field (env_field, d) as v ->
+      begin match import_offset env_field.env_fun_id,
+                  import_offset env_field.env_var with
+      | None, None -> v
+      | None, Some _ | Some _, None -> assert false
+      | Some env_fun_id, Some env_var ->
+        Fenv_field ({ env_field with env_fun_id; env_var }, d)
+      end
+
+    | v -> v in
+  let aux ffun = { ffun with body = Flambdautils.map mapper ffun.body } in
+  { funs with
+    unit = global_lbl;
+    funs = IdentMap.map aux funs.funs }
+
+let import_pack units unit_lbls global_lbl global_id unit =
+  let map_val = function
+    | Value_symbol (modul,sym) as v ->
+      if IdentSet.mem modul units
+      then Value_symbol (global_id,sym)
+      else v
+    | Value_closure ({ fun_id; closure } as clos) ->
+      Value_closure { clos with
+                      fun_id = { fun_id with off_unit = global_lbl } }
+    | v -> v
+  in
+  let map_funs = map_ffuns unit_lbls units global_id global_lbl in
+  let import_offset off =
+    if StringSet.mem off.off_unit unit_lbls
+    then { off with off_unit = global_lbl }
+    else off
+  in
+  let map_offset map =
+    OffsetMap.fold (fun off v acc ->
+        OffsetMap.add (import_offset off) v acc) map OffsetMap.empty in
+  let ex_functions = FunMap.map map_funs unit.ex_functions in
+  let ex_values = EidMap.map map_val unit.ex_values in
+  let ex_id_symbol =
+    EidMap.map (fun (_,lbl) -> global_id, lbl) unit.ex_id_symbol in
+  let unit = { unit with
+               ex_id_symbol;
+               ex_values;
+               ex_functions;
+               ex_offset_fun = map_offset unit.ex_offset_fun;
+               ex_offset_fv = map_offset unit.ex_offset_fv } in
+  unit
+
+  (* let r = merge unit pack in *)
+  (* { r with ex_globals = pack.ex_globals } *)
+
 
 let merge_symbol_map m1 m2 = SymbolMap.disjoint_union m1 m2

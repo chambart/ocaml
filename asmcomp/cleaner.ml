@@ -17,7 +17,7 @@ let one_value_function analysis value =
     let ffunctions = find_funid f.closure_funs analysis.info.functions in
     Some (f, IdentMap.find fun_id.off_id ffunctions.funs)
 
-let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
 
 module type CleanerParam = sig
   val analysis : analysis_result

@@ -33,7 +33,7 @@ let mark_closed not_constants expr =
   in
   Flambdautils.map aux expr
 
-let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
 
 let make_symbols info =
   let open Constants in
@@ -195,7 +195,7 @@ module Conv(P:Param2) = struct
 
 
   let is_current_unit id =
-    Ident.same (Compilenv.current_unit_id ()) id
+    (Compilenv.current_unit_symbol ()) = id
 
   let get_fun_offset off =
     try

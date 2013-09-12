@@ -10,7 +10,7 @@ module Subst(P:Param) = struct
   let offset_subst_table = ref OffsetMap.empty
 
   let add_offset id id' =
-    let off_unit = Compilenv.current_unit_id () in
+    let off_unit = Compilenv.current_unit_symbol () in
     let off_id' = { off_id = id'; off_unit } in
     offset_subst_table := OffsetMap.add id off_id' !offset_subst_table
 
@@ -167,7 +167,7 @@ module Subst(P:Param) = struct
       funs;
       recursives = ffuns.recursives;
       closed = false;
-      unit = Compilenv.current_unit_id () }
+      unit = Compilenv.current_unit_symbol () }
 
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l
 
