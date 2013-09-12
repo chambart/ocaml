@@ -20,13 +20,13 @@ open Cmm
 
 type error = Assembler_error of string
 
-let time f x =
+let time s f x =
   let t1 = Sys.time () in
   let r = f x in
   let t2 = Sys.time () in
   let dt = t2 -. t1 in
-  if !dump_flambda && dt >= 0.1
-  then Printf.printf "%f\n%!" dt;
+  if dt >= 0.1
+  then Printf.printf "%s: %f\n%!" s dt;
   r
 
 exception Error of error
@@ -76,7 +76,7 @@ let rec regalloc ppf round fd =
     Reg.reinit(); Liveness.fundecl ppf newfd; regalloc ppf (round + 1) newfd
   end else newfd
 
-let (++) x f = time f x
+let (++) x f = f x
 
 let text t f =
   if !dump_flambda then print_endline t;
@@ -127,44 +127,82 @@ let check flambda =
   flambda
 
 let specialise ppf flambda =
-  let val_result = Flambdainfo.analyse flambda in
-  let effectful_result = Purity.effectful Purity.Effectful flambda in
+  let val_result =
+    time "info" Flambdainfo.analyse flambda in
+  let effectful_result =
+    time "pure" (Purity.effectful Purity.Effectful) flambda in
   Cleaner.specialise val_result effectful_result flambda
 
+let time_table = Hashtbl.create 10
+
+let tic, toc =
+  let tic (type t) s (v:t) =
+    Hashtbl.add time_table s (Sys.time ());
+    text s v
+  in
+  let toc (type t) s (v:t) =
+    let tn = Sys.time () in
+    let o = Hashtbl.find time_table s in
+    let dt = tn -. o in
+    if dt > 0.1
+    then Printf.printf "%s: %f\n%!" s dt;
+    v
+  in
+  tic, toc
+
 let cleaning ppf flambda =
-  let val_result = Flambdainfo.analyse flambda in
-  let effectful_result = Purity.effectful Purity.Effectful flambda in
+  let val_result = time "info" Flambdainfo.analyse flambda in
+  let effectful_result =
+    time "pure" (Purity.effectful Purity.Effectful) flambda in
   flambda
-  ++ text "specialise"
+  ++ tic "specialise"
   ++ Cleaner.specialise val_result effectful_result
+  ++ toc "specialise"
   ++ flambda_dump_if ppf
-  ++ text "rebind"
+  ++ tic "rebind"
   ++ Cleaner.rebind val_result effectful_result
+  ++ toc "rebind"
   ++ flambda_dump_if ppf
-  ++ text "reindex"
+  ++ tic "reindex"
   ++ Flambdautils.reindex
+  ++ toc "reindex"
   ++ flambda_dump_if ppf
-  ++ text "dead code elimination"
+  ++ tic "anf"
   ++ Flambdautils.anf
+  ++ toc "anf"
+  ++ tic "dead code elimination"
   ++ Dead_code.eliminate_dead_code
+  ++ toc "dead code elimination"
   ++ flambda_dump_if ppf
-  ++ text "reindex"
+  ++ tic "reindex"
   ++ Flambdautils.reindex
+  ++ toc "reindex"
   ++ check
 
 let inlining ppf flambda =
-  let val_result = Flambdainfo.analyse flambda in
-  let not_const = Constants.not_constants ~for_clambda:false flambda in
+  let val_result = time "info" Flambdainfo.analyse flambda in
+  let not_const =
+    time "constants" (Constants.not_constants ~for_clambda:false) flambda in
   (* Cleaner.inlining Cleaner.Minimal val_result flambda *)
   let step1 =
     Cleaner.inlining (Cleaner.With_local_functions not_const) val_result flambda
     ++ Flambdautils.reindex
     ++ flambda_dump_if ppf
   in
-  let val_result = Flambdainfo.analyse step1 in
+  let val_result = time "info" Flambdainfo.analyse step1 in
   step1
-  ++ text "inlining minimal"
+  ++ tic "inlining minimal"
   ++ Cleaner.inlining Cleaner.Minimal val_result
+  ++ toc "inlining minimal"
+  ++ Flambdautils.reindex
+  ++ flambda_dump_if ppf
+
+let inlining_minimal ppf flambda =
+  let val_result = time "info" Flambdainfo.analyse flambda in
+  flambda
+  ++ tic "inlining minimal"
+  ++ Cleaner.inlining Cleaner.Minimal val_result
+  ++ toc "inlining minimal"
   ++ Flambdautils.reindex
   ++ flambda_dump_if ppf
 
@@ -175,15 +213,17 @@ let extract_constant ppf flambda =
 let prepare ppf flambda =
   Flambdautils.anf flambda
   ++ flambda_dump_if ppf
-  ++ text "extract constant"
+  ++ tic "extract constant"
   ++ extract_constant ppf
+  ++ toc "extract constant"
 
 let elim_let ppf flambda =
   let not_const = Constants.not_constants ~for_clambda:false flambda in
   let pure_result = Purity.effectful Purity.Pure flambda in
   flambda
-  ++ text "eliminate useless let"
+  ++ tic "eliminate useless let"
   ++ Cleaner.elim_let not_const pure_result
+  ++ toc "eliminate useless let"
   ++ flambda_dump_if ppf
 
 let unclose ppf flambda =
@@ -194,31 +234,40 @@ let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
     flambda
-
-    ++ text "unclose"
+    ++ tic "optimise_one"
+    ++ tic "unclose"
     ++ unclose ppf
+    ++ toc "unclose"
     ++ flambda_dump_if ppf
 
-    ++ text "prepare"
+    ++ tic "prepare"
     ++ prepare ppf
+    ++ toc "prepare"
     ++ flambda_dump_if ppf
-    ++ text "cleaning"
+    ++ tic "cleaning"
     ++ cleaning ppf
+    ++ toc "cleaning"
     ++ flambda_dump_if ppf
-    ++ text "inlining"
+    ++ tic "inlining"
     ++ inlining ppf
+    (* ++ inlining_minimal ppf *)
+    ++ toc "inlining"
     ++ flambda_dump_if ppf
-    ++ text "prepare"
+    ++ tic "prepare"
     ++ prepare ppf
+    ++ toc "prepare"
     ++ flambda_dump_if ppf
-    ++ text "cleaning"
+    ++ tic "cleaning"
     ++ cleaning ppf
+    ++ toc "cleaning"
     ++ flambda_dump_if ppf
-    ++ text "end specialise"
+    ++ tic "end specialise"
     ++ specialise ppf
+    ++ toc "end specialise"
     ++ flambda_dump_if ppf
     ++ elim_let ppf
     ++ text "end"
+    ++ toc "optimise_one"
 
   else flambda
 
@@ -250,15 +299,21 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     Emit.begin_assembly();
     Flambdagen.intro size lam
     ++ flambda_dump_if ppf
-    ++ text "optimse"
+    ++ tic "optimse"
     ++ optimise ppf
-    ++ text "clambdagen"
+    ++ toc "optimse"
+    ++ tic "clambdagen"
     ++ Clambdagen.convert
+    ++ toc "clambdagen"
     ++ set_global_approx ppf
     ++ clambda_dump_if ppf
-    ++ text "cmmgen"
+    ++ tic "cmmgen"
     ++ Cmmgen.compunit size
-    ++ List.iter (compile_phrase ppf) ++ (fun () -> ());
+    ++ toc "cmmgen"
+    ++ tic "compile_phrase"
+    ++ List.iter (compile_phrase ppf)
+    ++ toc "compile_phrase"
+    ++ (fun () -> ());
     (match toplevel with None -> () | Some f -> compile_genfuns ppf f);
 
     (* We add explicit references to external primitive symbols.  This
