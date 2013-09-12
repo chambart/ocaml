@@ -175,14 +175,6 @@ let record_global_approx_toplevel id =
   failwith "TODO: toplevel"
   (* Hashtbl.add toplevel_approx current_unit.ui_name current_unit.ui_approx *)
 
-let global_approx id =
-  if Ident.is_predef_exn id then Value_unknown
-  else try Hashtbl.find toplevel_approx (Ident.name id)
-  with Not_found ->
-    match get_global_info id with
-      | None -> Value_unknown
-      | Some ui -> ui.ui_approx
-
 let global_approx_info id =
   let modname = Ident.name id in
   try Hashtbl.find global_approx_infos_table modname with
@@ -229,9 +221,6 @@ let symbol_for_global id =
   end
 
 (* Register the approximation of the module being compiled *)
-
-let set_global_approx approx =
-  current_unit.ui_approx <- approx
 
 let set_global_approx_info approx =
   current_unit.ui_approx_info <- approx

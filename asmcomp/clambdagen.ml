@@ -29,6 +29,10 @@ let mark_closed not_constants expr =
         not (FunSet.mem functs.ident not_constants.Constants.not_constant_closure) in
       let functs = { functs with closed } in
       Fclosure(functs, fv, data)
+    | Fprim(Pgetglobalfield(id,i), l, dbg, v) ->
+      Fprim(Pfield i, [
+          Fsymbol((id,(Compilenv.symbol_for_global id)),v)
+        ], dbg, v)
     | e -> e
   in
   Flambdautils.map aux expr
@@ -328,7 +332,13 @@ module Conv(P:Param2) = struct
       Uprim(Pfield pos, [ulam], Debuginfo.none)
 
     | Fapply(funct, args, Some direct_func, dbg, _) ->
-      let closed = (OffsetMap.find direct_func closures).closed in
+      let closed = try
+          (OffsetMap.find direct_func closures).closed
+        with
+        | Not_found ->
+          fatal_error (Format.asprintf "missing closure %a"
+                         Offset.print direct_func)
+      in
       let args = if closed then args else args @ [funct] in
 
       (* If usefull things are in ufunct they are eliminated: TODO
@@ -362,11 +372,12 @@ module Conv(P:Param2) = struct
         [], dbg)
 
     | Fprim(Pgetglobalfield(id,i), l, dbg, _) ->
-      assert(l = []);
-      Uprim(Pfield i,
-            [Uprim(Pgetglobal (Ident.create_persistent
-                                 (Compilenv.symbol_for_global id)), [], dbg)],
-            dbg)
+      assert false;
+      (* assert(l = []); *)
+      (* Uprim(Pfield i, *)
+      (*       [Uprim(Pgetglobal (Ident.create_persistent *)
+      (*                            (Compilenv.symbol_for_global id)), [], dbg)], *)
+      (*       dbg) *)
 
     | Fprim(Psetglobalfield i, [arg], dbg, _) ->
       Uprim(Psetfield (i,false),

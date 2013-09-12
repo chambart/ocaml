@@ -27,6 +27,14 @@ module ExtMap(M:PrintableHashOrdered) = struct
         | Some _, Some _ ->
           let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
           fatal_error err) m1 m2
+
+  let last_union m1 m2 =
+    merge (fun id x y -> match x, y with
+        | None, None -> None
+        | None, Some v
+        | Some v, None
+        | Some _, Some v -> Some v) m1 m2
+
   let rename m v =
     try find v m with Not_found -> v
   let print f ppf s =
