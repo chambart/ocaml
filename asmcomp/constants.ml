@@ -306,7 +306,7 @@ let not_constants (type a) ~for_clambda (expr:a Flambda.flambda) =
   let module A = NotConstants(P) in
   A.res
 
-let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
 
 type tag = int
 

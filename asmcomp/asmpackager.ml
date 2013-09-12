@@ -125,13 +125,25 @@ let build_package_cmx members cmxfile =
   let ui = Compilenv.current_unit_infos() in
 
   let ui_approx_info =
-    let approx_infos = List.map (fun info ->
-        Compilenv.global_approx_info (Ident.create_persistent info.ui_name))
+    let units_id = List.map (fun info -> Ident.create_persistent info.ui_name)
         units in
-    (* List.fold_right (Flambdaimport.merge_pack (Compilenv.current_unit_id ())) *)
-    List.fold_right Flambdaimport.merge
-      approx_infos
-      ui.ui_approx_info
+    let approx_infos = List.map (fun id -> Compilenv.global_approx_info id)
+        units_id in
+    let unit_set = List.fold_right Flambda.IdentSet.add units_id
+        Flambda.IdentSet.empty in
+    let unit_lbl_set = List.fold_right
+        (fun unit set -> Flambda.StringSet.add unit.ui_symbol set) units
+        Flambda.StringSet.empty in
+    let import = Flambdaimport.import_pack unit_set unit_lbl_set
+        (Compilenv.current_unit_symbol ())
+        (Compilenv.current_unit_id ()) in
+    let all_approx = List.map import (ui.ui_approx_info::approx_infos) in
+    let r =
+      List.fold_right Flambdaimport.merge
+        all_approx
+        Flambdaexport.empty_export in
+    { r with Flambdaexport.ex_globals =
+                             ui.ui_approx_info.Flambdaexport.ex_globals }
   in
   let pkg_infos =
     { ui_name = ui.ui_name;

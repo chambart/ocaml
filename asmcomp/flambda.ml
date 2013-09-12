@@ -177,6 +177,10 @@ module IntSet = ExtSet(Int)
 module IntMap = ExtMap(Int)
 module IntTbl = ExtHashtbl(Int)
 
+(* module StringSet = ExtSet(String) *)
+module StringMap = Map.Make(String)
+(* module StringTbl = ExtHashtbl(String) *)
+
 module SymbolSet = ExtSet(Symbol)
 module SymbolMap = ExtMap(Symbol)
 module SymbolTbl = ExtHashtbl(Symbol)
@@ -218,7 +222,7 @@ module IdentTbl = ExtHashtbl(Idt)
 
 type offset = {
   off_id : Ident.t;
-  off_unit : Ident.t;
+  off_unit : string;
 }
 
 module Offset = struct
@@ -227,14 +231,14 @@ module Offset = struct
     let c = Idt.compare x.off_id y.off_id in
     if c <> 0
     then c
-    else Idt.compare x.off_unit y.off_unit
+    else String.compare x.off_unit y.off_unit
   let output oc x =
-    Printf.fprintf oc "%a.%a"
-      Idt.output x.off_unit
+    Printf.fprintf oc "%s.%a"
+      x.off_unit
       Idt.output x.off_id
   let print ppf x =
-    Format.fprintf ppf "%a.%a"
-      Idt.print x.off_unit
+    Format.fprintf ppf "%s.%a"
+      x.off_unit
       Idt.print x.off_id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
@@ -307,7 +311,7 @@ and 'a ffunction = {
 and 'a ffunctions = {
   ident  : FunId.t;
   funs   : 'a ffunction IdentMap.t;
-  unit   : Ident.t;
+  unit   : string;
   closed : bool;
   recursives : bool;
 }
@@ -340,7 +344,7 @@ let same f1 f2 =
 module StringSet = Set.Make(String)
 
 type 'a env = {
-  current_unit : Ident.t;
+  current_unit : string;
   bound_variables : IdentSet.t;
   seen_variables : IdentSet.t ref;
   seen_fun_label : StringSet.t ref;

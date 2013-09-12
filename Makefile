@@ -81,8 +81,8 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/flambda.cmo asmcomp/printflambda.cmo \
   asmcomp/values.cmo \
   asmcomp/flambdaexport.cmo \
-  asmcomp/flambdaimport.cmo \
   asmcomp/flambdautils.cmo \
+  asmcomp/flambdaimport.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/flambdagen.cmo \
   asmcomp/flambdasubst.cmo \

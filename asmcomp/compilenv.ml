@@ -97,6 +97,9 @@ let current_unit_infos () =
 let current_unit_name () =
   current_unit.ui_name
 
+let current_unit_symbol () =
+  current_unit.ui_symbol
+
 let current_unit_id () = !current_unit_id
 
 let make_symbol ?(unitname = current_unit.ui_symbol) idopt =

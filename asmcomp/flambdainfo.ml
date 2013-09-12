@@ -23,7 +23,7 @@ let global_size t =
   Flambdautils.iter_flambda aux t;
   !r + 1
 
-let offset off_id = {off_id; off_unit = Compilenv.current_unit_id ()}
+let offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
 
 let to_offset_map idmap =
   IdentMap.fold (fun id v map -> OffsetMap.add (offset id) v map)
@@ -242,27 +242,39 @@ module Run(Param:Fparam) = struct
     try SymbolTbl.find symbols sym with
     | Not_found ->
       let (modul,name) = sym in
-      (* Format.printf "import %s@." name; *)
+      (* Format.printf "import sym %a %s@." Ident.print modul name; *)
       let _ = Compilenv.global_approx_info modul in
       let symbol_map = Compilenv.symbol_map () in
       let exid = SymbolMap.find sym symbol_map in
       let vid = import_export_id exid in
       vid
 
-  let find_global id =
+  let find_global =
+    let global_result = IdentTbl.create 10 in
     let global_approx id =
-      if Ident.is_predef_exn id
-      then New unknown_value
-      else
-        let info = Compilenv.global_approx_info id in
-        (* Printf.printf "import %s\n%!" (Ident.name id); *)
-        let approx = IdentMap.find id info.Flambdaexport.ex_globals in
-        Old (import_value approx)
+      try IdentTbl.find global_result id with
+      | Not_found ->
+        if Ident.is_predef_exn id
+        then New unknown_value
+        else
+          let info = Compilenv.global_approx_info id in
+          Printf.printf "import %s\n%!" (Ident.name id);
+          let approx =
+            try Some (IdentMap.find id info.Flambdaexport.ex_globals) with
+            | Not_found -> None in
+          let res = match approx with
+            | None ->
+              (* cmx not present *)
+              New unknown_value
+            | Some approx -> Old (import_value approx) in
+          IdentTbl.add global_result id res;
+          res
     in
 
-    if id.Ident.name = Compilenv.current_unit_name ()
-    then Old (ValSet.singleton global_val)
-    else global_approx id
+    fun id ->
+      if id.Ident.name = Compilenv.current_unit_name ()
+      then Old (ValSet.singleton global_val)
+      else global_approx id
 
   let rec aux ?set_id exp =
     let eid = data exp in
@@ -370,7 +382,9 @@ module Run(Param:Fparam) = struct
       assert(arg = []);
       if id.Ident.name = Compilenv.current_unit_name ()
       then NewOld(Values.field n (value global_val))
-      else New unknown_value
+      else
+        (* TODO ! *)
+        New unknown_value
 
     | Fprim(Pfield n, args, _, _) ->
       (match args with

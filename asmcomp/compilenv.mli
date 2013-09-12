@@ -23,6 +23,8 @@ val current_unit_infos: unit -> unit_infos
 
 val current_unit_name: unit -> string
         (* Return the name of the unit being compiled *)
+val current_unit_symbol: unit -> string
+        (* Return the symbol of the unit being compiled *)
 val current_unit_id: unit -> Ident.t
         (* Return the id of the unit being compiled *)
 

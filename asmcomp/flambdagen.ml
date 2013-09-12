@@ -55,7 +55,7 @@ let add_subst sb ~replace ~by =
 let nid = ExprId.create
 
 let foffset (lam, off_id, v) =
-  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_id () }, v)
+  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_symbol () }, v)
 
 let rec close sb = function
     Lvar id ->
@@ -103,6 +103,11 @@ let rec close sb = function
     assert(id.Ident.name = Compilenv.current_unit_name ());
     Fprim(Psetglobalfield i, [close sb lam], Debuginfo.none,
           nid ~name:"setglobalfield" ())
+  | Lprim(Pgetglobal id, [])
+    when not (Ident.is_predef_exn id) &&
+         id.Ident.name <> Compilenv.current_unit_name () ->
+    let symbol = id, Compilenv.symbol_for_global id in
+    Fsymbol (symbol,nid ~name:"external_global" ())
   | Lprim(p, args) ->
     Fprim(p, close_list sb args, Debuginfo.none,
         nid ~name:"prim" ())
@@ -182,7 +187,7 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
   let ident = FunId.create () in
   Fclosure ({ ident; funs = functions; recursives = !recursives;
               closed = false;
-              unit = Compilenv.current_unit_id ()},
+              unit = Compilenv.current_unit_symbol ()},
     clos_var, nid ())
 
 and close_list sb l = List.map (close sb) l
