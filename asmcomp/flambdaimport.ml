@@ -129,7 +129,7 @@ let map_ffuns unit_lbls units global_id global_lbl funs =
 
     | v -> v in
   let aux ffun = { ffun with body = Flambdautils.map mapper ffun.body } in
-  print_endline funs.unit;
+  (* print_endline funs.unit; *)
   { funs with
     unit = funs.unit; (* global_lbl; *)
     funs = IdentMap.map aux funs.funs }
