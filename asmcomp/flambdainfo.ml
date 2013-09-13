@@ -88,7 +88,8 @@ module Run(Param:Fparam) = struct
   let bindings : ValSet.t IdentTbl.t = IdentTbl.create 1000
   let symbols : ValId.t SymbolTbl.t = SymbolTbl.create 10
   let back_symbols : Symbol.t ValTbl.t = ValTbl.create 10
-  let imported : ValId.t Flambdaexport.EidTbl.t = Flambdaexport.EidTbl.create 10
+  let imported : ValId.t Flambdaexport.EidTbl.t = Flambdaexport.EidTbl.create 100
+  let pre_imported : Flambdaexport.ExportId.t ValTbl.t = ValTbl.create 100
 
   let val_tbl : values ValTbl.t = ValTbl.create 1000
 
@@ -107,9 +108,122 @@ module Run(Param:Fparam) = struct
 
   let closures = Queue.create ()
 
+  let exid_desc exid =
+    let open Flambdaexport in
+    try EidMap.find exid (Compilenv.approx_env ()).ex_values
+    with Not_found ->
+      fatal_error (Format.asprintf "no description for export id: %a@."
+                     ExportId.print exid)
+
+  let rec import_exid exid =
+    let open Flambdaexport in
+    (* Format.printf "import exid %a@." ExportId.print exid; *)
+    try EidTbl.find imported exid with
+    | Not_found ->
+      match exid_desc exid with
+      | Value_symbol sym ->
+        import_symbol sym
+      | desc ->
+        let vid = ValId.create ~name:"ext" () in
+        EidTbl.add imported exid vid;
+        ValTbl.add pre_imported vid exid;
+
+        (try (* if there are symbols add a link to the vid to allow rebinding *)
+           let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
+           (* Format.printf "bind symbol %a => ( %a -> %a )@." *)
+           (*   Symbol.print sym *)
+           (*   ValId.print vid *)
+           (*   Flambdaexport.ExportId.print exid; *)
+           SymbolTbl.add symbols sym vid;
+           ValTbl.add back_symbols vid sym
+         with Not_found -> ());
+
+        vid
+
+  and import_symbol sym =
+    try SymbolTbl.find symbols sym with
+    | Not_found ->
+      let (modul,name) = sym in
+      (* Format.printf "import sym %a@." Symbol.print sym; *)
+      let _ = Compilenv.global_approx_info modul in
+      let symbol_map = Compilenv.symbol_map () in
+      let exid = try Some (SymbolMap.find sym symbol_map) with
+        | Not_found -> (* no cmx *) None in
+      match exid with
+      | Some exid ->
+        let vid = import_exid exid in
+        (* Format.printf "sym %a => ( %a -> %a )@." *)
+        (*   Symbol.print sym *)
+        (*   ValId.print vid *)
+        (*   Flambdaexport.ExportId.print exid; *)
+        SymbolTbl.add symbols sym vid;
+        ValTbl.add back_symbols vid sym;
+        vid
+      | None ->
+        external_val
+
+  let try_simple_force_exid exid vid =
+    let open Flambdaexport in
+    (* Format.printf "try simple force exid %a@." ExportId.print exid; *)
+    let desc = exid_desc exid in
+    let value = match desc with
+      | Value_predef_exn _ -> Some Values.unknown_value
+      | Value_int i -> Some (Values.value_int i)
+      | Value_constptr i -> Some (Values.value_constptr i)
+      | Value_block _
+      | Value_closure _
+      | Value_symbol _ -> None
+    in
+    match value with
+    | Some value -> ValTbl.replace val_tbl vid value
+    | None -> ()
+
+  let import_value v =
+    let open Flambdaexport in
+    let vid = match v with
+      | Value_unknown ->
+        let vid = ValId.create ~name:"unknown" () in
+        ValTbl.replace val_tbl vid unknown_value;
+        (* Format.printf "import %a -> unknown@." ValId.print vid; *)
+        vid
+      | Value_id exid ->
+        let vid = import_exid exid in
+        try_simple_force_exid exid vid;
+        (* Format.printf "import %a -> %a@." ValId.print vid ExportId.print exid; *)
+        vid
+    in
+    ValSet.singleton vid
+
+  let force_exid exid vid =
+    let open Flambdaexport in
+    (* Format.printf "force exid %a@." ExportId.print exid; *)
+    let desc = exid_desc exid in
+    let value = match desc with
+      | Value_predef_exn _ -> Values.unknown_value
+      | Value_int i -> Values.value_int i
+      | Value_constptr i -> Values.value_constptr i
+      | Value_block (tag, fields) ->
+        (* Format.printf "force block@."; *)
+        let fields = Array.map import_value fields in
+        Values.value_block tag fields
+      | Value_closure { fun_id; closure } ->
+        (* Format.printf "force closure@."; *)
+        let bound_var = OffsetMap.map import_value closure.bound_var in
+        let clos = value_unoffseted_closure closure.closure_id bound_var in
+        set_closure_funid clos fun_id
+      | Value_symbol sym -> assert false
+    in
+    ValTbl.replace val_tbl vid value;
+    value
+
   let value v =
     try ValTbl.find val_tbl v with
-    | Not_found -> empty_value
+    | Not_found ->
+      (* Format.printf "get vid %a@." ValId.print v; *)
+      match try Some (ValTbl.find pre_imported v)
+        with Not_found -> None with
+      | None -> empty_value
+      | Some exid -> force_exid exid v
 
   let set_global v =
     ValTbl.replace val_tbl global_val v
@@ -184,81 +298,20 @@ module Run(Param:Fparam) = struct
         List.map2 ValSet.union l values_list in
     IntTbl.replace staticfails i l
 
-  let rec import_export_id exid =
-    let open Flambdaexport in
-    let desc exid =
-      try EidMap.find exid (Compilenv.approx_env ()).ex_values
-      with Not_found -> Format.printf "%a@." ExportId.print exid;
-        raise Not_found in
-    try EidTbl.find imported exid with
-    | Not_found ->
-      (* Format.printf "import %a@." ExportId.print exid; *)
-      match desc exid with
-      | Value_symbol sym ->
-        let _ = Compilenv.global_approx_info (fst sym) in
-        (* Format.printf "val sym %s@." (snd sym); *)
-        import_sym sym
-      | _ ->
-        let vid = ValId.create ~name:"imported" () in
-        EidTbl.add imported exid vid;
-        begin
-          try
-            let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
-            SymbolTbl.add symbols sym vid;
-            ValTbl.add back_symbols vid sym
-          with Not_found -> ()
-        end;
-        let value = match desc exid with
-          | Value_predef_exn _ -> Values.unknown_value
-          | Value_int i -> Values.value_int i
-          | Value_constptr i -> Values.value_constptr i
-          | Value_block (tag, fields) ->
-            let fields = Array.map import_value fields in
-            Values.value_block tag fields
-          | Value_closure { fun_id; closure } ->
-            let bound_var = OffsetMap.map import_value closure.bound_var in
-            let clos = value_unoffseted_closure closure.closure_id bound_var in
-            set_closure_funid clos fun_id
-          | Value_symbol sym -> assert false
-        in
-        ValTbl.replace val_tbl vid value;
-        vid
-  and import_value v =
-    let open Flambdaexport in
-    match v with
-    | Value_unknown ->
-      let vid = ValId.create ~name:"unknown" () in
-      ValTbl.replace val_tbl vid unknown_value;
-      ValSet.singleton vid
-    | Value_id exid ->
-      ValSet.singleton (import_export_id exid)
-  and import_sym sym =
-    (* Format.printf "import sym %s@." (snd sym); *)
-    let symbol_map = Compilenv.symbol_map () in
-    let exid = try Some (SymbolMap.find sym symbol_map) with
-      | Not_found -> None
-        (* when missing cmx *)
-        (* TODO: verify that we are not missing present symbols *)
+  let time f =
+    let r = ref 0. in
+    let run x =
+      let t1 = Sys.time () in
+      let res = f x in
+      let t2 = Sys.time () in
+      let dt = t2 -. t1 in
+      r := !r +. dt;
+      res
     in
-    match exid with
-    | None -> external_val
-    | Some exid -> import_export_id exid
+    let get () = !r in
+    run, get
 
-  let import_symbol sym =
-    try SymbolTbl.find symbols sym with
-    | Not_found ->
-      let (modul,name) = sym in
-      (* Format.printf "import sym %a %s@." Ident.print modul name; *)
-      let _ = Compilenv.global_approx_info modul in
-      let symbol_map = Compilenv.symbol_map () in
-      let exid = try Some (SymbolMap.find sym symbol_map) with
-        | Not_found -> (* no cmx *) None in
-      match exid with
-      | Some exid ->
-        let vid = import_export_id exid in
-        vid
-      | None ->
-        external_val
+  let import_symbol, import_symbol_time = time import_symbol
 
   let find_global =
     let global_result = IdentTbl.create 10 in
@@ -484,6 +537,8 @@ module Run(Param:Fparam) = struct
 
     | Fapply ( func, args, _, dbg, eid) ->
       aux func;
+      let _ = val_union func in
+      (* HACK: force import of the function *)
       List.iter aux args;
       New unknown_value
 
@@ -616,6 +671,10 @@ module Run(Param:Fparam) = struct
     aux Param.tree;
     loop_closures ();
     result ()
+
+  let () =
+    let t = import_symbol_time () in
+    if t >= 0.1 then Printf.printf "import_symbol_time: %f\n%!" t
 
 end
 

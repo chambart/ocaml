@@ -396,20 +396,33 @@ module Rebinder(Param:CleanerParam) = struct
 end
 
 (* BAAAAAAD ! *)
-let fun_size ffun =
+let fun_smaller closure_allowed n ffun =
   (* check also that some parameters are constants *)
   let count = ref 0 in
-  Flambdautils.iter_all (function
-      | Fvar _ -> ()
-      | Fsequence (e1,e2,_) -> ()
-      | Flet (_,_,e1,e2,_) -> ()
-      | _ -> incr count) ffun.body;
-  !count
+  let incr_check () =
+      incr count;
+      if !count > n then raise Exit
+  in
+  let f = function
+    | Fvar _ -> ()
+    | Fsequence (e1,e2,_) -> ()
+    | Flet (_,_,e1,e2,_) -> ()
+    | Fclosure _ ->
+      if closure_allowed
+      then incr_check ()
+      else raise Exit
+    | _ -> incr_check ()
+  in
+  try
+    Flambdautils.iter_all f ffun.body;
+    true
+  with Exit -> false
 
 type toplevel = Toplevel | Deep
 
 let should_inline constants toplevel ffunction args =
-  let should_inline_size () = fun_size ffunction < 10 in
+  let max_size = 10 in
+  let should_inline_size () = fun_smaller true max_size ffunction in
   let constant = function
     | Fvar (id,_) ->
       (* the parameter is a constant *)
@@ -418,27 +431,25 @@ let should_inline constants toplevel ffunction args =
     | _ -> fatal_error "not in ANF" in
   let all_constants_param = List.for_all constant args in
   let has_constant_param = List.exists constant args in
-  (* Printf.printf "inline %s\n%!" (ffunction.label:>string); *)
+  Printf.printf "inline %s\n%!" (ffunction.label:>string);
   match toplevel with
   | Toplevel ->
-    (* Printf.printf "toplevel\n"; *)
+    let should_size = should_inline_size () in
+    Printf.printf "toplevel all_const: %b, size: %b\n%!"
+      all_constants_param should_size;
+
     (* has_constant_param || should_inline_size () *)
+
     all_constants_param ||
-    (has_constant_param && should_inline_size ())
+    (has_constant_param && should_size)
   | Deep ->
-    (* Printf.printf "deep\n"; *)
-    has_constant_param && should_inline_size ()
+    let r = has_constant_param && should_inline_size () in
+    Printf.printf "deep %b\n" r;
+    r
 
 let should_inline_minimal ffun =
   let max_size = 3 in
-  let count = ref 0 in
-  Flambdautils.iter_flambda (function
-      | Fvar _ -> ()
-      | Fsequence (e1,e2,_) -> ()
-      | Flet (_,_,e1,e2,_) -> ()
-      | Fclosure _ -> count := !count + max_size
-      | _ -> incr count) ffun.body;
-  !count < max_size
+  fun_smaller false max_size ffun
 
 let inline_simple func fun_id ffun args =
   (* Printf.printf "inline %s\n%!" (ffun.label:>string); *)

@@ -150,6 +150,15 @@ let tic, toc =
   in
   tic, toc
 
+let show_size s f =
+  let code_size expr =
+    let count = ref 0 in
+    Flambdautils.iter_all (fun _ -> incr count) expr;
+    !count
+  in
+  Printf.printf "%s: %i\n%!" s (code_size f);
+  f
+
 let cleaning ppf flambda =
   let val_result = time "info" Flambdainfo.analyse flambda in
   let effectful_result =
@@ -234,40 +243,45 @@ let optimise_one ppf flambda =
   if not !Clflags.enable_optim (* true *)
   then
     flambda
+    ++ show_size "start"
     ++ tic "optimise_one"
-    ++ tic "unclose"
-    ++ unclose ppf
-    ++ toc "unclose"
-    ++ flambda_dump_if ppf
+    (* ++ tic "unclose" *)
+    (* ++ unclose ppf *)
+    (* ++ toc "unclose" *)
+    (* ++ flambda_dump_if ppf *)
 
     ++ tic "prepare"
     ++ prepare ppf
     ++ toc "prepare"
     ++ flambda_dump_if ppf
-    ++ tic "cleaning"
-    ++ cleaning ppf
-    ++ toc "cleaning"
-    ++ flambda_dump_if ppf
+    ++ show_size "prepared"
+
     ++ tic "inlining"
     ++ inlining ppf
     (* ++ inlining_minimal ppf *)
     ++ toc "inlining"
     ++ flambda_dump_if ppf
+    ++ show_size "inlined"
+
     ++ tic "prepare"
     ++ prepare ppf
     ++ toc "prepare"
     ++ flambda_dump_if ppf
+
     ++ tic "cleaning"
     ++ cleaning ppf
     ++ toc "cleaning"
     ++ flambda_dump_if ppf
+
     ++ tic "end specialise"
     ++ specialise ppf
     ++ toc "end specialise"
     ++ flambda_dump_if ppf
+
     ++ elim_let ppf
     ++ text "end"
     ++ toc "optimise_one"
+    ++ show_size "end"
 
   else flambda
 
