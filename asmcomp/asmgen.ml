@@ -215,6 +215,14 @@ let inlining_minimal ppf flambda =
   ++ Flambdautils.reindex
   ++ flambda_dump_if ppf
 
+let inlining_normal ppf flambda =
+  let val_result = time "info" Flambdainfo.analyse flambda in
+  let not_const =
+    time "constants" (Constants.not_constants ~for_clambda:false) flambda in
+  Cleaner.inlining (Cleaner.With_local_functions not_const) val_result flambda
+  ++ Flambdautils.reindex
+  ++ flambda_dump_if ppf
+
 let extract_constant ppf flambda =
   (* assumes ANF *)
   Cleaner.extract_constants (Constants.alias flambda) flambda
@@ -256,12 +264,30 @@ let optimise_one ppf flambda =
     ++ flambda_dump_if ppf
     ++ show_size "prepared"
 
-    ++ tic "inlining"
-    ++ inlining ppf
+    (* ++ tic "cleaning" *)
+    (* ++ cleaning ppf *)
+    (* ++ toc "cleaning" *)
+    (* ++ flambda_dump_if ppf *)
+
+    ++ tic "inlining1"
+    ++ inlining_normal ppf
+    (* ++ inlining ppf *)
     (* ++ inlining_minimal ppf *)
-    ++ toc "inlining"
+    ++ toc "inlining1"
     ++ flambda_dump_if ppf
-    ++ show_size "inlined"
+    ++ show_size "inlined1"
+
+    ++ tic "prepare"
+    ++ prepare ppf
+    ++ toc "prepare"
+    ++ flambda_dump_if ppf
+    ++ show_size "prepared"
+
+    ++ tic "inlining2"
+    ++ inlining_normal ppf
+    ++ toc "inlining2"
+    ++ flambda_dump_if ppf
+    ++ show_size "inlined2"
 
     ++ tic "prepare"
     ++ prepare ppf
