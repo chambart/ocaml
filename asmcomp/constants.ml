@@ -167,7 +167,8 @@ module NotConstants(P:Param) = struct
     | Foffset (f1, _,_) ->
       mark_loop curr f1
 
-    | Fenv_field ({env = f1},_) ->
+    | Fenv_field ({env = f1},_)
+    | Fprim(Pfield _, [f1], _, _) ->
       if for_clambda
       then mark_curr curr;
       mark_loop curr f1
