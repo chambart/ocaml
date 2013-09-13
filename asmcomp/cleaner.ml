@@ -420,8 +420,12 @@ let fun_smaller closure_allowed n ffun =
 
 type toplevel = Toplevel | Deep
 
-let should_inline constants toplevel ffunction args =
+let should_inline_minimal ffun =
   let max_size = 10 in
+  fun_smaller false max_size ffun
+
+let should_inline constants toplevel ffunction args =
+  let max_size = 30 in
   let should_inline_size () = fun_smaller true max_size ffunction in
   let constant = function
     | Fvar (id,_) ->
@@ -431,25 +435,28 @@ let should_inline constants toplevel ffunction args =
     | _ -> fatal_error "not in ANF" in
   let all_constants_param = List.for_all constant args in
   let has_constant_param = List.exists constant args in
-  Printf.printf "inline %s\n%!" (ffunction.label:>string);
+  (* Printf.printf "inline %s\n%!" (ffunction.label:>string); *)
   match toplevel with
   | Toplevel ->
     let should_size = should_inline_size () in
-    Printf.printf "toplevel all_const: %b, size: %b\n%!"
-      all_constants_param should_size;
+    let should =
+      should_inline_minimal ffunction ||
+      (all_constants_param ||
+       (has_constant_param && should_size)) in
 
-    (* has_constant_param || should_inline_size () *)
+    (* Printf.printf "toplevel should: %b, all_const: %b, size: %b\n%!" *)
+    (*   should all_constants_param should_size; *)
 
-    all_constants_param ||
-    (has_constant_param && should_size)
+    should
+
   | Deep ->
-    let r = has_constant_param && should_inline_size () in
-    Printf.printf "deep %b\n" r;
-    r
+    let should =
+      should_inline_minimal ffunction ||
+      (has_constant_param && should_inline_size ()) in
 
-let should_inline_minimal ffun =
-  let max_size = 3 in
-  fun_smaller false max_size ffun
+    (* Printf.printf "deep %b\n" should; *)
+
+    should
 
 let inline_simple func fun_id ffun args =
   (* Printf.printf "inline %s\n%!" (ffun.label:>string); *)
