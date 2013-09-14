@@ -662,6 +662,14 @@ let convert (type a) (expr:a Flambda.flambda) =
     O.res
   in
   let assigned_symbols, ex_id_symbol = make_symbols export_info in
+  let current_unit_id = Compilenv.current_unit_id () in
+  let ex_id_symbol = Flambdaexport.EidMap.map (fun v -> current_unit_id,v)
+      ex_id_symbol in
+  (* the only symbol that is not a constant is the global one. When
+     this change, take care to change that ! *)
+  let ex_constants =
+    Flambdaexport.EidMap.fold (fun _ s set -> SymbolSet.add s set)
+      ex_id_symbol SymbolSet.empty in
   let ex_offset_fun, ex_offset_fv = exported_offsets export_info
       ~fv_offset_table ~fun_offset_table in
   let module P2 = struct include P1
@@ -673,15 +681,13 @@ let convert (type a) (expr:a Flambda.flambda) =
     let closures = closures
   end in
   let module C = Conv(P2) in
-  let current_unit_id = Compilenv.current_unit_id () in
   let module_symbol = current_unit_id,
                       Compilenv.symbol_for_global current_unit_id in
   let open Flambdaexport in
   let ex_id_symbol =
-    let tmp = EidMap.map (fun v -> current_unit_id,v) ex_id_symbol in
     match export_info.Constants.export_global with
     | Value_unknown -> assert false
-    | Value_id eid -> EidMap.add eid module_symbol tmp
+    | Value_id eid -> EidMap.add eid module_symbol ex_id_symbol
   in
   let exported =
     { ex_functions;
@@ -689,5 +695,6 @@ let convert (type a) (expr:a Flambda.flambda) =
       ex_globals =
         IdentMap.singleton current_unit_id
           export_info.Constants.export_global;
-      ex_id_symbol; ex_offset_fun; ex_offset_fv } in
+      ex_id_symbol; ex_offset_fun; ex_offset_fv;
+      ex_constants } in
   C.res, exported

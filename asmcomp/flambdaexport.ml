@@ -26,6 +26,8 @@ and value_closure =
 and approx =
   | Value_unknown
   | Value_id of ExportId.t
+  (* TODO: Value_symbol should be here, but this is too much changes
+     to do that now... *)
 
 type exported = {
   ex_functions : unit ffunctions FunMap.t;
@@ -34,6 +36,7 @@ type exported = {
   ex_id_symbol : symbol EidMap.t;
   ex_offset_fun : int OffsetMap.t;
   ex_offset_fv : int OffsetMap.t;
+  ex_constants : SymbolSet.t;
 }
 
 let empty_export = {
@@ -43,6 +46,7 @@ let empty_export = {
   ex_id_symbol = EidMap.empty;
   ex_offset_fun = OffsetMap.empty;
   ex_offset_fv = OffsetMap.empty;
+  ex_constants = SymbolSet.empty;
 }
 
 let print_approx ppf export =

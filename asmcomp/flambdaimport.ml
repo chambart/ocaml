@@ -62,7 +62,8 @@ let import exported =
     ex_functions = ex_functions;
     ex_id_symbol = EidMap.of_list ex_id_symbol;
     ex_offset_fun = exported.ex_offset_fun;
-    ex_offset_fv = exported.ex_offset_fv; }
+    ex_offset_fv = exported.ex_offset_fv;
+    ex_constants = exported.ex_constants }
 
 let reverse_symbol_map exported =
   EidMap.fold (fun id sym map -> SymbolMap.add sym id map)
@@ -83,7 +84,8 @@ let merge e1 e2 =
     ex_functions = FunMap.last_union e1.ex_functions e2.ex_functions;
     ex_id_symbol = EidMap.last_union e1.ex_id_symbol e2.ex_id_symbol;
     ex_offset_fun = OffsetMap.last_union e1.ex_offset_fun e2.ex_offset_fun;
-    ex_offset_fv = OffsetMap.last_union e1.ex_offset_fv e2.ex_offset_fv }
+    ex_offset_fv = OffsetMap.last_union e1.ex_offset_fv e2.ex_offset_fv;
+    ex_constants = SymbolSet.union e1.ex_constants e2.ex_constants }
 
 (* TODO FIX: shouldn't use last_union: should use disjoint_union
    and have no clash! *)
@@ -159,12 +161,15 @@ let import_pack units unit_lbls global_lbl global_id unit =
   let ex_values = EidMap.map map_val unit.ex_values in
   let ex_id_symbol =
     EidMap.map (fun (_,lbl) -> global_id, lbl) unit.ex_id_symbol in
+  let ex_constants =
+    SymbolSet.map (fun (_,lbl) -> global_id, lbl) unit.ex_constants in
   let unit = { unit with
                ex_id_symbol;
                ex_values;
                ex_functions;
                (* ex_offset_fun = map_offset unit.ex_offset_fun; *)
                (* ex_offset_fv = map_offset unit.ex_offset_fv *)
+               ex_constants;
              } in
   unit
 

@@ -151,7 +151,15 @@ module NotConstants(P:Param) = struct
         List.iter (fun id -> mark_curr [Var id]) ffunc.params;
         mark_loop [] ffunc.body) funcs.funs
 
-    | Fsymbol _ | Fconst _ -> ()
+    | Fconst _ -> ()
+
+    (* a symbol does not necessarilly points to a constant: toplevel
+       modules are declared as symbols, but can constain not constant
+       values *)
+    | Fsymbol(sym,_) ->
+      if not (SymbolSet.mem sym
+                (Compilenv.approx_env ()).Flambdaexport.ex_constants)
+      then mark_curr curr
 
     (* globals are symbols:constants *)
     | Fprim(Pgetglobal id, [], _, _) -> ()
