@@ -107,7 +107,7 @@ module Cleaner(Param:CleanerParam) = struct
         | True -> fsequence(arg,ifso,eid)
         | False -> fsequence(arg,ifnot,eid)
         | Neither ->
-          Printf.printf "\n\n\n\nneither\n\n\n\n%!";
+          (* Printf.printf "\n\n\n\nneither\n\n\n\n%!"; *)
           (* happens when arg never returns *)
           Funreachable eid
       end
@@ -142,7 +142,7 @@ module Cleaner(Param:CleanerParam) = struct
         | Some failaction, [], [] ->
           fsequence(arg, failaction, eid)
         | None, [], [] ->
-          Printf.printf "neither switch\n%!";
+          (* Printf.printf "neither switch\n%!"; *)
           Funreachable eid
         | None, [_, branch], []
         | None, [], [_, branch] ->
@@ -444,7 +444,8 @@ let should_inline constants toplevel ffunction args =
       (all_constants_param ||
        (has_constant_param && should_size)) in
 
-    (* Printf.printf "toplevel should: %b, all_const: %b, size: %b\n%!" *)
+    (* Format.printf "inline %s: toplevel %b, all_const: %b, size: %b@." *)
+    (*   (ffunction.label:>string) *)
     (*   should all_constants_param should_size; *)
 
     should
@@ -454,7 +455,9 @@ let should_inline constants toplevel ffunction args =
       should_inline_minimal ffunction ||
       (has_constant_param && should_inline_size ()) in
 
-    (* Printf.printf "deep %b\n" should; *)
+    (* Format.printf "inline %s: deep %b@." *)
+    (*   (ffunction.label:>string) *)
+    (*   should; *)
 
     should
 
@@ -765,6 +768,11 @@ let extract_constants (alias:Constants.alias_result) tree =
     try Some (IdentMap.find id alias.Constants.constant_alias)
     with Not_found -> None in
 
+  let has_symbol id = IdentMap.mem id alias.Constants.constant_symbol in
+  let get_symbol id =
+    try Some (IdentMap.find id alias.Constants.constant_symbol) with
+    | Not_found -> None in
+
   let global_var, global_index = Flambdautils.global_index tree in
 
   (* let global_id id = *)
@@ -813,28 +821,37 @@ let extract_constants (alias:Constants.alias_result) tree =
     | _ -> iter tree
 
   and bind iter (id,lam) =
-    if IdentSet.mem id constants.Constants.not_constant_id
-    then
+    if IdentSet.mem id constants.Constants.not_constant_id &&
+       not (has_symbol id)
+    then begin
+      (* Format.printf "not constant %a@." Ident.print id; *)
       let lam = mapper iter lam in
       Some (id, lam)
+    end
     else begin
-      match get_alias id with
-      | Some alias ->
-        IdentTbl.add renaming id alias;
-        (* Some (id, Fvar(alias, Flambda.data lam)) *)
-        Some(id,lam)
+      (* Format.printf "constant %a@." Ident.print id; *)
+      match get_symbol id with
+      | Some sym ->
+        add_binding id (Fsymbol(sym,data lam));
+        None
       | None ->
-        match lam with
-        | Fvar(_, _) ->
-          Printf.printf "alias var %s\n%!" (Ident.unique_name id);
-          assert false
-        | Fclosure( ffunctions, fv, eid ) ->
-          ignore(fclosure iter (Some id) ffunctions fv eid);
-          None
-        | _ ->
-          let lam = mapper iter lam in
-          add_binding id lam;
-          None
+        match get_alias id with
+        | Some alias ->
+          IdentTbl.add renaming id alias;
+          (* Some (id, Fvar(alias, Flambda.data lam)) *)
+          Some(id,lam)
+        | None ->
+          match lam with
+          | Fvar(_, _) ->
+            Printf.printf "alias var %s\n%!" (Ident.unique_name id);
+            assert false
+          | Fclosure( ffunctions, fv, eid ) ->
+            ignore(fclosure iter (Some id) ffunctions fv eid);
+            None
+          | _ ->
+            let lam = mapper iter lam in
+            add_binding id lam;
+            None
     end
 
   and fclosure iter name ffunctions fv eid =
