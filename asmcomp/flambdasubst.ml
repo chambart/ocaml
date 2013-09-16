@@ -8,11 +8,17 @@ end
 
 module Subst(P:Param) = struct
   let offset_subst_table = ref OffsetMap.empty
+  let fun_offset_subst_table = ref OffsetMap.empty
 
   let add_offset id id' =
     let off_unit = Compilenv.current_unit_symbol () in
     let off_id' = { off_id = id'; off_unit } in
     offset_subst_table := OffsetMap.add id off_id' !offset_subst_table
+
+  let add_fun_offset id id' =
+    let off_unit = Compilenv.current_unit_symbol () in
+    let off_id' = { off_id = id'; off_unit } in
+    fun_offset_subst_table := OffsetMap.add id off_id' !fun_offset_subst_table
 
   let rec aux exn_sb sb orig = match orig with
     | Fvar (id,annot) ->
@@ -26,7 +32,7 @@ module Subst(P:Param) = struct
         | None -> None
         | Some offset ->
           try
-            let offset = OffsetMap.find offset !offset_subst_table in
+            let offset = OffsetMap.find offset !fun_offset_subst_table in
             Some offset
           with
           | Not_found -> direct
@@ -39,7 +45,7 @@ module Subst(P:Param) = struct
     | Foffset (flam, off, annot) ->
       let flam = aux exn_sb sb flam in
       let off =
-        try OffsetMap.find off !offset_subst_table with
+        try OffsetMap.find off !fun_offset_subst_table with
         | Not_found -> off in
       Foffset (flam, off, annot)
 
@@ -52,7 +58,7 @@ module Subst(P:Param) = struct
           off in
       let env_fun_id =
         try
-          let e = OffsetMap.find env_fun_id !offset_subst_table in
+          let e = OffsetMap.find env_fun_id !fun_offset_subst_table in
           (* Printf.printf "rename %s -> %s\n%!" *)
           (*   (Ident.unique_name env_fun_id) *)
           (*   (Ident.unique_name e); *)
@@ -140,7 +146,7 @@ module Subst(P:Param) = struct
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
         (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        add_offset { off_id = id; off_unit = ffuns.unit } id';
+        add_fun_offset { off_id = id; off_unit = ffuns.unit } id';
         IdentMap.add id id' map)
         ffuns.funs sb_fv in
     let aux_ffunction fun_id ffun =
@@ -172,12 +178,10 @@ module Subst(P:Param) = struct
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l
 
   let expr lam =
-    let res = aux IntMap.empty P.sb lam in
-    res, !offset_subst_table
+    aux IntMap.empty P.sb lam
 
   let closures clos =
-    let res = List.map (aux_closure P.sb) clos in
-    res, !offset_subst_table
+    List.map (aux_closure P.sb) clos
 
 end
 
