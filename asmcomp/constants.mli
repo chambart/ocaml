@@ -9,7 +9,8 @@ val not_constants : for_clambda:bool -> 'a Flambda.flambda -> constant_result
 
 type alias_result =
   { constant_result : constant_result;
-    constant_alias : Ident.t Flambda.IdentMap.t }
+    constant_alias : Ident.t Flambda.IdentMap.t;
+    constant_symbol : Flambda.Symbol.t Flambda.IdentMap.t }
 
 val alias : 'a Flambda.flambda -> alias_result
 (** [alias expr] *)

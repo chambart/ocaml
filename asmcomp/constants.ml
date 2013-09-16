@@ -323,7 +323,7 @@ type abstract_values =
   | Vsymbol of symbol
   | Vvar of Ident.t
   | Vblock of tag * abstract_values array
-  | Vclosure of FunId.t * (offset option) * (abstract_values IdentMap.t)
+  | Vclosure of FunId.t * (offset option) * (abstract_values OffsetMap.t)
   | Vfield of int * abstract_values
   | Vglobal of int
   | Voffset of abstract_offset
@@ -401,8 +401,11 @@ module ConstantAlias(P:AliasParam) = struct
       Vvar id
 
     | Fclosure (funcs,fv,_) ->
-      let closure = IdentMap.mapi (fun inner_id lam -> mark_alias_result lam) fv in
-      IdentMap.iter add_abstr closure;
+      let closure = IdentMap.fold (fun off_id lam map ->
+          let off = { off_id; off_unit = funcs.unit } in
+          OffsetMap.add off (mark_alias_result lam) map) fv
+          OffsetMap.empty in
+      OffsetMap.iter (fun { off_id } abs -> add_abstr off_id abs) closure;
       let result = Vclosure (funcs.ident, None, closure) in
       IdentMap.iter (fun fun_id ffunc ->
           add_abstr fun_id
@@ -523,6 +526,54 @@ module ConstantAlias(P:AliasParam) = struct
   let result : (Ident.t option * abstract_values) IdentTbl.t =
     IdentTbl.create 100
 
+  let imported_symbols = SymbolTbl.create 100
+
+  let exid_desc exid =
+    let open Flambdaexport in
+    try EidMap.find exid (Compilenv.approx_env ()).ex_values
+    with Not_found ->
+      Misc.fatal_error (Format.asprintf "no description for export id: %a@."
+                          ExportId.print exid)
+
+  let rec resolve_symbol sym =
+    try SymbolTbl.find imported_symbols sym with
+    | Not_found ->
+      let (modul,name) = sym in
+      (* Format.printf "import sym %a@." Symbol.print sym; *)
+      let _ = Compilenv.global_approx_info modul in
+      let symbol_map = Compilenv.symbol_map () in
+      let exid = try Some (SymbolMap.find sym symbol_map) with
+        | Not_found -> (* no cmx *) None in
+      match exid with
+      | Some exid ->
+        let r = resolve_exid exid in
+        SymbolTbl.add imported_symbols sym r;
+        r
+      | None -> Vnot_constant
+
+  and resolve_exid exid =
+    let open Flambdaexport in
+    match exid_desc exid with
+    | Value_symbol sym -> resolve_symbol sym
+    | Value_predef_exn id -> Vpredef_exn id
+    | Value_int i -> Vbase_const (Vconst_int i)
+    | Value_constptr i -> Vbase_const (Vconst_pointer i)
+    | Value_block (tag, fields) ->
+      Vblock(tag,Array.map resolve_approx fields)
+    | Value_closure { fun_id; closure = { closure_id; bound_var } } ->
+      Vclosure (closure_id, Some fun_id, OffsetMap.map resolve_approx bound_var)
+
+  and resolve_approx approx =
+    let open Flambdaexport in
+    match approx with
+    | Value_unknown -> Vnot_constant
+    | Value_id exid ->
+      try
+        let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
+        Vsymbol sym
+      with Not_found ->
+        resolve_exid exid
+
   let rec resolve id : (Ident.t option * abstract_values) =
     (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
     try IdentTbl.find result id with Not_found ->
@@ -564,13 +615,17 @@ module ConstantAlias(P:AliasParam) = struct
          if Array.length a <= i
          then None, Vunreachable
          else resolve_abs a.(i)
-       | _, Vsymbol _ ->
-         (* TODO *)
-         None, Vnot_constant
+       | _, Vsymbol sym ->
+         begin match resolve_symbol sym with
+           | Vsymbol _ ->
+             None, Vnot_constant
+           | abs ->
+             resolve_abs' (Vfield (i,abs))
+         end
        | _, Vnot_constant ->
          None, Vnot_constant
        | _, a ->
-         Format.printf "make unreachable %a@." print_abs a;
+         (* Format.printf "make unreachable %a@." print_abs a; *)
          (* This can happen with impossible branch not yet
             eliminated by specialisation *)
          None, Vunreachable)
@@ -584,13 +639,18 @@ module ConstantAlias(P:AliasParam) = struct
       (match resolve_abs env_field_val with
        | _, Vclosure (_, Some fun_id, map) ->
          assert(Offset.equal fun_id env_fun);
-         assert(IdentMap.mem env_offset.off_id map);
-         resolve_abs (IdentMap.find env_offset.off_id map)
+         assert(OffsetMap.mem env_offset map);
+         resolve_abs (OffsetMap.find env_offset map)
        | _, Vnot_constant ->
          None, Vnot_constant
-       | _, Vsymbol _ ->
-         (* TODO *)
-         None, Vnot_constant
+       | _, Vsymbol sym ->
+         begin match resolve_symbol sym with
+           | Vsymbol _ ->
+             None, Vnot_constant
+           | abs ->
+             let v = Venv_field { env_offset; env_field_val = abs; env_fun } in
+             resolve_abs' v
+         end
        | _, abs ->
          Format.printf "%a@." print_abs abs;
          assert false)
@@ -610,11 +670,19 @@ module ConstantAlias(P:AliasParam) = struct
 
   let () = mark_alias P.expr
 
-  let alias () =
+  let alias_and_symbol () =
     propagate_alias ();
-    IdentTbl.fold (fun key abs map -> match abs with
-        | Some aid, _ -> IdentMap.add key aid map
-        | _ -> map) result IdentMap.empty
+    let alias =
+      IdentTbl.fold (fun key abs map -> match abs with
+          | Some aid, _ -> IdentMap.add key aid map
+          | _ -> map) result IdentMap.empty in
+    let symbol =
+      IdentTbl.fold (fun key abs map -> match abs with
+          | _, Vsymbol sym ->
+            (* Format.printf "symbol %a@." Ident.print key; *)
+            IdentMap.add key sym map
+          | _ -> map) result IdentMap.empty in
+    alias, symbol
 
   (* global abstraction *)
 
@@ -631,7 +699,8 @@ end
 
 type alias_result =
   { constant_result : constant_result;
-    constant_alias : Ident.t Flambda.IdentMap.t }
+    constant_alias : Ident.t Flambda.IdentMap.t;
+    constant_symbol : Symbol.t Flambda.IdentMap.t }
 
 let alias (type a) (expr:a Flambda.flambda) =
   let module P = struct
@@ -641,9 +710,9 @@ let alias (type a) (expr:a Flambda.flambda) =
     let const_result = not_constants ~for_clambda:false expr
   end in
   let module A = ConstantAlias(P) in
+  let constant_alias, constant_symbol = A.alias_and_symbol () in
   { constant_result = P.const_result;
-    constant_alias = A.alias () }
-
+    constant_alias; constant_symbol; }
 
 
 
@@ -737,11 +806,11 @@ let export_informations
   and aux_closure acc closure_id bound_var =
     try FunMap.find closure_id acc.closures, acc with
     | Not_found ->
-      let f id abs (bound_var, acc) =
+      let f { off_id = id } abs (bound_var, acc) =
         let approx, acc = add_abs acc (Some id) abs in
         OffsetMap.add (offset id) approx bound_var, acc
       in
-      let bound_var, acc = IdentMap.fold f bound_var
+      let bound_var, acc = OffsetMap.fold f bound_var
           (OffsetMap.empty, acc) in
       let closure = { closure_id; bound_var } in
       let closures = FunMap.add closure_id closure acc.closures in
