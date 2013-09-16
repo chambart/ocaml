@@ -475,7 +475,7 @@ let inline_simple func fun_id ffun args =
       let sb = IdentMap.add id id' sb in
       let params = id'::params in
       (sb,params)) ffun.params (sb,[]) in
-  let body, _ = Flambdasubst.substitute sb ffun.body in
+  let body = Flambdasubst.substitute sb ffun.body in
   let body =
     List.fold_right2 (fun id arg body ->
         Flet(Strict,id,arg,body,ExprId.create ()))
