@@ -839,7 +839,9 @@ let extract_constants (alias:Constants.alias_result) tree =
         | Some alias ->
           IdentTbl.add renaming id alias;
           (* Some (id, Fvar(alias, Flambda.data lam)) *)
-          Some(id,lam)
+
+          add_binding id (Fvar(alias, Flambda.data lam));
+          None
         | None ->
           match lam with
           | Fvar(_, _) ->
@@ -1010,6 +1012,9 @@ let extract_constants (alias:Constants.alias_result) tree =
       (*   Printflambda.flambda expr; *)
       IdentMap.add v expr map)
       IdentMap.empty !bindings in
+
+  let tree = Flambdautils.map_no_closure renaming tree in
+
   Flambdasort.rebuild_sorted_expr bindings tree
 
 
