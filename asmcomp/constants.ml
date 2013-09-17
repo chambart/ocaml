@@ -572,7 +572,7 @@ module ConstantAlias(P:AliasParam) = struct
         let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
         Vsymbol sym
       with Not_found ->
-        resolve_exid exid
+        Vnot_constant
 
   let rec resolve id : (Ident.t option * abstract_values) =
     (* Printf.printf "%s\n%!" (Ident.unique_name id); *)
