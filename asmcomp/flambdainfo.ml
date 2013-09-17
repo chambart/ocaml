@@ -286,6 +286,16 @@ module Run(Param:Fparam) = struct
     if not (ValSet.subset values vids)
     then IdentTbl.replace bindings id (ValSet.union vids values)
 
+  let bind_new_val id v =
+    try IdentTbl.find bindings id with
+    | Not_found ->
+      (* Format.printf "bind new val %a\n%!" Ident.print id; *)
+      let vid = ValId.create ~name:"rec closure" () in
+      let vset = ValSet.singleton vid in
+      IdentTbl.replace bindings id vset;
+      ValTbl.replace val_tbl vid v;
+      vset
+
   let find_staticfail i =
     try Some (IntTbl.find staticfails i) with
     | Not_found -> None
@@ -551,6 +561,8 @@ module Run(Param:Fparam) = struct
          inside its function body and outside. *)
       let c = Values.set_closure_funid (val_union lam) id in
       (* Queue.push c closures; *)
+      (* dirty hack to circumvent the problem *)
+      ignore (bind_new_val id.off_id c:ValSet.t);
       New (c)
 
     | Fenv_field({env; env_var}, _) ->
