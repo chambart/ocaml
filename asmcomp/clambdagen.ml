@@ -92,6 +92,31 @@ let exported_offsets info ~fv_offset_table ~fun_offset_table =
   in
   EidMap.fold aux info.Constants.export_values (OffsetMap.empty, OffsetMap.empty)
 
+let reexported_offset expr =
+  let set_fun = ref OffsetSet.empty in
+  let set_fv = ref OffsetSet.empty in
+  let aux expr = match expr with
+    | Fenv_field({env_var;env_fun_id}, _) ->
+      set_fun := OffsetSet.add env_fun_id !set_fun;
+      set_fv := OffsetSet.add env_var !set_fv;
+    | Foffset(_,id, _) ->
+      set_fun := OffsetSet.add id !set_fun;
+    | e -> ()
+  in
+  Flambdautils.iter_all aux expr;
+  let f extern_map offset new_map =
+    try
+      OffsetMap.add offset (OffsetMap.find offset extern_map) new_map
+    with Not_found -> new_map (* local function *)
+  in
+  let extern_fun_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun in
+  let extern_fv_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv in
+  let fun_map = OffsetSet.fold (f extern_fun_offset_table) !set_fun in
+  let fv_map = OffsetSet.fold (f extern_fv_offset_table) !set_fv in
+  fun_map, fv_map
+
 module type Param1 = sig
   type t
   val expr : t Flambda.flambda
@@ -670,8 +695,13 @@ let convert (type a) (expr:a Flambda.flambda) =
   let ex_constants =
     Flambdaexport.EidMap.fold (fun _ s set -> SymbolSet.add s set)
       ex_id_symbol SymbolSet.empty in
-  let ex_offset_fun, ex_offset_fv = exported_offsets export_info
-      ~fv_offset_table ~fun_offset_table in
+  let ex_offset_fun, ex_offset_fv =
+    let ex_offset_fun, ex_offset_fv = exported_offsets export_info
+        ~fv_offset_table ~fun_offset_table in
+    let add_ext_offset_fun, add_ext_offset_fv = reexported_offset expr in
+    add_ext_offset_fun ex_offset_fun,
+    add_ext_offset_fv ex_offset_fv
+  in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
     let fv_offset_table = fv_offset_table
