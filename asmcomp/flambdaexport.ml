@@ -74,7 +74,7 @@ let print_approx ppf export =
     | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
     | Value_predef_exn id -> Ident.print ppf id
   and print_fields ppf fields =
-    Array.iter (fun approx -> fprintf ppf "%a " print_approx approx) fields
+    Array.iter (fun approx -> fprintf ppf "%a@ " print_approx approx) fields
   and print_closure ppf { closure_id; bound_var } =
     if FunSet.mem closure_id !printed_closure
     then fprintf ppf "%a" FunId.print closure_id
@@ -86,7 +86,7 @@ let print_approx ppf export =
     end
   and print_binding ppf bound_var =
     OffsetMap.iter (fun {off_id} approx ->
-        fprintf ppf "%a -> %a, "
+        fprintf ppf "%a -> %a,@ "
           Ident.print off_id
           print_approx approx) bound_var
   in
