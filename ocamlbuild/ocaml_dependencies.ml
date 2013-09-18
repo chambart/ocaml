@@ -57,6 +57,7 @@ module Make (I : INPUT) = struct
     let print_smap_set = print_smap Resources.print
 
     let print_lazy pp f l = pp f !*l
+    let print_truc pp f l = pp f (l ())
 
     let find_all_list x acc =
       try SMap.find x acc with Not_found -> []
@@ -148,22 +149,34 @@ module Make (I : INPUT) = struct
     let index_filter ext list x =
       Pathname.check_extension x ext && List.mem x list in
 
+    let emulate_lazy f =
+      let r = ref None in
+      fun () ->
+        match !r with
+        | None ->
+          let v = f () in
+          r := Some v;
+          v
+        | Some x -> x in
+
     let lib_index =
-      lazy (mkindex fold_libraries (index_filter caml_lib_ext used_libraries)) in
-    mydprintf "lib_index:@ %a" (print_lazy print_smap_list) lib_index;
+      emulate_lazy (fun () -> mkindex fold_libraries (index_filter caml_lib_ext used_libraries)) in
+    mydprintf "lib_index:@ %a" (print_truc print_smap_list) lib_index;
 
     let package_index =
-      lazy (mkindex fold_packages (index_filter caml_obj_ext open_packages)) in
+      emulate_lazy (fun () -> mkindex fold_packages (index_filter caml_obj_ext open_packages)) in
 
     let rec resolve_packages x =
-      match find_all_list x !*package_index with
+      let index = package_index () in
+      let l = find_all_list x index in
+      match l with
       | [] -> x
       | [x] -> resolve_packages x
       | pkgs ->
           failwith (sbprintf "the file %S is included in more than one active open package (%a)"
                              x pp_l pkgs) in
 
-    let libs_of x = find_all_list x !*lib_index in
+    let libs_of x = find_all_list x (lib_index ()) in
 
     let lib_of x =
       match libs_of x with
