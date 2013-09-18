@@ -92,7 +92,7 @@ let exported_offsets info ~fv_offset_table ~fun_offset_table =
   in
   EidMap.fold aux info.Constants.export_values (OffsetMap.empty, OffsetMap.empty)
 
-let reexported_offset expr =
+let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
   let set_fun = ref OffsetSet.empty in
   let set_fv = ref OffsetSet.empty in
   let aux expr = match expr with
@@ -109,10 +109,6 @@ let reexported_offset expr =
       OffsetMap.add offset (OffsetMap.find offset extern_map) new_map
     with Not_found -> new_map (* local function *)
   in
-  let extern_fun_offset_table =
-    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun in
-  let extern_fv_offset_table =
-    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv in
   let fun_map = OffsetSet.fold (f extern_fun_offset_table) !set_fun in
   let fv_map = OffsetSet.fold (f extern_fv_offset_table) !set_fv in
   fun_map, fv_map
@@ -698,9 +694,25 @@ let convert (type a) (expr:a Flambda.flambda) =
   let ex_offset_fun, ex_offset_fv =
     let ex_offset_fun, ex_offset_fv = exported_offsets export_info
         ~fv_offset_table ~fun_offset_table in
-    let add_ext_offset_fun, add_ext_offset_fv = reexported_offset expr in
-    add_ext_offset_fun ex_offset_fun,
-    add_ext_offset_fv ex_offset_fv
+
+    let extern_fun_offset_table =
+      (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun in
+    let extern_fv_offset_table =
+      (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv in
+    let add_ext_offset_fun, add_ext_offset_fv =
+      reexported_offset extern_fun_offset_table extern_fv_offset_table expr in
+    let ex_offset_fun, ex_offset_fv =
+      add_ext_offset_fun ex_offset_fun,
+      add_ext_offset_fv ex_offset_fv in
+
+    (* Hack to circumvent problem with not correctly eliminated environment acces *)
+    let add_ext_offset_fun, add_ext_offset_fv =
+      reexported_offset fun_offset_table fv_offset_table expr in
+    let ex_offset_fun, ex_offset_fv =
+      add_ext_offset_fun ex_offset_fun,
+      add_ext_offset_fv ex_offset_fv in
+
+    ex_offset_fun, ex_offset_fv
   in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
