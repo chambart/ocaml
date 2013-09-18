@@ -20,12 +20,14 @@ open Cmm
 
 type error = Assembler_error of string
 
+let debug_mode = false
+
 let time s f x =
   let t1 = Sys.time () in
   let r = f x in
   let t2 = Sys.time () in
   let dt = t2 -. t1 in
-  if dt >= 0.1
+  if dt >= 0.1 && debug_mode
   then Printf.printf "%s: %f\n%!" s dt;
   r
 
@@ -144,7 +146,7 @@ let tic, toc =
     let tn = Sys.time () in
     let o = Hashtbl.find time_table s in
     let dt = tn -. o in
-    if dt > 0.1
+    if dt > 0.1 && debug_mode
     then Printf.printf "%s: %f\n%!" s dt;
     v
   in
@@ -156,7 +158,8 @@ let show_size s f =
     Flambdautils.iter_all (fun _ -> incr count) expr;
     !count
   in
-  Printf.printf "%s: %i\n%!" s (code_size f);
+  if debug_mode
+  then Printf.printf "%s: %i\n%!" s (code_size f);
   f
 
 let cleaning ppf flambda =
