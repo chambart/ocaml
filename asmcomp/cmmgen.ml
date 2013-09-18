@@ -2086,7 +2086,12 @@ and emit_boxed_int64_constant n cont =
 
 let emit_constant_closure symb fundecls clos_vars cont =
   match fundecls with
-    [] -> assert false
+    [] ->
+    Printf.eprintf "WARNING constant closure with no code !\n%!";
+    let emit_fields, cont1 = emit_constant_fields clos_vars cont in
+    Cint(closure_header (List.length clos_vars)) ::
+    cdefine_symbol symb @
+    emit_fields@cont1
   | f1 :: remainder ->
       let rec emit_others pos = function
         [] ->
