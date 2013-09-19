@@ -256,10 +256,11 @@ let optimise_one ppf flambda =
     flambda
     ++ show_size "start"
     ++ tic "optimise_one"
-    (* ++ tic "unclose" *)
-    (* ++ unclose ppf *)
-    (* ++ toc "unclose" *)
-    (* ++ flambda_dump_if ppf *)
+
+    ++ tic "unclose"
+    ++ unclose ppf
+    ++ toc "unclose"
+    ++ flambda_dump_if ppf
 
     ++ tic "prepare"
     ++ prepare ppf
@@ -271,6 +272,12 @@ let optimise_one ppf flambda =
     (* ++ cleaning ppf *)
     (* ++ toc "cleaning" *)
     (* ++ flambda_dump_if ppf *)
+
+    (* ++ tic "prepare" *)
+    (* ++ prepare ppf *)
+    (* ++ toc "prepare" *)
+    (* ++ flambda_dump_if ppf *)
+    (* ++ show_size "prepared" *)
 
     ++ tic "inlining1"
     ++ inlining_normal ppf
