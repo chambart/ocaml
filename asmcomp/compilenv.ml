@@ -156,6 +156,8 @@ let get_global_info global_ident = (
     try
       Hashtbl.find global_infos_table modname
     with Not_found ->
+      Printf.printf "load module %s\n%!" modname;
+      (* if modname = "A" then assert false; *)
       let (infos, crc) =
         try
           let filename =
@@ -188,6 +190,7 @@ let global_approx_info id =
   let modname = Ident.name id in
   try Hashtbl.find global_approx_infos_table modname with
   | Not_found ->
+    print_endline modname;
     let exported = match get_global_info id with
       | None -> Flambdaexport.empty_export
       | Some ui -> ui.ui_approx_info

@@ -842,25 +842,31 @@ let extract_constants (alias:Constants.alias_result) tree =
       (* Format.printf "constant %a@." Ident.print id; *)
       match get_symbol id with
       | Some sym ->
+        (* Format.printf "constant symbol %a@." Ident.print id; *)
         add_binding id (Fsymbol(sym,data lam));
         None
       | None ->
         match get_alias id with
         | Some alias ->
+          (* Format.printf "constant alias %a %a@." Ident.print id Ident.print alias; *)
           IdentTbl.add renaming id alias;
+          (* Some(id,lam) *)
           (* Some (id, Fvar(alias, Flambda.data lam)) *)
 
           add_binding id (Fvar(alias, Flambda.data lam));
           None
+
         | None ->
           match lam with
           | Fvar(_, _) ->
             Printf.printf "alias var %s\n%!" (Ident.unique_name id);
             assert false
           | Fclosure( ffunctions, fv, eid ) ->
+            (* Format.printf "constant closure %a@." Ident.print id; *)
             ignore(fclosure iter (Some id) ffunctions fv eid);
             None
           | _ ->
+            (* Format.printf "constant other %a@." Ident.print id; *)
             let lam = mapper iter lam in
             add_binding id lam;
             None
