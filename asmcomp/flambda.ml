@@ -1,174 +1,59 @@
 open Misc
 open Asttypes
 open Lambda
+open Ext_types
 
-module type PrintableHashOrdered = sig
-  type t
-  val compare : t -> t -> int
-  val output : out_channel -> t -> unit
-  val print : Format.formatter -> t -> unit
-  val hash : t -> int
-  val equal : t -> t -> bool
-end
+(* module ModuleId(E:Empty) : UnitId = struct *)
+(*   type t = string * int * string *)
+(*   let empty_string = "" *)
+(*   let create = let r = ref 0 in *)
+(*     fun  ?(name=empty_string) unit_name -> *)
+(*       incr r; unit_name, !r, name *)
+(*   let equal (u1,t1,_) (u2,t2,_) = (t1:int) = t2 && (u1:string) = u2 *)
+(*   let compare (u1,t1,_) (u2,t2,_) = *)
+(*     let diff = t1 - t2 in *)
+(*     if diff <> 0 *)
+(*     then diff *)
+(*     else String.compare (u1:string) u2 *)
+(*   let hash (u,t,_) = t lxor (Hashtbl.hash u) *)
+(*   let name (_,_,name) = *)
+(*     if name == empty_string *)
+(*     then None *)
+(*     else Some name *)
+(*   let to_string (u,t,name) = *)
+(*     if name == empty_string *)
+(*     then string_of_int t *)
+(*     else Printf.sprintf "%s.%s_%i" u name t *)
+(*   let output fd t = output_string fd (to_string t) *)
+(*   let print ppf v = Format.pp_print_string ppf (to_string v) *)
+(* end *)
 
-module ExtMap(M:PrintableHashOrdered) = struct
-  include Map.Make(M)
-  let map_option f m =
-    fold (fun id v map ->
-      match f id v with
-      | None -> map
-      | Some r -> add id r map) m empty
-  let of_list l =
-    List.fold_left (fun map (id,v) -> add id v map) empty l
-  let disjoint_union m1 m2 =
-    merge (fun id x y -> match x, y with
-        | None, None -> None
-        | None, Some v | Some v, None -> Some v
-        | Some _, Some _ ->
-          let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
-          fatal_error err) m1 m2
+(* module type UnitName = sig val unit_name : unit -> string end *)
 
-  let last_union m1 m2 =
-    merge (fun id x y -> match x, y with
-        | None, None -> None
-        | None, Some v
-        | Some v, None
-        | Some _, Some v -> Some v) m1 m2
-
-  let rename m v =
-    try find v m with Not_found -> v
-  let print f ppf s =
-    let elts ppf s = iter (fun id v ->
-        Format.fprintf ppf "@ (%a %a)" M.print id f v) s in
-    Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
-end
-
-module ExtSet(M:PrintableHashOrdered) = struct
-  include Set.Make(M)
-  let output oc s =
-    Printf.fprintf oc "( ";
-    iter (fun v -> Printf.fprintf oc "%a " M.output v) s;
-    Printf.fprintf oc ")"
-  let print ppf s =
-    let elts ppf s = iter (fun e -> Format.fprintf ppf "@ %a" M.print e) s in
-    Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
-  let of_list l = match l with
-    | [] -> empty
-    | [t] -> singleton t
-    | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
-  let map f s = of_list (List.map f (elements s))
-end
-
-module ExtHashtbl(M:PrintableHashOrdered) = struct
-  include Hashtbl.Make(M)
-  module MMap = Map.Make(M)
-  let to_map v = fold MMap.add v MMap.empty
-end
-
-module type Empty = sig end
-module Empty : Empty = struct end
-
-module type BaseId = sig
-  type t
-  val equal : t -> t -> bool
-  val compare : t -> t -> int
-  val hash : t -> int
-  val name : t -> string option
-  val to_string : t -> string
-  val output : out_channel -> t -> unit
-  val print : Format.formatter -> t -> unit
-end
-
-module type Id = sig
-  include BaseId
-  val create : ?name:string -> unit -> t
-end
-
-module type UnitId = sig
-  include BaseId
-  val create : ?name:string -> string -> t
-end
-
-module Id(E:Empty) : Id = struct
-  type t = int * string
-  let empty_string = ""
-  let create = let r = ref 0 in
-    fun  ?(name=empty_string) () -> incr r; !r, name
-  let equal (t1,_) (t2,_) = (t1:int) = t2
-  let compare (t1,_) (t2,_) = t1 - t2
-  let hash (t,_) = t
-  let name (_,name) =
-    if name == empty_string
-    then None
-    else Some name
-  let to_string (t,name) =
-    if name == empty_string
-    then string_of_int t
-    else Printf.sprintf "%s_%i" name t
-  let output fd t = output_string fd (to_string t)
-  let print ppf v = Format.pp_print_string ppf (to_string v)
-end
-
-module ModuleId(E:Empty) : UnitId = struct
-  type t = string * int * string
-  let empty_string = ""
-  let create = let r = ref 0 in
-    fun  ?(name=empty_string) unit_name ->
-      incr r; unit_name, !r, name
-  let equal (u1,t1,_) (u2,t2,_) = (t1:int) = t2 && (u1:string) = u2
-  let compare (u1,t1,_) (u2,t2,_) =
-    let diff = t1 - t2 in
-    if diff <> 0
-    then diff
-    else String.compare (u1:string) u2
-  let hash (u,t,_) = t lxor (Hashtbl.hash u)
-  let name (_,_,name) =
-    if name == empty_string
-    then None
-    else Some name
-  let to_string (u,t,name) =
-    if name == empty_string
-    then string_of_int t
-    else Printf.sprintf "%s.%s_%i" u name t
-  let output fd t = output_string fd (to_string t)
-  let print ppf v = Format.pp_print_string ppf (to_string v)
-end
-
-module type UnitName = sig val unit_name : unit -> string end
-
-module UnitId(U:UnitName) : Id = struct
-  type t = string * int * string
-  let empty_string = ""
-  let create = let r = ref 0 in
-    fun  ?(name=empty_string) () ->
-      incr r; U.unit_name (), !r, name
-  let equal (u1,t1,_) (u2,t2,_) = (t1:int) = t2 && (u1:string) = u2
-  let compare (u1,t1,_) (u2,t2,_) =
-    let diff = t1 - t2 in
-    if diff <> 0
-    then diff
-    else String.compare (u1:string) u2
-  let hash (u,t,_) = t lxor (Hashtbl.hash u)
-  let name (_,_,name) =
-    if name == empty_string
-    then None
-    else Some name
-  let to_string (u,t,name) =
-    if name == empty_string
-    then string_of_int t
-    else Printf.sprintf "%s.%s_%i" u name t
-  let output fd t = output_string fd (to_string t)
-  let print ppf v = Format.pp_print_string ppf (to_string v)
-end
-
-module Int = struct
-  type t = int
-  let compare x y = x - y
-  let output oc x = Printf.fprintf oc "%i" x
-  let hash i = i
-  let equal (i:int) j = i = j
-  let print = Format.pp_print_int
-end
+(* module UnitId(U:UnitName) : Id = struct *)
+(*   type t = string * int * string *)
+(*   let empty_string = "" *)
+(*   let create = let r = ref 0 in *)
+(*     fun  ?(name=empty_string) () -> *)
+(*       incr r; U.unit_name (), !r, name *)
+(*   let equal (u1,t1,_) (u2,t2,_) = (t1:int) = t2 && (u1:string) = u2 *)
+(*   let compare (u1,t1,_) (u2,t2,_) = *)
+(*     let diff = t1 - t2 in *)
+(*     if diff <> 0 *)
+(*     then diff *)
+(*     else String.compare (u1:string) u2 *)
+(*   let hash (u,t,_) = t lxor (Hashtbl.hash u) *)
+(*   let name (_,_,name) = *)
+(*     if name == empty_string *)
+(*     then None *)
+(*     else Some name *)
+(*   let to_string (u,t,name) = *)
+(*     if name == empty_string *)
+(*     then string_of_int t *)
+(*     else Printf.sprintf "%s.%s_%i" u name t *)
+(*   let output fd t = output_string fd (to_string t) *)
+(*   let print ppf v = Format.pp_print_string ppf (to_string v) *)
+(* end *)
 
 type symbol = Ident.t * string (* module * label *)
 
@@ -181,24 +66,16 @@ module Symbol = struct
   let print ppf (id,s) = Format.fprintf ppf "%a - %s" Ident.print id s
 end
 
-module IntSet = ExtSet(Int)
-module IntMap = ExtMap(Int)
-module IntTbl = ExtHashtbl(Int)
-
-(* module StringSet = ExtSet(String) *)
-module StringMap = Map.Make(String)
-(* module StringTbl = ExtHashtbl(String) *)
-
 module SymbolSet = ExtSet(Symbol)
 module SymbolMap = ExtMap(Symbol)
 module SymbolTbl = ExtHashtbl(Symbol)
 
-module ExprId : Id = Id(Empty)
+module ExprId : Id = Id(struct end)
 module ExprMap = ExtMap(ExprId)
 module ExprSet = ExtSet(ExprId)
 module ExprTbl = ExtHashtbl(ExprId)
 
-module FunId : Id = Id(Empty)
+module FunId : Id = Id(struct end)
 module FunMap = ExtMap(FunId)
 module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)

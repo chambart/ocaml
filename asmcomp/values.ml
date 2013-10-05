@@ -1,6 +1,7 @@
+open Ext_types
 open Flambda
 
-module ValId : Id = Id(Empty)
+module ValId : Id = Id(struct end)
 module ValMap = ExtMap(ValId)
 module ValSet = ExtSet(ValId)
 module ValTbl = ExtHashtbl(ValId)

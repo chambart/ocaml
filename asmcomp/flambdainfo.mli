@@ -1,3 +1,4 @@
+open Ext_types
 open Flambda
 open Values
 

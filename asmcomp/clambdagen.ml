@@ -1,4 +1,5 @@
 open Misc
+open Ext_types
 open Asttypes
 open Lambda
 open Switch

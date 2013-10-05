@@ -22,6 +22,7 @@
      raise, function and method calls *)
 
 open Misc
+open Ext_types
 open Lambda
 open Flambda
 

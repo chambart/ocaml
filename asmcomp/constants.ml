@@ -37,6 +37,7 @@
    - the second propagates the implications
 *)
 
+open Ext_types
 open Asttypes
 open Lambda
 open Flambda

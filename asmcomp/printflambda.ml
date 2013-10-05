@@ -13,6 +13,7 @@
 
 
 open Format
+open Ext_types
 open Flambda
 
 let rec pr_idents ppf = function
