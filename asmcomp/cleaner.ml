@@ -54,6 +54,10 @@ module Cleaner(Param:CleanerParam) = struct
     | Paddrarray | Pintarray | Pfloatarray ->
       kind
     | Pgenarray ->
+      (* FALSE: if a is a mutable block pointing to b a block in the
+         major heap a := 1 should darken b:
+         the intersection is not what we want: we want only arr_kinds
+         to matter: kept that way to remember to ask Xavier or Damien *)
       let elt_kinds = array_kind_of_element (expr_value elt) in
       let arr_kinds = array_kind_of_array (expr_value array) in
       let kinds = array_kind_intersection elt_kinds arr_kinds in
@@ -412,6 +416,11 @@ let fun_smaller closure_allowed n ffun =
       if closure_allowed
       then incr_check ()
       else raise Exit
+    | Fconst_base(Asttypes.Const_string _, _) ->
+      (* We cannot duplicate: it would change the semantics.
+         To be able to inline a function containing a string,
+         extract_constant must have been used before *)
+      raise Exit
     | _ -> incr_check ()
   in
   try
