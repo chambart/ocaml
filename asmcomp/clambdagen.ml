@@ -68,6 +68,9 @@ let make_symbols info =
             IdentTbl.add id_symbols id symbol
           | Value_closure { fun_id } ->
             let symbol = make_symbol fun_id.off_id in
+            (* Format.printf "fun %a -> %s@." *)
+            (*   Offset.print fun_id *)
+            (*   symbol; *)
             EidTbl.add eid_symbols eid symbol;
             IdentTbl.add id_symbols id symbol
   in
@@ -84,7 +87,9 @@ let exported_offsets info ~fv_offset_table ~fun_offset_table =
     | Value_closure { fun_id; closure = { bound_var } } ->
       let map_fun = OffsetMap.add fun_id
           (OffsetMap.find fun_id fun_offset_table) map_fun in
+      (* Format.printf "off fun %a@." Offset.print fun_id; *)
       let map_fv = OffsetMap.fold (fun off _ map_fv ->
+          (* Format.printf "off fv %a@." Offset.print off; *)
           OffsetMap.add off
             (OffsetMap.find off fv_offset_table) map_fv)
           bound_var map_fv in

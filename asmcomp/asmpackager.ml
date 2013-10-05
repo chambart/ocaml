@@ -145,6 +145,10 @@ let build_package_cmx members cmxfile =
     { r with Flambdaexport.ex_globals =
                              ui.ui_approx_info.Flambdaexport.ex_globals }
   in
+
+  let () = Format.printf "%a@." Flambdaexport.print_approx ui_approx_info in
+  let () = Format.printf "%a@." Flambdaexport.print_symbols ui_approx_info in
+
   let pkg_infos =
     { ui_name = ui.ui_name;
       ui_symbol = ui.ui_symbol;

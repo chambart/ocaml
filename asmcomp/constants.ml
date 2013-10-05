@@ -554,14 +554,18 @@ module ConstantAlias(P:AliasParam) = struct
 
   and resolve_exid exid =
     let open Flambdaexport in
+    (* Format.printf "resolve exid %a@." ExportId.print exid; *)
     match exid_desc exid with
-    | Value_symbol sym -> resolve_symbol sym
+    | Value_symbol sym ->
+      (* Format.printf "resolve symbol %a@." Symbol.print sym; *)
+      resolve_symbol sym
     | Value_predef_exn id -> Vpredef_exn id
     | Value_int i -> Vbase_const (Vconst_int i)
     | Value_constptr i -> Vbase_const (Vconst_pointer i)
     | Value_block (tag, fields) ->
       Vblock(tag,Array.map resolve_approx fields)
     | Value_closure { fun_id; closure = { closure_id; bound_var } } ->
+      (* Format.printf "resolve closure %a@." Offset.print fun_id; *)
       Vclosure (closure_id, Some fun_id, OffsetMap.map resolve_approx bound_var)
 
   and resolve_approx approx =
@@ -571,8 +575,11 @@ module ConstantAlias(P:AliasParam) = struct
     | Value_id exid ->
       try
         let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
+        (* Format.printf "has sym %a %a@." ExportId.print exid Symbol.print sym; *)
         Vsymbol sym
       with Not_found ->
+        (* Format.printf "no sym %a@." ExportId.print exid; *)
+        (* resolve_exid exid *)
         Vnot_constant
 
   let rec resolve id : (Ident.t option * abstract_values) =
@@ -617,6 +624,7 @@ module ConstantAlias(P:AliasParam) = struct
          then None, Vunreachable
          else resolve_abs a.(i)
        | _, Vsymbol sym ->
+         (* None, Vnot_constant *)
          begin match resolve_symbol sym with
            | Vsymbol _ ->
              None, Vnot_constant
@@ -645,6 +653,7 @@ module ConstantAlias(P:AliasParam) = struct
        | _, Vnot_constant ->
          None, Vnot_constant
        | _, Vsymbol sym ->
+         (* None, Vnot_constant *)
          begin match resolve_symbol sym with
            | Vsymbol _ ->
              None, Vnot_constant

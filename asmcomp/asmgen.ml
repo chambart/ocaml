@@ -348,6 +348,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
     Flambdagen.intro size lam
+    (* ++ Flambdasubst.substitute Flambda.IdentMap.empty *)
     ++ flambda_dump_if ppf
     ++ tic "optimse"
     ++ optimise ppf
