@@ -1,6 +1,7 @@
+open Ext_types
 open Flambda
 
-module ExportId : Id = Id(Empty)
+module ExportId : Id = Id(struct end)
 module EidMap = ExtMap(ExportId)
 module EidSet = ExtSet(ExportId)
 module EidTbl = ExtHashtbl(ExportId)

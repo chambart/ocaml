@@ -1,3 +1,5 @@
+open Ext_types
+
 val iter_all : ('a Flambda.flambda -> unit) -> 'a Flambda.flambda -> unit
 
 val iter_flambda : ('a Flambda.flambda -> unit) -> 'a Flambda.flambda -> unit
@@ -41,7 +43,7 @@ val global_var : 'a Flambda.flambda -> Ident.t Flambda.IdentTbl.t
     It assumes expr is in ANF. *)
 
 val global_index : 'a Flambda.flambda ->
-  Ident.t Flambda.IdentTbl.t * Ident.t Flambda.IntTbl.t
+  Ident.t Flambda.IdentTbl.t * Ident.t IntTbl.t
 (** [global_index expr] returns the association table between
     variables and the potential global module they reference and the
     table mapping global field to the variable set into it.

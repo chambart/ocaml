@@ -1,4 +1,5 @@
 open Misc
+open Ext_types
 open Lambda
 open Flambda
 open Flambdainfo

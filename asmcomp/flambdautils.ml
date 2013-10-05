@@ -1,6 +1,7 @@
 (* open Asttypes *)
 open Lambda
 open Flambda
+open Ext_types
 
 (* generic code folders *)
 
