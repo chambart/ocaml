@@ -15,6 +15,7 @@
 
 open Misc
 open Cmx_format
+open Ext_types
 
 type error =
     Illegal_renaming of string * string * string
@@ -132,8 +133,8 @@ let build_package_cmx members cmxfile =
     let unit_set = List.fold_right Flambda.IdentSet.add units_id
         Flambda.IdentSet.empty in
     let unit_lbl_set = List.fold_right
-        (fun unit set -> Flambda.StringSet.add unit.ui_symbol set) units
-        Flambda.StringSet.empty in
+        (fun unit set -> StringSet.add unit.ui_symbol set) units
+        StringSet.empty in
     let import = Flambdaimport.import_pack unit_set unit_lbl_set
         (Compilenv.current_unit_symbol ())
         (Compilenv.current_unit_id ()) in
