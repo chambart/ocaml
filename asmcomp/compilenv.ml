@@ -30,6 +30,8 @@ let global_infos_table =
 let structured_constants =
   ref ([] : (string * bool * Lambda.structured_constant) list)
 
+let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
+
 let current_unit =
   { ui_name = "";
     ui_symbol = "";
@@ -60,6 +62,7 @@ let symbolname_for_pack pack name =
 let reset ?packname name =
   Hashtbl.clear global_infos_table;
   let symbol = symbolname_for_pack packname name in
+  current_unit_id := Ident.create_persistent name;
   current_unit.ui_name <- name;
   current_unit.ui_symbol <- symbol;
   current_unit.ui_defines <- [symbol];
@@ -76,6 +79,11 @@ let current_unit_infos () =
 
 let current_unit_name () =
   current_unit.ui_name
+
+let current_unit_symbol () =
+  current_unit.ui_symbol
+
+let current_unit_id () = !current_unit_id
 
 let make_symbol ?(unitname = current_unit.ui_symbol) idopt =
   let prefix = "caml" ^ unitname in
