@@ -416,7 +416,7 @@ let fun_smaller closure_allowed n ffun =
       if closure_allowed
       then incr_check ()
       else raise Exit
-    | Fconst_base(Asttypes.Const_string _, _) ->
+    | Fconst(Fconst_base(Asttypes.Const_string _), _) ->
       (* We cannot duplicate: it would change the semantics.
          To be able to inline a function containing a string,
          extract_constant must have been used before *)

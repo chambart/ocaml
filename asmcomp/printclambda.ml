@@ -22,7 +22,7 @@ let rec pr_idents ppf = function
 let rec struct_const ppf = function
   | Uconst_base(Const_int n) -> fprintf ppf "%i" n
   | Uconst_base(Const_char c) -> fprintf ppf "%C" c
-  | Uconst_base(Const_string s) -> fprintf ppf "%S" s
+  | Uconst_base(Const_string (s,_)) -> fprintf ppf "%S" s
   | Uconst_immstring s -> fprintf ppf "#%S" s
   | Uconst_base(Const_float f) -> fprintf ppf "%s" f
   | Uconst_base(Const_int32 n) -> fprintf ppf "%lil" n
