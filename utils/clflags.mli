@@ -61,6 +61,7 @@ val dump_typedtree : bool ref
 val dump_rawlambda : bool ref
 val dump_lambda : bool ref
 val dump_clambda : bool ref
+val dump_flambda : bool ref
 val dump_instr : bool ref
 val keep_asm_file : bool ref
 val optimize_for_speed : bool ref
@@ -87,3 +88,4 @@ val dlcode : bool ref
 val runtime_variant : string ref
 val force_slash : bool ref
 val keep_locs : bool ref
+val enable_optim : bool ref

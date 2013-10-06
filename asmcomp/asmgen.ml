@@ -36,7 +36,20 @@ let pass_dump_linear_if ppf flag message phrase =
   phrase
 
 let clambda_dump_if ppf ulambda =
-  if !dump_clambda then Printclambda.clambda ppf ulambda; ulambda
+  if !dump_clambda then
+    begin
+      Printclambda.clambda ppf ulambda;
+      List.iter (fun (lbl,_,cst) ->
+        Format.fprintf ppf "%s:@ " lbl;
+        Printclambda.structured_constant ppf cst)
+        (Compilenv.structured_constants ())
+    end;
+  ulambda
+
+let flambda_dump_if ppf flambda =
+  if !dump_flambda then (Printflambda.flambda ppf flambda; Format.fprintf ppf "@.");
+  Flambda.check flambda;
+  flambda
 
 let rec regalloc ppf round fd =
   if round > 50 then
@@ -96,6 +109,31 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
+let inlining ppf flambda =
+  let val_result = Flambdainfo.analyse flambda in
+  Cleaner.inlining val_result flambda
+  ++ flambda_dump_if ppf
+
+let optimise_one ppf flambda =
+  if not !Clflags.enable_optim (* true *)
+  then
+    let flambda = inlining ppf flambda in
+    let val_result = Flambdainfo.analyse flambda in
+    let pure_result = Purity.unpure_expressions flambda in
+    Cleaner.clean val_result pure_result flambda
+    ++ flambda_dump_if ppf
+    ++ Flambdautils.stupid_clean
+    ++ flambda_dump_if ppf
+    ++ Flambdautils.reindex
+  else flambda
+
+let optimise ppf flambda =
+  let rec aux n flambda =
+    if n <= 0 then flambda else
+      aux (n-1) (optimise_one ppf flambda)
+  in
+  aux 1 flambda
+
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
     if !keep_asm_file
@@ -105,7 +143,10 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
   begin try
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
-    Closure.intro size lam
+    Flambdagen.intro size lam
+    ++ flambda_dump_if ppf
+    ++ optimise ppf
+    ++ Clambdagen.convert
     ++ clambda_dump_if ppf
     ++ Cmmgen.compunit size
     ++ List.iter (compile_phrase ppf) ++ (fun () -> ());

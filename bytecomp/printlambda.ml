@@ -231,6 +231,12 @@ let primitive ppf = function
      else fprintf ppf "bigarray.array1.set64"
   | Pbswap16 -> fprintf ppf "bswap16"
   | Pbbswap(bi) -> print_boxed_integer "bswap" ppf bi
+  | Pphyscomp(Ceq) -> fprintf ppf "==p"
+  | Pphyscomp(Cneq) -> fprintf ppf "!=p"
+  | Pphyscomp(Clt) -> fprintf ppf "<p"
+  | Pphyscomp(Cle) -> fprintf ppf "<=p"
+  | Pphyscomp(Cgt) -> fprintf ppf ">p"
+  | Pphyscomp(Cge) -> fprintf ppf ">=p"
 
 let rec lam ppf = function
   | Lvar id ->
