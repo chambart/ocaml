@@ -587,6 +587,7 @@ asmcomp/coloring.cmi :
 asmcomp/comballoc.cmi : asmcomp/mach.cmi
 asmcomp/compilenv.cmi : bytecomp/lambda.cmi typing/ident.cmi \
     asmcomp/cmx_format.cmi asmcomp/clambda.cmi
+asmcomp/constants.cmi : asmcomp/flambda.cmi
 asmcomp/debuginfo.cmi : parsing/location.cmi bytecomp/lambda.cmi
 asmcomp/emitaux.cmi : asmcomp/debuginfo.cmi
 asmcomp/emit.cmi : asmcomp/linearize.cmi asmcomp/cmm.cmi
@@ -736,6 +737,12 @@ asmcomp/compilenv.cmo : utils/misc.cmi parsing/location.cmi \
 asmcomp/compilenv.cmx : utils/misc.cmx parsing/location.cmx \
     bytecomp/lambda.cmx typing/ident.cmx typing/env.cmx utils/config.cmx \
     asmcomp/cmx_format.cmi asmcomp/clambda.cmx asmcomp/compilenv.cmi
+asmcomp/constants.cmo : utils/misc.cmi bytecomp/lambda.cmi typing/ident.cmi \
+    asmcomp/flambda.cmi utils/ext_types.cmi asmcomp/compilenv.cmi \
+    parsing/asttypes.cmi asmcomp/constants.cmi
+asmcomp/constants.cmx : utils/misc.cmx bytecomp/lambda.cmx typing/ident.cmx \
+    asmcomp/flambda.cmx utils/ext_types.cmx asmcomp/compilenv.cmx \
+    parsing/asttypes.cmi asmcomp/constants.cmi
 asmcomp/debuginfo.cmo : parsing/location.cmi bytecomp/lambda.cmi \
     asmcomp/debuginfo.cmi
 asmcomp/debuginfo.cmx : parsing/location.cmx bytecomp/lambda.cmx \
