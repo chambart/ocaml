@@ -551,9 +551,6 @@ module ConstantAlias(P:AliasParam) = struct
     let open Flambdaexport in
     (* Format.printf "resolve exid %a@." ExportId.print exid; *)
     match exid_desc exid with
-    | Value_symbol sym ->
-      (* Format.printf "resolve symbol %a@." Symbol.print sym; *)
-      resolve_symbol sym
     | Value_predef_exn id -> Vpredef_exn id
     | Value_int i -> Vbase_const (Vconst_int i)
     | Value_constptr i -> Vbase_const (Vconst_pointer i)
@@ -567,6 +564,9 @@ module ConstantAlias(P:AliasParam) = struct
     let open Flambdaexport in
     match approx with
     | Value_unknown -> Vnot_constant
+    | Value_symbol sym ->
+      (* Format.printf "resolve symbol %a@." Symbol.print sym; *)
+      resolve_symbol sym
     | Value_id exid ->
       try
         let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
@@ -765,6 +765,8 @@ let export_informations
        Vglobal _ | Venv_field _ | Vunreachable |
        Vclosure _ | Vbase_const Vconst_other ) ->
       Value_unknown, acc
+    | None, Vsymbol sym ->
+      Value_symbol sym, acc
     | None, abstr ->
       let export_id = ExportId.create () in
       let approx = Value_id export_id in
@@ -776,11 +778,10 @@ let export_informations
       let descr, acc = match abstr with
         | Vvar _ | Vfield _ | Vnot_constant
         | Vglobal _ | Venv_field _ | Vunreachable
-        | Vclosure _ | Vbase_const Vconst_other ->
+        | Vclosure _ | Vbase_const Vconst_other
+        | Vsymbol _ ->
           assert false
         | Vpredef_exn id -> Value_predef_exn id, acc
-        | Vsymbol sym ->
-          Value_symbol sym, acc
         | Vbase_const (Vconst_int i) ->
           Value_int i, acc
         | Vbase_const (Vconst_pointer i) ->

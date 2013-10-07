@@ -12,7 +12,9 @@
 
 (** Exported informations about a compilation unit *)
 
-module ExportId : Ext_types.Id
+open Ext_types
+
+module ExportId : Id
 module EidSet : ExtSet with module M := ExportId
 module EidMap : ExtMap with module M := ExportId
 module EidTbl : ExtHashtbl with module M := ExportId
@@ -24,7 +26,6 @@ type descr =
   | Value_int of int
   | Value_constptr of int
   | Value_closure of value_offset
-  | Value_symbol of Flambda.symbol
   | Value_predef_exn of Ident.t
 
 and value_offset = { fun_id : Flambda.offset; closure : value_closure; }
@@ -34,7 +35,10 @@ and value_closure = {
   bound_var : approx Flambda.OffsetMap.t;
 }
 
-and approx = Value_unknown | Value_id of ExportId.t
+and approx =
+    Value_unknown
+  | Value_id of ExportId.t
+  | Value_symbol of Flambda.symbol
 
 type exported = {
   ex_functions : unit Flambda.ffunctions Flambda.FunMap.t;

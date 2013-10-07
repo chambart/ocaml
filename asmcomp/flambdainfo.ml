@@ -121,25 +121,21 @@ module Run(Param:Fparam) = struct
     (* Format.printf "import exid %a@." ExportId.print exid; *)
     try EidTbl.find imported exid with
     | Not_found ->
-      match exid_desc exid with
-      | Value_symbol sym ->
-        import_symbol sym
-      | desc ->
-        let vid = ValId.create ~name:"ext" () in
-        EidTbl.add imported exid vid;
-        ValTbl.add pre_imported vid exid;
+      let vid = ValId.create ~name:"ext" () in
+      EidTbl.add imported exid vid;
+      ValTbl.add pre_imported vid exid;
 
-        (try (* if there are symbols add a link to the vid to allow rebinding *)
-           let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
-           (* Format.printf "bind symbol %a => ( %a -> %a )@." *)
-           (*   Symbol.print sym *)
-           (*   ValId.print vid *)
-           (*   Flambdaexport.ExportId.print exid; *)
-           SymbolTbl.add symbols sym vid;
-           ValTbl.add back_symbols vid sym
-         with Not_found -> ());
+      (try (* if there are symbols add a link to the vid to allow rebinding *)
+         let sym = EidMap.find exid (Compilenv.approx_env ()).ex_id_symbol in
+         (* Format.printf "bind symbol %a => ( %a -> %a )@." *)
+         (*   Symbol.print sym *)
+         (*   ValId.print vid *)
+         (*   Flambdaexport.ExportId.print exid; *)
+         SymbolTbl.add symbols sym vid;
+         ValTbl.add back_symbols vid sym
+       with Not_found -> ());
 
-        vid
+      vid
 
   and import_symbol sym =
     try SymbolTbl.find symbols sym with
@@ -172,8 +168,7 @@ module Run(Param:Fparam) = struct
       | Value_int i -> Some (Values.value_int i)
       | Value_constptr i -> Some (Values.value_constptr i)
       | Value_block _
-      | Value_closure _
-      | Value_symbol _ -> None
+      | Value_closure _ -> None
     in
     match value with
     | Some value -> ValTbl.replace val_tbl vid value
@@ -187,6 +182,9 @@ module Run(Param:Fparam) = struct
         ValTbl.replace val_tbl vid unknown_value;
         (* Format.printf "import %a -> unknown@." ValId.print vid; *)
         vid
+
+      | Value_symbol sym -> import_symbol sym
+
       | Value_id exid ->
         let vid = import_exid exid in
         try_simple_force_exid exid vid;
@@ -212,7 +210,6 @@ module Run(Param:Fparam) = struct
         let bound_var = OffsetMap.map import_value closure.bound_var in
         let clos = value_unoffseted_closure closure.closure_id bound_var in
         set_closure_funid clos fun_id
-      | Value_symbol sym -> assert false
     in
     ValTbl.replace val_tbl vid value;
     value

@@ -53,6 +53,9 @@ let rec close sb = function
         nid ~name:(Printf.sprintf "var_%s" (Ident.unique_name id)) ())
   | Lconst cst -> close_const sb cst
   | Llet(str, id, lam, body) ->
+    let str = match str with
+      | Variable -> Variable
+      | _ -> Strict in
     Flet(str, id, close_named id sb lam, close sb body, nid ~name:"let" ())
   | Lfunction(kind, params, body) as funct ->
     let id = Ident.create "fun" in

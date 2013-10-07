@@ -53,6 +53,7 @@ let make_symbols info =
   let aux id approx =
     if not (not_constant id)
     then match approx with
+      | Value_symbol _
       | Value_unknown -> ()
       | Value_id eid ->
         try
@@ -60,8 +61,7 @@ let make_symbols info =
           IdentTbl.add id_symbols id symbol
         with Not_found ->
           match desc eid with
-          | Value_symbol _ | Value_int _
-          | Value_constptr _ | Value_predef_exn _ -> ()
+          | Value_int _ | Value_constptr _ | Value_predef_exn _ -> ()
           | Value_block _ ->
             let symbol = make_symbol id in
             EidTbl.add eid_symbols eid symbol;
@@ -734,7 +734,7 @@ let convert (type a) (expr:a Flambda.flambda) =
   let open Flambdaexport in
   let ex_id_symbol =
     match export_info.Constants.export_global with
-    | Value_unknown -> assert false
+    | Value_unknown | Value_symbol _ -> assert false
     | Value_id eid -> EidMap.add eid module_symbol ex_id_symbol
   in
   let exported =

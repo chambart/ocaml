@@ -12,6 +12,9 @@ let import exported =
   let rename = function
     | Value_unknown as v -> v
     | Value_id id -> Value_id (EidMap.rename eid_map id)
+    | Value_symbol sym as v ->
+      (* Format.printf "get val_sym %a@." Symbol.print sym; *)
+      v
   in
   let closures = FunTbl.create 10 in
   (* let subst = ref IdentMap.empty in *)
@@ -35,9 +38,6 @@ let import exported =
   in
   let rename_val = function
     | Value_int _ | Value_constptr _ | Value_predef_exn _ as v -> v
-    | Value_symbol sym as v ->
-      (* Format.printf "get val_sym %a@." Symbol.print sym; *)
-      v
     | Value_block (tag, fields) ->
       Value_block (tag, Array.map rename fields)
     | Value_closure {fun_id; closure} ->
@@ -150,7 +150,7 @@ let map_ffuns unit_lbls units global_id global_lbl funs =
     funs = IdentMap.map aux funs.funs }
 
 let import_pack units unit_lbls global_lbl global_id unit =
-  let map_val = function
+  let map_sym = function
     | Value_symbol (modul,sym) as v ->
       if IdentSet.mem modul units
       then Value_symbol (global_id,sym)
@@ -159,6 +159,19 @@ let import_pack units unit_lbls global_lbl global_id unit =
     (*   Value_closure { clos with *)
     (*                   fun_id = { fun_id with off_unit = global_lbl } } *)
     | v -> v
+  in
+  let map_val = function
+    | ( Value_int _ | Value_constptr _ | Value_predef_exn _) as v -> v
+    | Value_closure off ->
+        let clos = off.closure in
+        Value_closure
+          { off with
+            closure =
+              { clos with
+                bound_var =
+                  OffsetMap.map map_sym clos.bound_var } }
+    | Value_block (tag, fields) ->
+        Value_block (tag, Array.map map_sym fields)
   in
   let map_funs = map_ffuns unit_lbls units global_id global_lbl in
   (* let import_offset off = *)

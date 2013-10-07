@@ -25,7 +25,6 @@ type descr =
   | Value_int of int
   | Value_constptr of int
   | Value_closure of value_offset
-  | Value_symbol of symbol
   | Value_predef_exn of Ident.t
 
 and value_offset =
@@ -39,6 +38,7 @@ and value_closure =
 and approx =
   | Value_unknown
   | Value_id of ExportId.t
+  | Value_symbol of symbol
   (* TODO: Value_symbol should be here, but this is too much changes
      to do that now... *)
 
@@ -78,13 +78,13 @@ let print_approx ppf export =
         fprintf ppf "(%a: %a)"
           ExportId.print id
           print_descr descr
+    | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
   and print_descr ppf = function
     | Value_int i -> pp_print_int ppf i
     | Value_constptr i -> fprintf ppf "%ip" i
     | Value_block (tag, fields) -> fprintf ppf "[%i:%a]" tag print_fields fields
     | Value_closure {fun_id; closure} ->
       fprintf ppf "(function %a, %a)" Offset.print fun_id print_closure closure
-    | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
     | Value_predef_exn id -> Ident.print ppf id
   and print_fields ppf fields =
     Array.iter (fun approx -> fprintf ppf "%a@ " print_approx approx) fields
