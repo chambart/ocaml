@@ -28,7 +28,10 @@ let global_infos_table =
   (Hashtbl.create 17 : (string, unit_infos option) Hashtbl.t)
 
 let structured_constants =
-  ref ([] : (string * bool * Lambda.structured_constant) list)
+  ref ([] : (string * bool * Clambda.ustructured_constant) list)
+
+let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
+let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
 
@@ -72,7 +75,9 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
-  structured_constants := []
+  structured_constants := [];
+  Hashtbl.clear symbol_alias;
+  Hashtbl.clear symbol_back_alias
 
 let current_unit_infos () =
   current_unit
@@ -174,6 +179,11 @@ let global_approx id =
       | None -> Value_unknown
       | Some ui -> ui.ui_approx
 
+(* Exporting and importing cross module informations *)
+
+let approx_env () = Flambdaexport.empty_export
+(* Not implemented yet in this patch *)
+
 (* Return the symbol used to refer to a global identifier *)
 
 let symbol_for_global id =
@@ -236,7 +246,27 @@ let new_structured_constant cst global =
   structured_constants := (lbl, global, cst) :: !structured_constants;
   lbl
 
+let clear_structured_constants () = structured_constants := []
+
 let structured_constants () = !structured_constants
+
+let set_symbol_alias ~orig ~alias global =
+  let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
+  Hashtbl.replace symbol_alias orig ((global,alias)::l);
+  assert(not (Hashtbl.mem symbol_back_alias alias));
+  Hashtbl.add symbol_back_alias alias orig
+
+let rec new_symbol_alias ~orig ~alias global =
+  match (try Some (Hashtbl.find symbol_back_alias orig) with _ -> None) with
+  | Some orig -> new_symbol_alias ~orig ~alias global
+  | None -> set_symbol_alias ~orig ~alias global
+
+let symbol_alias s =
+  let rec aux (_,s) =
+    let l = try Hashtbl.find symbol_alias s with Not_found -> [] in
+    List.concat (l::(List.map aux l))
+  in
+  aux (false,s)
 
 (* Error report *)
 
