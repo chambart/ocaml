@@ -26,11 +26,17 @@ exception Error of error
 
 let global_infos_table =
   (Hashtbl.create 17 : (string, unit_infos option) Hashtbl.t)
+let export_infos_table =
+  (Hashtbl.create 10 : (string, Flambdaexport.exported) Hashtbl.t)
+let imported_closure_table =
+  (Flambda.FunTbl.create 10
+   : Flambda.ExprId.t Flambda.ffunctions Flambda.FunTbl.t)
 
 let structured_constants =
   ref ([] : (string * bool * Lambda.structured_constant) list)
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
+let merged_environment = ref Flambdaexport.empty_export
 
 let current_unit =
   { ui_name = "";
@@ -42,7 +48,8 @@ let current_unit =
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
-    ui_force_link = false }
+    ui_force_link = false;
+    ui_export_info = Flambdaexport.empty_export }
 
 let symbolname_for_pack pack name =
   match pack with
@@ -61,6 +68,9 @@ let symbolname_for_pack pack name =
 
 let reset ?packname name =
   Hashtbl.clear global_infos_table;
+  Hashtbl.clear export_infos_table;
+  Flambda.FunTbl.clear imported_closure_table;
+  merged_environment := Flambdaexport.empty_export;
   let symbol = symbolname_for_pack packname name in
   current_unit_id := Ident.create_persistent name;
   current_unit.ui_name <- name;
@@ -72,6 +82,7 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
+  current_unit.ui_export_info <- Flambdaexport.empty_export;
   structured_constants := []
 
 let current_unit_infos () =
@@ -173,6 +184,40 @@ let global_approx id =
     match get_global_info id with
       | None -> Value_unknown
       | Some ui -> ui.ui_approx
+
+(* Exporting and importing cross module informations *)
+
+let set_export_info export_info =
+  current_unit.ui_export_info <- export_info
+
+let approx_for_global id =
+  if Ident.is_predef_exn id || not (Ident.global id)
+  then invalid_arg (Format.asprintf "approx_for_global %a" Ident.print id);
+  let modname = Ident.name id in
+  try Hashtbl.find export_infos_table modname with
+  | Not_found ->
+    let exported = match get_global_info id with
+      | None -> Flambdaexport.empty_export
+      | Some ui -> ui.ui_export_info in
+    Hashtbl.add export_infos_table modname exported;
+    merged_environment := Flambdaexport.merge !merged_environment exported;
+    exported
+
+let approx_env () = !merged_environment
+
+let imported_closure =
+  let open Flambda in
+  let import_closure clos =
+    { clos with
+      funs =
+        IdentMap.map
+          (fun ff -> { ff with body = Flambdaiter.map_data ExprId.create ff.body })
+          clos.funs } in
+  FunTbl.memoize imported_closure_table
+    (fun fun_id ->
+       let ex_info = approx_env () in
+       let closure = FunMap.find fun_id ex_info.Flambdaexport.ex_functions in
+       import_closure closure)
 
 (* Return the symbol used to refer to a global identifier *)
 
