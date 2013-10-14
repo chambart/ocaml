@@ -38,17 +38,28 @@ let make_const_ptr n eid = Fconst(Fconst_pointer n,eid), Value_constptr n
 let make_const_bool b eid = make_const_ptr (if b then 1 else 0) eid
 
 type env =
-  { env_approx : descr IdentMap.t }
+  { env_approx : descr IdentMap.t;
+    global : (int, descr) Hashtbl.t }
 
-let empty_env =
-  { env_approx = IdentMap.empty }
+let empty_env () =
+  { env_approx = IdentMap.empty;
+    global = Hashtbl.create 10 }
+
+let local_env env =
+  { env with env_approx = IdentMap.empty }
 
 let find id env = IdentMap.find id env.env_approx
 let find_unknwon id env =
   try find id env
   with Not_found -> Value_unknown
 let add_approx id approx env =
-  { env_approx = IdentMap.add id approx env.env_approx }
+  { env with env_approx = IdentMap.add id approx env.env_approx }
+
+let add_global i approx env =
+  Hashtbl.add env.global i approx
+let find_global i env =
+  try Hashtbl.find env.global i with
+  | Not_found -> Value_unknown
 
 let const_approx = function
   | Fconst_base const ->
@@ -322,7 +333,7 @@ let rec loop (env:env) tree : 'a flambda * descr =
   | Fclosure (ffuns, fv, annot) ->
       let fv = IdentMap.map (loop env) fv in
       let closure_env = IdentMap.fold
-          (fun id (_,desc) env -> add_approx id desc env) fv empty_env in
+          (fun id (_,desc) env -> add_approx id desc env) fv (local_env env) in
       let ffuns =
         { ffuns with
           funs = IdentMap.map
@@ -363,6 +374,16 @@ let rec loop (env:env) tree : 'a flambda * descr =
       let body, approx = loop body_env body in
       Fletrec (defs, body, annot),
       approx
+  | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr
+    when id = Compilenv.current_unit_id () ->
+      let approx = find_global i env in
+      check_constant_result expr approx
+  | Fprim(Psetglobalfield i, [arg], dbg, annot) as expr ->
+      let arg', approx = loop env arg in
+      let expr = if arg == arg' then expr
+        else Fprim(Psetglobalfield i, [arg'], dbg, annot) in
+      add_global i approx env;
+      expr, Value_unknown
   | Fprim(p, args, dbg, annot) as expr ->
       let (args', approxs) = loop_list env args in
       let expr = if args' == args then expr else Fprim(p, args', dbg, annot) in
@@ -497,5 +518,5 @@ and inline clos lfunc fun_id func args dbg eid =
   Value_unknown
 
 let simplify tree =
-  let result, approx = loop empty_env tree in
+  let result, approx = loop (empty_env ()) tree in
   result
