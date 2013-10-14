@@ -587,8 +587,8 @@ asmcomp/cmx_format.cmi : asmcomp/clambda.cmi
 asmcomp/codegen.cmi : asmcomp/cmm.cmi
 asmcomp/coloring.cmi :
 asmcomp/comballoc.cmi : asmcomp/mach.cmi
-asmcomp/compilenv.cmi : bytecomp/lambda.cmi typing/ident.cmi \
-    asmcomp/flambdaexport.cmi asmcomp/cmx_format.cmi asmcomp/clambda.cmi
+asmcomp/compilenv.cmi : typing/ident.cmi asmcomp/flambdaexport.cmi \
+    asmcomp/cmx_format.cmi asmcomp/clambda.cmi
 asmcomp/constants.cmi : asmcomp/flambda.cmi
 asmcomp/debuginfo.cmi : parsing/location.cmi bytecomp/lambda.cmi
 asmcomp/emitaux.cmi : asmcomp/debuginfo.cmi
@@ -748,14 +748,12 @@ asmcomp/comballoc.cmo : asmcomp/reg.cmi asmcomp/mach.cmi utils/config.cmi \
     asmcomp/arch.cmo asmcomp/comballoc.cmi
 asmcomp/comballoc.cmx : asmcomp/reg.cmx asmcomp/mach.cmx utils/config.cmx \
     asmcomp/arch.cmx asmcomp/comballoc.cmi
-asmcomp/compilenv.cmo : utils/misc.cmi parsing/location.cmi \
-    bytecomp/lambda.cmi typing/ident.cmi asmcomp/flambdaexport.cmi \
-    typing/env.cmi utils/config.cmi asmcomp/cmx_format.cmi \
-    asmcomp/clambda.cmi asmcomp/compilenv.cmi
-asmcomp/compilenv.cmx : utils/misc.cmx parsing/location.cmx \
-    bytecomp/lambda.cmx typing/ident.cmx asmcomp/flambdaexport.cmx \
-    typing/env.cmx utils/config.cmx asmcomp/cmx_format.cmi \
-    asmcomp/clambda.cmx asmcomp/compilenv.cmi
+asmcomp/compilenv.cmo : utils/misc.cmi parsing/location.cmi typing/ident.cmi \
+    asmcomp/flambdaexport.cmi typing/env.cmi utils/config.cmi \
+    asmcomp/cmx_format.cmi asmcomp/clambda.cmi asmcomp/compilenv.cmi
+asmcomp/compilenv.cmx : utils/misc.cmx parsing/location.cmx typing/ident.cmx \
+    asmcomp/flambdaexport.cmx typing/env.cmx utils/config.cmx \
+    asmcomp/cmx_format.cmi asmcomp/clambda.cmx asmcomp/compilenv.cmi
 asmcomp/constants.cmo : utils/misc.cmi bytecomp/lambda.cmi typing/ident.cmi \
     asmcomp/flambda.cmi utils/ext_types.cmi asmcomp/compilenv.cmi \
     parsing/asttypes.cmi asmcomp/constants.cmi
