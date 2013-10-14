@@ -132,12 +132,9 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     else Filename.temp_file "camlasm" ext_asm in
   let oc = open_out asmfile in
   begin try
-    let _ = test_flambda ppf size lam in
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
-    Closure.intro size lam
-    ++ clambda_dump_if ppf
-    ++ Cmmgen.compunit size
+    test_flambda ppf size lam
     ++ List.iter (compile_phrase ppf) ++ (fun () -> ());
     (match toplevel with None -> () | Some f -> compile_genfuns ppf f);
 
