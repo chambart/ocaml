@@ -590,4 +590,6 @@ let convert (type a) (expr:a Flambda.flambda) =
     let closures = closures
   end in
   let module C = Conv(P2) in
+  let export = Flambdaexport.empty_export in
+  Compilenv.set_export_info export;
   C.res

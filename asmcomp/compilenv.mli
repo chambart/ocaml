@@ -49,6 +49,8 @@ val set_global_approx: Clambda.value_approximation -> unit
 val record_global_approx_toplevel: unit -> unit
         (* Record the current approximation for the current toplevel phrase *)
 
+val set_export_info: Flambdaexport.exported -> unit
+
 val approx_for_global: Ident.t -> Flambdaexport.exported
 
 val approx_env: unit -> Flambdaexport.exported

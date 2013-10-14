@@ -14,4 +14,6 @@
 
 open Flambda
 
-val simplify : Flambda.ExprId.t flambda -> Flambda.ExprId.t flambda
+val simplify : Flambda.ExprId.t flambda ->
+  Flambda.ExprId.t flambda * Flambdaexport.approx *
+  Flambdaexport.descr Flambdaexport.EidMap.t

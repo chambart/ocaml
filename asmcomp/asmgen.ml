@@ -115,10 +115,13 @@ let check flambda =
   flambda
 
 let test_flambda ppf size lam =
-  Flambdagen.intro size lam
-  ++ flambda_dump_if ppf
-  ++ check
-  ++ Flambdasimplify.simplify
+  let flambda, root, mapping =
+    Flambdagen.intro size lam
+    ++ flambda_dump_if ppf
+    ++ check
+    ++ Flambdasimplify.simplify
+  in
+  flambda
   ++ flambda_dump_if ppf
   ++ check
   ++ Clambdagen.convert

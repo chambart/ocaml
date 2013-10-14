@@ -45,7 +45,8 @@ let current_unit =
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
-    ui_force_link = false }
+    ui_force_link = false;
+    ui_export_info = Flambdaexport.empty_export }
 
 let symbolname_for_pack pack name =
   match pack with
@@ -75,6 +76,7 @@ let reset ?packname name =
   current_unit.ui_apply_fun <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
+  current_unit.ui_export_info <- Flambdaexport.empty_export;
   structured_constants := [];
   Hashtbl.clear symbol_alias;
   Hashtbl.clear symbol_back_alias
@@ -180,6 +182,9 @@ let global_approx id =
       | Some ui -> ui.ui_approx
 
 (* Exporting and importing cross module informations *)
+
+let set_export_info export_info =
+  current_unit.ui_export_info <- export_info
 
 let approx_for_global id = Flambdaexport.empty_export
 
