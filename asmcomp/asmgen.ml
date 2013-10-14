@@ -36,7 +36,21 @@ let pass_dump_linear_if ppf flag message phrase =
   phrase
 
 let clambda_dump_if ppf ulambda =
-  if !dump_clambda then Printclambda.clambda ppf ulambda; ulambda
+  if !dump_clambda then
+    begin
+      Printclambda.clambda ppf ulambda;
+      List.iter (fun (lbl,_,cst) ->
+        Format.fprintf ppf "%s:@ " lbl;
+        Printclambda.structured_constant ppf cst)
+        (Compilenv.structured_constants ())
+    end;
+  ulambda
+
+let flambda_dump_if ppf flambda =
+  if !dump_clambda then
+    Format.fprintf ppf "%a@."
+      Printflambda.flambda flambda;
+  flambda
 
 let rec regalloc ppf round fd =
   if round > 50 then
@@ -96,6 +110,18 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
+let check flambda =
+  Flambda.check ~current_unit:(Compilenv.current_unit_name ()) flambda;
+  flambda
+
+let test_flambda ppf size lam =
+  Flambdagen.intro size lam
+  ++ flambda_dump_if ppf
+  ++ check
+  ++ Clambdagen.convert
+  ++ clambda_dump_if ppf
+  ++ Cmmgen.compunit size
+
 let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let asmfile =
     if !keep_asm_file
@@ -103,6 +129,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
     else Filename.temp_file "camlasm" ext_asm in
   let oc = open_out asmfile in
   begin try
+    let _ = test_flambda ppf size lam in
     Emitaux.output_channel := oc;
     Emit.begin_assembly();
     Closure.intro size lam
