@@ -89,6 +89,7 @@ ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/flambdaiter.cmo asmcomp/flambdaexport.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/flambdagen.cmo asmcomp/constants.cmo \
+  asmcomp/flambdasubst.cmo asmcomp/flambdasimplify.cmo \
   asmcomp/clambdagen.cmo \
   asmcomp/closure.cmo asmcomp/cmmgen.cmo \
   asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/selection.cmo \

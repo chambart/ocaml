@@ -118,6 +118,9 @@ let test_flambda ppf size lam =
   Flambdagen.intro size lam
   ++ flambda_dump_if ppf
   ++ check
+  ++ Flambdasimplify.simplify
+  ++ flambda_dump_if ppf
+  ++ check
   ++ Clambdagen.convert
   ++ clambda_dump_if ppf
   ++ Cmmgen.compunit size
