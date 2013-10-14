@@ -14,7 +14,7 @@
 
 open Ext_types
 
-module ExportId : Id
+module ExportId : UnitId
 module EidSet : ExtSet with module M := ExportId
 module EidMap : ExtMap with module M := ExportId
 module EidTbl : ExtHashtbl with module M := ExportId
