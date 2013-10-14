@@ -46,6 +46,19 @@ let clambda_dump_if ppf ulambda =
     end;
   ulambda
 
+let flambda'_dump_if ppf (flambda, map, exported) =
+  if !dump_clambda then
+    begin
+      Printflambda.flambda ppf flambda;
+      Flambda.SymbolMap.iter (fun sym lam ->
+          Format.fprintf ppf "%s:@ %a"
+            (snd sym)
+            Printflambda.flambda lam)
+        map;
+      Format.fprintf ppf "@."
+    end;
+  flambda, map, exported
+
 let flambda_dump_if ppf flambda =
   if !dump_clambda then
     Format.fprintf ppf "%a@."
@@ -118,6 +131,11 @@ let test_flambda ppf size lam =
   Flambdagen.intro size lam
   ++ flambda_dump_if ppf
   ++ check
+  ++ Flambdasimplify.simplify
+  ++ flambda_dump_if ppf
+  ++ check
+  ++ Flambdasym.convert
+  ++ flambda'_dump_if ppf
   ++ Clambdagen.convert
   ++ clambda_dump_if ppf
   ++ Cmmgen.compunit size
