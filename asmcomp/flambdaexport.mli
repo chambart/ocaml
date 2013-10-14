@@ -45,6 +45,7 @@ type exported = {
   ex_values : descr EidMap.t;
   ex_globals : approx Flambda.IdentMap.t;
   ex_id_symbol : Flambda.symbol EidMap.t;
+  ex_symbol_id : ExportId.t Flambda.SymbolMap.t;
   ex_offset_fun : int Flambda.OffsetMap.t;
   ex_offset_fv : int Flambda.OffsetMap.t;
   ex_constants : Flambda.SymbolSet.t;

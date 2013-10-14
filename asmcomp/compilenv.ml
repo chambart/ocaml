@@ -181,6 +181,8 @@ let global_approx id =
 
 (* Exporting and importing cross module informations *)
 
+let approx_for_global id = Flambdaexport.empty_export
+
 let approx_env () = Flambdaexport.empty_export
 (* Not implemented yet in this patch *)
 

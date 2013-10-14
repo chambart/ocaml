@@ -2,6 +2,7 @@
 (*                                                                     *)
 (*                                OCaml                                *)
 (*                                                                     *)
+(*            Xavier Leroy, projet Cristal, INRIA Rocquencourt         *)
 (*                     Pierre Chambart, OCamlPro                       *)
 (*                                                                     *)
 (*  Copyright 2013 Institut National de Recherche en Informatique et   *)
@@ -24,6 +25,7 @@ type descr =
   | Value_closure of value_offset
   | Value_unknown
   | Value_bottom
+  | Value_extern of Flambdaexport.ExportId.t
 
 and value_offset =
   { fun_id : offset;
@@ -32,6 +34,35 @@ and value_offset =
 and value_closure =
   { ffunctions : ExprId.t ffunctions;
     bound_var : descr OffsetMap.t }
+
+module Import = struct
+  type t = descr
+  open Flambdaexport
+  let rec import_ex ex : t =
+    let ex_info = Compilenv.approx_env () in
+    try match EidMap.find ex ex_info.ex_values with
+      | Value_int i -> Value_int i
+      | Value_block (tag, fields) ->
+          Value_block (tag, Array.map import_approx fields)
+      | _ -> Value_unknown
+    with Not_found -> Value_unknown
+
+  and import_approx (ap:Flambdaexport.approx) : t =
+    (* let ex_info = Compilenv.approx_env () in *)
+    match ap with
+    | Value_unknown -> Value_unknown
+    | Value_id ex -> Value_extern ex
+    | Value_symbol sym -> import_symbol sym
+
+  and import_symbol ((unit,_) as sym) =
+    let symbol_id_map =
+      (Compilenv.approx_for_global unit).ex_symbol_id in
+    try import_ex (SymbolMap.find sym symbol_id_map) with
+    | Not_found -> Value_unknown
+
+end
+
+open Import
 
 let make_const_int n eid = Fconst(Fconst_base(Const_int n),eid), Value_int n
 let make_const_ptr n eid = Fconst(Fconst_pointer n,eid), Value_constptr n
@@ -325,7 +356,7 @@ let simplif_prim_pure p (args, approxs) expr dbg =
 let rec loop (env:env) tree : 'a flambda * descr =
   let aux v = fst (loop env v) in
   match tree with
-  | Fsymbol (sym,_) -> tree, Value_unknown
+  | Fsymbol (sym,_) -> tree, import_symbol sym
   | Fvar (id,_) -> tree, find_unknwon id env
   | Fconst (cst,_) -> tree, const_approx cst
   | Fapply (funct, args, direc, dbg, annot) ->

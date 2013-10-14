@@ -77,6 +77,7 @@ type exported = {
   ex_values : descr EidMap.t;
   ex_globals : approx IdentMap.t;
   ex_id_symbol : symbol EidMap.t;
+  ex_symbol_id : ExportId.t SymbolMap.t;
   ex_offset_fun : int OffsetMap.t;
   ex_offset_fv : int OffsetMap.t;
   ex_constants : SymbolSet.t;
@@ -87,6 +88,7 @@ let empty_export = {
   ex_values = EidMap.empty;
   ex_globals = IdentMap.empty;
   ex_id_symbol = EidMap.empty;
+  ex_symbol_id = SymbolMap.empty;
   ex_offset_fun = OffsetMap.empty;
   ex_offset_fv = OffsetMap.empty;
   ex_constants = SymbolSet.empty;
