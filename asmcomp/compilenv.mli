@@ -66,6 +66,8 @@ val need_send_fun: int -> unit
 
 val new_const_symbol : unit -> string
 val new_const_label : unit -> int
+val add_structured_constant : string -> Clambda.ustructured_constant ->
+  bool -> unit
 val new_structured_constant : Clambda.ustructured_constant -> bool -> string
 val structured_constants :
   unit -> (string * bool * Clambda.ustructured_constant) list
