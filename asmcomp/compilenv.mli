@@ -53,6 +53,8 @@ val set_export_info: Flambdaexport.exported -> unit
 
 val approx_for_global: Ident.t -> Flambdaexport.exported
 
+val imported_closure: Flambda.FunId.t -> Flambda.ExprId.t Flambda.ffunctions
+
 val approx_env: unit -> Flambdaexport.exported
         (* Returns all the information loaded from extenal compilation units *)
 

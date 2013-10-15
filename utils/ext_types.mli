@@ -49,6 +49,7 @@ module type ExtHashtbl = sig
   include Hashtbl.S with type key = M.t
                      and type 'a t = 'a Hashtbl.Make(M).t
   val to_map : 'a t -> 'a Map.Make(M).t
+  val memoize : 'a t -> (key -> 'a) -> key -> 'a
 end
 
 module ExtMap :
@@ -98,6 +99,7 @@ module type UnitId =
     val output : out_channel -> t -> unit
     val print : Format.formatter -> t -> unit
     val create : ?name:string -> string -> t
+    val unit : t -> string
   end
 
 module Id : functor (E : Empty) -> Id

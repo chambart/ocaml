@@ -60,6 +60,13 @@ module Import = struct
       | Value_int i -> Value_int i
       | Value_block (tag, fields) ->
           Value_block (tag, Array.map import_approx fields)
+      | Value_closure { fun_id; closure = { closure_id; bound_var } } ->
+        let bound_var = OffsetMap.map import_approx bound_var in
+        Value_closure
+          { fun_id;
+            closure =
+              { ffunctions = Compilenv.imported_closure closure_id;
+                bound_var } }
       | _ -> Value_unknown
     with Not_found -> Value_unknown
 
