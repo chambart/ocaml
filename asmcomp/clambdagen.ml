@@ -162,13 +162,26 @@ module Conv(P:Param2) = struct
 
   let not_constants = P.not_constants
 
-  let rec conv (sb:ulambda IdentMap.t) (cm:string IdentMap.t) = function
+  type env =
+    { sb : ulambda IdentMap.t; (* substitution *)
+      cm : string IdentMap.t; (* variables associated to constants *)
+    }
+
+  let empty_env = { sb = IdentMap.empty; cm = IdentMap.empty }
+
+  let add_sb id subst env =
+    { env with sb = IdentMap.add id subst env.sb }
+
+  let add_cm id const env =
+    { env with cm = IdentMap.add id const env.cm }
+
+  let rec conv (env : env) = function
     | Fvar (id,_) ->
       begin
         (* If the variable reference a constant, it is replaced by the
            constant label *)
         try
-          let lbl = IdentMap.find id cm in
+          let lbl = IdentMap.find id env.cm in
           Uconst(Uconst_label lbl, None)
         with Not_found ->
 
@@ -176,7 +189,7 @@ module Conv(P:Param2) = struct
              currently being defined: it is replaced by an offset in the
              closure. If the variable is bound by the closure, it is
              replace by a field access inside the closure *)
-          try IdentMap.find id sb
+          try IdentMap.find id env.sb
           with Not_found -> Uvar id
       end
 
@@ -184,21 +197,19 @@ module Conv(P:Param2) = struct
       Uconst (Uconst_label sym, None)
 
     | Fconst (cst,_) ->
-      Uconst (conv_const sb cm cst, None)
+      Uconst (conv_const cst, None)
 
     | Flet(str, id, lam, body, _) ->
-      let lam = conv sb cm lam in
+      let lam = conv env lam in
       if IdentSet.mem id not_constants.Constants.not_constant_id
-      then Ulet(id, lam, conv sb cm body)
+      then Ulet(id, lam, conv env body)
       else begin match constant_label lam with
         | No_lbl ->
           (* no label: the value is an integer substitute it *)
-          let sb = IdentMap.add id lam sb in
-          conv sb cm body
+          conv (add_sb id lam env) body
         | Lbl lbl ->
           (* label: the value is a block: reference it *)
-          let cm = IdentMap.add id lbl cm in
-          conv sb cm body
+          conv (add_cm id lbl env) body
         | Not_const ->
           Format.printf "%a@." Ident.print id;
           Printclambda.clambda Format.std_formatter lam;
@@ -209,14 +220,14 @@ module Conv(P:Param2) = struct
       let not_consts, consts =
         List.partition (fun (id,_) ->
           IdentSet.mem id not_constants.Constants.not_constant_id) defs in
-      let sb, cm, consts = List.fold_left
-          (fun (sb, cm, acc) (id,def) ->
+      let env, consts = List.fold_left
+          (fun (env, acc) (id,def) ->
             match def with
             | Fconst (( Fconst_pointer _
                       | Fconst_base (Const_int _ | Const_char _)), _) ->
               (* When the value is an integer constant, we cannot affect a label
                  to it: hence we must substitute it directly. *)
-              IdentMap.add id (conv sb cm def) sb, cm, acc
+              add_sb id (conv env def) env, acc
             | Fvar (var_id, _) ->
               List.iter (fun (id,_) ->
                   if Ident.same var_id id
@@ -226,22 +237,22 @@ module Conv(P:Param2) = struct
               assert(List.for_all(fun (id,_) -> not (Ident.same var_id id)) consts);
               (* For variables: the variable could have been substituted to
                  a constant: avoid it by substituting it directly *)
-              IdentMap.add id (conv sb cm def) sb, cm, acc
+              add_sb id (conv env def) env, acc
             | _ ->
               let lbl = Compilenv.new_const_symbol () in
-              let cm = IdentMap.add id lbl cm in
-              sb, cm, (id,lbl,def)::acc) (sb, cm,[]) consts in
+              let env = add_cm id lbl env in
+              env, (id,lbl,def)::acc) (env,[]) consts in
       List.iter (fun (id,lbl,def) ->
-          set_label lbl (conv sb cm def))
+          set_label lbl (conv env def))
         consts;
 
-      let not_consts = List.map (fun (id,def) -> id, conv sb cm def) not_consts in
+      let not_consts = List.map (fun (id,def) -> id, conv env def) not_consts in
       begin match not_consts with
-        | [] -> conv sb cm body
-        | _ -> Uletrec(not_consts, conv sb cm body) end
+        | [] -> conv env body
+        | _ -> Uletrec(not_consts, conv env body) end
 
     | Fclosure(funct, fv, _) ->
-      conv_closure sb cm funct fv
+      conv_closure env funct fv
 
     | Foffset(lam,id, _) ->
       (* For compiling offset inside a constant closure as a constant,
@@ -251,12 +262,12 @@ module Conv(P:Param2) = struct
          applied to a variable or the closure on which we can recover the
          original label.
       *)
-      let ulam = conv sb cm lam in
+      let ulam = conv env lam in
       let offset = get_fun_offset id in
       make_offset ulam offset
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
-      let ulam = conv sb cm lam in
+      let ulam = conv env lam in
       let fun_offset = get_fun_offset env_fun_id in
       let var_offset = get_fv_offset env_var in
       let pos = var_offset - fun_offset in
@@ -276,22 +287,22 @@ module Conv(P:Param2) = struct
          replace funct field by an ident field *)
       let closure = OffsetMap.find direct_func closures in
       let func = IdentMap.find direct_func.off_id closure.funs in
-      Udirect_apply((func.label:>string), conv_list sb cm args, dbg)
+      Udirect_apply((func.label:>string), conv_list env args, dbg)
 
     | Fapply(funct, args, None, dbg, _) ->
       (* the closure parameter of the function is added by cmmgen, but
          it already appears in the list of parameters of the clambda
          function for generic calls. Notice that for direct calls it is
          added here. *)
-      Ugeneric_apply(conv sb cm funct, conv_list sb cm args, dbg)
+      Ugeneric_apply(conv env funct, conv_list env args, dbg)
 
     | Fswitch(arg, sw, _) ->
       (* NB: failaction might get copied, thus it should be some Lstaticraise *)
       let const_index, const_actions =
-        conv_switch sb cm sw.fs_consts sw.fs_numconsts sw.fs_failaction
+        conv_switch env sw.fs_consts sw.fs_numconsts sw.fs_failaction
       and block_index, block_actions =
-        conv_switch sb cm sw.fs_blocks sw.fs_numblocks sw.fs_failaction in
-      Uswitch(conv sb cm arg,
+        conv_switch env sw.fs_blocks sw.fs_numblocks sw.fs_failaction in
+      Uswitch(conv env arg,
         {us_index_consts = const_index;
          us_actions_consts = const_actions;
          us_index_blocks = block_index;
@@ -313,11 +324,11 @@ module Conv(P:Param2) = struct
       Uprim(Psetfield (i,false),
             [Uprim(Pgetglobal (Ident.create_persistent
                                  (Compilenv.make_symbol None)), [], dbg);
-             conv sb cm arg],
+             conv env arg],
             dbg)
 
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
-      let args = conv_list sb cm args in
+      let args = conv_list env args in
       begin match constant_list args with
         | None ->
           Uprim(p, args, dbg)
@@ -327,27 +338,27 @@ module Conv(P:Param2) = struct
       end
 
     | Fprim(p, args, dbg, _) ->
-      Uprim(p, conv_list sb cm args, dbg)
+      Uprim(p, conv_list env args, dbg)
     | Fstaticfail (i, args, _) ->
-      Ustaticfail (i, conv_list sb cm args)
+      Ustaticfail (i, conv_list env args)
     | Fcatch (i, vars, body, handler, _) ->
-      Ucatch (i, vars, conv sb cm body, conv sb cm handler)
+      Ucatch (i, vars, conv env body, conv env handler)
     | Ftrywith(body, id, handler, _) ->
-      Utrywith(conv sb cm body, id, conv sb cm handler)
+      Utrywith(conv env body, id, conv env handler)
     | Fifthenelse(arg, ifso, ifnot, _) ->
-      Uifthenelse(conv sb cm arg, conv sb cm ifso, conv sb cm ifnot)
+      Uifthenelse(conv env arg, conv env ifso, conv env ifnot)
     | Fsequence(lam1, lam2, _) ->
-      let ulam1 = conv sb cm lam1 in
-      let ulam2 = conv sb cm lam2 in
+      let ulam1 = conv env lam1 in
+      let ulam2 = conv env lam2 in
       Usequence(ulam1, ulam2)
     | Fwhile(cond, body, _) ->
-      Uwhile(conv sb cm cond, conv sb cm body)
+      Uwhile(conv env cond, conv env body)
     | Ffor(id, lo, hi, dir, body, _) ->
-      Ufor(id, conv sb cm lo, conv sb cm hi, dir, conv sb cm body)
+      Ufor(id, conv env lo, conv env hi, dir, conv env body)
     | Fassign(id, lam, _) ->
-      Uassign(id, conv sb cm lam)
+      Uassign(id, conv env lam)
     | Fsend(kind, met, obj, args, dbg, _) ->
-      Usend(kind, conv sb cm met, conv sb cm obj, conv_list sb cm args, dbg)
+      Usend(kind, conv env met, conv env obj, conv_list env args, dbg)
 
     | Funreachable _ ->
       (* shoudl'nt be executable, maybe build something else *)
@@ -370,7 +381,7 @@ module Conv(P:Param2) = struct
     then lbl
     else lbl ^ "_" ^ string_of_int offset
 
-  and conv_switch sb cm cases num_keys default =
+  and conv_switch env cases num_keys default =
     let num_keys =
       if IntSet.cardinal num_keys = 0
       then 0
@@ -387,12 +398,12 @@ module Conv(P:Param2) = struct
     (* Then all other cases *)
     List.iter (fun (key,lam) -> index.(key) <- store.act_store lam) cases;
     (* Compile action *)
-    let actions = Array.map (conv sb cm) (store.act_get ()) in
+    let actions = Array.map (conv env) (store.act_get ()) in
     match actions with
     | [| |] -> [| |], [| |] (* May happen when default is None *)
     | _     -> index, actions
 
-  and conv_closure sb cm functs fv =
+  and conv_closure env functs fv =
     (* Make the susbtitutions for variables bound by the closure:
        the variables bounds are the functions inside the closure and
        the free variables of the functions.
@@ -434,7 +445,7 @@ module Conv(P:Param2) = struct
     (* the label used for constant closures *)
     let closure_lbl = Compilenv.new_const_symbol () in
 
-    let fv_ulam = List.map (fun (id,lam) -> id,conv sb cm lam) fv in
+    let fv_ulam = List.map (fun (id,lam) -> id,conv env lam) fv in
 
     let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
@@ -450,30 +461,26 @@ module Conv(P:Param2) = struct
 
       (* inside the body of the function, we cannot access variables
          declared outside, so take a clean substitution table. *)
-      let sb = IdentMap.empty in
+      let env = { env with sb = IdentMap.empty } in
 
-      let sb, cm =
+      let env =
         (* Add to the substitution the value of the free variables *)
 
-        let add_env_variable (sb,cm) (id,lam) =
-          let sb, cm =
-            match constant_label lam with
-            | Not_const ->
+        let add_env_variable env (id,lam) =
+          match constant_label lam with
+          | Not_const ->
               assert(not closed);
               let var_offset = OffsetMap.find
                   { off_unit = functs.unit; off_id = id } fv_offset_table in
               let pos = var_offset - fun_offset in
-              IdentMap.add id (Uprim(Pfield pos, [env_param], Debuginfo.none)) sb,
-              cm
-            | No_lbl ->
-              let sb = IdentMap.add id lam sb in
-              sb, cm
-            | Lbl lbl ->
-              let cm = IdentMap.add id lbl cm in
-              sb, cm in
-          sb, cm in
+              add_sb id (Uprim(Pfield pos, [env_param], Debuginfo.none)) env
+          | No_lbl ->
+              add_sb id lam env
+          | Lbl lbl ->
+              add_cm id lbl env
+        in
 
-        let (sb, cm) = List.fold_left add_env_variable (sb, cm) fv_ulam in
+        let env = List.fold_left add_env_variable env fv_ulam in
 
         (* Add to the substitution the value of the functions defined in
            the current closure:
@@ -481,22 +488,22 @@ module Conv(P:Param2) = struct
            the environment.
          * If the function is closed, we use a global variable named
            'closure_lbl_offset' defined. *)
-        let add_offset_subst pos (sb,cm) (id,_) =
+        let add_offset_subst pos env (id,_) =
           let offset = OffsetMap.find (to_offset id) fun_offset_table in
           if closed
           then
             let lbl = offset_label closure_lbl offset in
-            sb, IdentMap.add id lbl cm
+            add_cm id lbl env
           else
             let exp = Uoffset(Uvar env_var, offset - pos) in
-            IdentMap.add id exp sb,cm in
+            add_sb id exp env in
 
-        List.fold_left (add_offset_subst fun_offset) (sb,cm) funct in
+        List.fold_left (add_offset_subst fun_offset) env funct in
 
       { Clambda.label = (func.label:>string);
         arity = if func.kind = Tupled then -func.arity else func.arity;
         params = if closed then func.params else func.params @ [env_var];
-        body = conv sb cm func.body;
+        body = conv env func.body;
         dbg = func.dbg } in
 
     let ufunct = List.map conv_function funct in
@@ -522,9 +529,9 @@ module Conv(P:Param2) = struct
 
       Uclosure (ufunct, List.map snd fv_ulam)
 
-  and conv_list sb cm l = List.map (conv sb cm) l
+  and conv_list env l = List.map (conv env) l
 
-  and conv_const sb cm = function
+  and conv_const = function
     | Fconst_base c -> Uconst_base c
     | Fconst_pointer c -> Uconst_pointer c
     | Fconst_float_array c -> Uconst_float_array c
@@ -567,7 +574,7 @@ module Conv(P:Param2) = struct
       Compilenv.add_structured_constant set_lbl cst false
     | _ -> assert false
 
-  let res = conv IdentMap.empty IdentMap.empty P.expr
+  let res = conv empty_env P.expr
 
 end
 
