@@ -47,6 +47,7 @@ and approx =
 
 type exported = {
   ex_functions : unit ffunctions FunMap.t;
+  ex_functions_off : unit ffunctions OffsetMap.t;
   ex_values : descr EidMap.t;
   ex_globals : approx IdentMap.t;
   ex_id_symbol : symbol EidMap.t;
@@ -58,6 +59,7 @@ type exported = {
 
 let empty_export = {
   ex_functions = FunMap.empty;
+  ex_functions_off = OffsetMap.empty;
   ex_values = EidMap.empty;
   ex_globals = IdentMap.empty;
   ex_id_symbol = EidMap.empty;
@@ -126,6 +128,8 @@ let merge e1 e2 =
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
     ex_globals = IdentMap.empty;
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
+    ex_functions_off =
+      OffsetMap.disjoint_union e1.ex_functions_off e2.ex_functions_off;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
     ex_symbol_id = SymbolMap.disjoint_union e1.ex_symbol_id e2.ex_symbol_id;
     ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;

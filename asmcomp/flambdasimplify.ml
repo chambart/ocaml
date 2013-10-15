@@ -85,7 +85,7 @@ module Import = struct
 
   let import_symbol sym =
     let r = import_symbol sym in
-    Format.printf "import %a:@[<1>@ %a@]@." Symbol.print sym print_descr r;
+    (* Format.printf "import %a:@[<1>@ %a@]@." Symbol.print sym print_descr r; *)
     r
 
   let rec really_import = function
@@ -570,7 +570,8 @@ and direct_apply env clos funct fun_id func args dbg eid =
       (* if the definitive size is small enought: keep it *)
       body, approx
     else Fapply (funct, args, Some fun_id, dbg, eid),
-         approx
+         Value_unknown
+         (* do not use approximation: there can be renamed offsets *)
   else Fapply (funct, args, Some fun_id, dbg, eid),
        Value_unknown
 

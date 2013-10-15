@@ -34,9 +34,12 @@ module Subst(P:Param) = struct
         | Some offset ->
           try
             let offset = OffsetMap.find offset !fun_offset_subst_table in
+            (* Format.printf "subst offset %a@." Offset.print offset; *)
             Some offset
           with
-          | Not_found -> direct
+          | Not_found ->
+            (* Format.printf "no subst offset %a@." Offset.print offset; *)
+            direct
       in
       Fapply (funct, args, direct, dbg, annot)
     | Fclosure (ffuns, fv, annot) ->

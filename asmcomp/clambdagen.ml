@@ -37,6 +37,27 @@ let mark_closed not_constants expr =
   let expr = Flambdaiter.map aux expr in
   expr, !closures
 
+let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
+  let set_fun = ref OffsetSet.empty in
+  let set_fv = ref OffsetSet.empty in
+  let aux expr = match expr with
+    | Fenv_field({env_var;env_fun_id}, _) ->
+      set_fun := OffsetSet.add env_fun_id !set_fun;
+      set_fv := OffsetSet.add env_var !set_fv;
+    | Foffset(_,id, _) ->
+      set_fun := OffsetSet.add id !set_fun;
+    | e -> ()
+  in
+  Flambdaiter.iter aux expr;
+  let f extern_map offset new_map =
+    try
+      OffsetMap.add offset (OffsetMap.find offset extern_map) new_map
+    with Not_found -> new_map (* local function *)
+  in
+  let fun_map = OffsetSet.fold (f extern_fun_offset_table) !set_fun in
+  let fv_map = OffsetSet.fold (f extern_fv_offset_table) !set_fv in
+  fun_map, fv_map
+
 let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
 
 module type Param1 = sig
@@ -138,7 +159,13 @@ module Conv(P:Param2) = struct
     (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun
   let extern_fv_offset_table =
     (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv
+  let ex_closures =
+    (Compilenv.approx_env ()).Flambdaexport.ex_functions_off
 
+  (* let () = *)
+  (*   OffsetMap.iter (fun off _ -> *)
+  (*       Format.printf "fun off %a@." Offset.print off) *)
+  (*     extern_fun_offset_table *)
 
   let is_current_unit id =
     (Compilenv.current_unit_symbol ()) = id
@@ -159,6 +186,16 @@ module Conv(P:Param2) = struct
                           Offset.print off)
       else OffsetMap.find off fv_offset_table
     else OffsetMap.find off extern_fv_offset_table
+
+  let get_closed_and_label off =
+    let closed_and_label clos off =
+      clos.closed, (IdentMap.find off.off_id clos.funs).label in
+    try closed_and_label (OffsetMap.find off closures) off with
+    | Not_found ->
+      try closed_and_label (OffsetMap.find off ex_closures) off with
+      | Not_found ->
+        fatal_error (Format.asprintf "missing closure %a"
+                       Offset.print off)
 
   let not_constants = P.not_constants
 
@@ -333,22 +370,19 @@ module Conv(P:Param2) = struct
       Value_unknown
 
     | Fapply(funct, args, Some direct_func, dbg, _) ->
-      let closed = try
-          (OffsetMap.find direct_func closures).closed
-        with
-        | Not_found ->
-          fatal_error (Format.asprintf "missing closure %a"
-                         Offset.print direct_func)
-      in
-      let ufunct = conv env funct in
+      (* Is the direct apply information really usefull ?
+         The main problem is recursive functions *)
+      let ufunct, fun_approx = conv_approx env funct in
+      (* let () = match get_descr fun_approx env with *)
+      (*   | Some (Value_closure { fun_id }) -> *)
+      (*     Format.printf "direct apply %a@." Offset.print fun_id *)
+      (*   | _ -> () in *)
+      let closed, label = get_closed_and_label direct_func in
       let uargs =
         let uargs = conv_list env args in
         if closed then uargs else uargs @ [ufunct] in
 
-      let closure = OffsetMap.find direct_func closures in
-      let func = IdentMap.find direct_func.off_id closure.funs in
-
-      let apply = Udirect_apply((func.label:>string), uargs, dbg) in
+      let apply = Udirect_apply((label:>string), uargs, dbg) in
 
       (* This is usualy sufficient to detect closure with side effects *)
       let rec no_effect = function
@@ -726,6 +760,12 @@ module Conv(P:Param2) = struct
     OffsetMap.fold (fun _ clos map -> FunMap.add clos.ident (unitify clos) map)
       closures FunMap.empty
 
+  let ex_functions_off =
+    let aux_fun ffunctions off_id _ map =
+      OffsetMap.add {off_unit = ffunctions.unit; off_id} ffunctions map in
+    let aux _ f map = IdentMap.fold (aux_fun f) f.funs map in
+    FunMap.fold aux ex_functions OffsetMap.empty
+
 end
 
 let convert (type a) (expr:a Flambda.flambda) =
@@ -740,6 +780,12 @@ let convert (type a) (expr:a Flambda.flambda) =
     let module O = Offsets(P1) in
     O.res
   in
+  let extern_fun_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fun in
+  let extern_fv_offset_table =
+    (Compilenv.approx_env ()).Flambdaexport.ex_offset_fv in
+  let add_ext_offset_fun, add_ext_offset_fv =
+    reexported_offset extern_fun_offset_table extern_fv_offset_table expr in
   let module P2 = struct include P1
     let fun_offset_table = fun_offset_table
     let fv_offset_table = fv_offset_table
@@ -754,10 +800,13 @@ let convert (type a) (expr:a Flambda.flambda) =
           (Compilenv.current_unit_id ()) C.root_approx;
       ex_symbol_id = C.ex_symbol_id;
       ex_id_symbol = C.ex_id_symbol;
-      ex_functions = C.ex_functions; }
+      ex_functions = C.ex_functions;
+      ex_functions_off = C.ex_functions_off;
+      ex_offset_fun = add_ext_offset_fun fun_offset_table;
+      ex_offset_fv = add_ext_offset_fv fv_offset_table }
   in
-  Format.printf "%a@.%a@."
-    Flambdaexport.print_approx export
-    Flambdaexport.print_symbols export;
+  (* Format.printf "%a@.%a@." *)
+  (*   Flambdaexport.print_approx export *)
+  (*   Flambdaexport.print_symbols export; *)
   Compilenv.set_export_info export;
   C.res

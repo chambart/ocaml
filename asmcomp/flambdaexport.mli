@@ -43,6 +43,7 @@ and approx =
 
 type exported = {
   ex_functions : unit Flambda.ffunctions Flambda.FunMap.t;
+  ex_functions_off : unit Flambda.ffunctions Flambda.OffsetMap.t;
   ex_values : descr EidMap.t;
   ex_globals : approx Flambda.IdentMap.t;
   ex_id_symbol : Flambda.symbol EidMap.t;
