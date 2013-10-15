@@ -27,6 +27,7 @@ type descr =
   | Value_int of int
   | Value_constptr of int
   | Value_closure of value_offset
+  | Value_unoffseted_closure of value_closure
   | Value_predef_exn of Ident.t
 
 and value_offset =
@@ -89,6 +90,8 @@ let print_approx ppf export =
     | Value_block (tag, fields) -> fprintf ppf "[%i:%a]" tag print_fields fields
     | Value_closure {fun_id; closure} ->
       fprintf ppf "(function %a, %a)" Offset.print fun_id print_closure closure
+    | Value_unoffseted_closure closure ->
+      fprintf ppf "(ufunction %a)" print_closure closure
     | Value_predef_exn id -> Ident.print ppf id
   and print_fields ppf fields =
     Array.iter (fun approx -> fprintf ppf "%a@ " print_approx approx) fields

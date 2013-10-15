@@ -26,6 +26,7 @@ type descr =
   | Value_int of int
   | Value_constptr of int
   | Value_closure of value_offset
+  | Value_unoffseted_closure of value_closure
   | Value_predef_exn of Ident.t
 
 and value_offset = { fun_id : Flambda.offset; closure : value_closure; }

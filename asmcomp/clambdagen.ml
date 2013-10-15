@@ -167,6 +167,7 @@ module Conv(P:Param2) = struct
       cm : string IdentMap.t; (* variables associated to constants *)
       global : (int, approx) Hashtbl.t;
       ex_table : descr EidMap.t ref;
+      ex_symbol_id : ExportId.t SymbolMap.t ref;
       approx : approx IdentMap.t;
     }
 
@@ -175,6 +176,7 @@ module Conv(P:Param2) = struct
       cm = IdentMap.empty;
       global = Hashtbl.create 10;
       ex_table = ref EidMap.empty;
+      ex_symbol_id = ref SymbolMap.empty;
       approx = IdentMap.empty }
 
   let add_sb id subst env =
@@ -199,6 +201,19 @@ module Conv(P:Param2) = struct
     { env with approx = IdentMap.add id approx env.approx }
   let get_approx id env =
     try IdentMap.find id env.approx with Not_found -> Value_unknown
+
+  let get_descr approx env =
+    match approx with
+    | Value_unknown -> None
+    | Value_id ex -> Some (EidMap.find ex !(env.ex_table))
+    | Value_symbol sym ->
+      try
+        let ex = SymbolMap.find sym !(env.ex_symbol_id) in
+        Some (EidMap.find ex !(env.ex_table))
+      with Not_found -> None
+
+  let add_symbol sym id env =
+    env.ex_symbol_id := SymbolMap.add sym id !(env.ex_symbol_id)
 
   let rec conv env expr = fst (conv_approx env expr)
   and conv_approx (env : env) = function
@@ -289,8 +304,7 @@ module Conv(P:Param2) = struct
       Value_unknown
 
     | Fclosure(funct, fv, _) ->
-      conv_closure env funct fv,
-      Value_unknown
+      conv_closure env funct fv
 
     | Foffset(lam,id, _) ->
       (* For compiling offset inside a constant closure as a constant,
@@ -300,10 +314,15 @@ module Conv(P:Param2) = struct
          applied to a variable or the closure on which we can recover the
          original label.
       *)
-      let ulam = conv env lam in
+      let ulam, fun_approx = conv_approx env lam in
+      let approx = match get_descr fun_approx env with
+        | Some (Value_unoffseted_closure closure) ->
+          Value_id (new_descr (Value_closure { fun_id = id; closure }) env)
+        | Some _ -> assert false
+        | None -> Value_unknown in
       let offset = get_fun_offset id in
       make_offset ulam offset,
-      Value_unknown
+      approx
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv env lam in
@@ -522,7 +541,17 @@ module Conv(P:Param2) = struct
     (* the label used for constant closures *)
     let closure_lbl = Compilenv.new_const_symbol () in
 
-    let fv_ulam = List.map (fun (id,lam) -> id,conv env lam) fv in
+    let fv_ulam_approx = List.map (fun (id,lam) -> id,conv_approx env lam) fv in
+    let fv_ulam = List.map (fun (id,(lam,_)) -> id, lam) fv_ulam_approx in
+    let value_closure =
+      Value_id
+        (new_descr
+           (Value_unoffseted_closure
+              { closure_id = functs.ident;
+                bound_var = List.fold_left (fun map (off_id,(_,approx)) ->
+                    OffsetMap.add { off_id; off_unit = functs.unit } approx map)
+                    OffsetMap.empty fv_ulam_approx })
+           env) in
 
     let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
@@ -592,7 +621,8 @@ module Conv(P:Param2) = struct
       | Some fv_const ->
         let cst = Uconst_closure (ufunct, closure_lbl, fv_const) in
         Compilenv.add_structured_constant closure_lbl cst true;
-        Uconst(cst,Some closure_lbl)
+        Uconst(cst,Some closure_lbl),
+        value_closure
     else
 
 (* TO BE UNCOMMENTED: when fenv_field access to a constant will be
@@ -604,7 +634,8 @@ module Conv(P:Param2) = struct
             IdentSet.mem id not_constants.Constants.not_constant_id) fv_ulam in
 *)
 
-      Uclosure (ufunct, List.map snd fv_ulam)
+      Uclosure (ufunct, List.map snd fv_ulam),
+      value_closure
 
   and conv_list env l = List.map (conv env) l
   and conv_list_approx env l =
