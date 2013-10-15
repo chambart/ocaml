@@ -26,6 +26,8 @@ exception Error of error
 
 let global_infos_table =
   (Hashtbl.create 17 : (string, unit_infos option) Hashtbl.t)
+let export_infos_table =
+  (Hashtbl.create 17 : (string, Flambdaexport.exported) Hashtbl.t)
 
 let structured_constants =
   ref ([] : (string * bool * Clambda.ustructured_constant) list)
@@ -34,6 +36,7 @@ let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
 let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
+let merged_environment = ref Flambdaexport.empty_export
 
 let current_unit =
   { ui_name = "";
@@ -65,6 +68,8 @@ let symbolname_for_pack pack name =
 
 let reset ?packname name =
   Hashtbl.clear global_infos_table;
+  Hashtbl.clear export_infos_table;
+  merged_environment := Flambdaexport.empty_export;
   let symbol = symbolname_for_pack packname name in
   current_unit_id := Ident.create_persistent name;
   current_unit.ui_name <- name;
@@ -186,10 +191,20 @@ let global_approx id =
 let set_export_info export_info =
   current_unit.ui_export_info <- export_info
 
-let approx_for_global id = Flambdaexport.empty_export
+let approx_for_global id =
+  if Ident.is_predef_exn id || not (Ident.global id)
+  then invalid_arg "approx_for_global";
+  let modname = Ident.name id in
+  try Hashtbl.find export_infos_table modname with
+  | Not_found ->
+    let exported = match get_global_info id with
+      | None -> Flambdaexport.empty_export
+      | Some ui -> ui.ui_export_info in
+    Hashtbl.add export_infos_table modname exported;
+    merged_environment := Flambdaexport.merge !merged_environment exported;
+    exported
 
-let approx_env () = Flambdaexport.empty_export
-(* Not implemented yet in this patch *)
+let approx_env () = !merged_environment
 
 (* Return the symbol used to refer to a global identifier *)
 

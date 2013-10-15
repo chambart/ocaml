@@ -26,6 +26,7 @@ type descr =
   | Value_unknown
   | Value_bottom
   | Value_extern of Flambdaexport.ExportId.t
+  | Value_symbol of Symbol.t
 
 and value_offset =
   { fun_id : offset;
@@ -34,6 +35,21 @@ and value_offset =
 and value_closure =
   { ffunctions : ExprId.t ffunctions;
     bound_var : descr OffsetMap.t }
+
+let rec print_descr ppf = function
+  | Value_int i -> Format.pp_print_int ppf i
+  | Value_constptr i -> Format.fprintf ppf "%ia" i
+  | Value_block (tag,fields) ->
+    let p ppf fields =
+      Array.iter (fun v -> Format.fprintf ppf "%a@ " print_descr v) fields in
+    Format.fprintf ppf "[%i:@ @[<1>%a@]]" tag p fields
+  | Value_unknown -> Format.fprintf ppf "?"
+  | Value_bottom -> Format.fprintf ppf "bottom"
+  | Value_extern id -> Format.fprintf ppf "_%a_" Flambdaexport.ExportId.print id
+  | Value_symbol sym -> Format.fprintf ppf "%a" Symbol.print sym
+  | Value_closure { fun_id } ->
+    Format.fprintf ppf "(fun:@ %a)" Offset.print fun_id
+  | _ -> Format.fprintf ppf "TODO"
 
 module Import = struct
   type t = descr
@@ -52,13 +68,34 @@ module Import = struct
     match ap with
     | Value_unknown -> Value_unknown
     | Value_id ex -> Value_extern ex
-    | Value_symbol sym -> import_symbol sym
+    | Value_symbol sym -> Value_symbol sym
 
-  and import_symbol ((unit,_) as sym) =
+  let import_symbol ((unit,_) as sym) =
     let symbol_id_map =
       (Compilenv.approx_for_global unit).ex_symbol_id in
     try import_ex (SymbolMap.find sym symbol_id_map) with
-    | Not_found -> Value_unknown
+    | Not_found ->
+      Value_unknown
+
+  let import_symbol sym =
+    let r = import_symbol sym in
+    Format.printf "import %a:@[<1>@ %a@]@." Symbol.print sym print_descr r;
+    r
+
+  let rec really_import = function
+    | Value_extern ex -> really_import_ex ex
+    | Value_symbol sym -> really_import_symbol sym
+    | r -> r
+
+  and really_import_ex ex =
+    really_import (import_ex ex)
+
+  and really_import_symbol sym =
+    really_import (import_symbol sym)
+
+  let import_global id =
+    import_approx
+      (IdentMap.find id (Compilenv.approx_for_global id).ex_globals)
 
 end
 
@@ -272,6 +309,7 @@ let check_constant_result lam approx =
   match approx with
     Value_int n when no_effects lam -> make_const_int n (data lam)
   | Value_constptr n when no_effects lam -> make_const_ptr n (data lam)
+  | Value_symbol sym when no_effects lam -> Fsymbol(sym, data lam), approx
   | _ -> (lam, approx)
 
 let simplif_prim_pure p (args, approxs) expr dbg =
@@ -353,7 +391,11 @@ let simplif_prim_pure p (args, approxs) expr dbg =
       | _ ->
           expr, Value_unknown
 
-let rec loop (env:env) tree : 'a flambda * descr =
+let rec loop env tree =
+  let f, descr = loop_direct env tree in
+  f, really_import descr
+
+and loop_direct (env:env) tree : 'a flambda * descr =
   let aux v = fst (loop env v) in
   match tree with
   | Fsymbol (sym,_) -> tree, import_symbol sym
@@ -405,6 +447,12 @@ let rec loop (env:env) tree : 'a flambda * descr =
       let body, approx = loop body_env body in
       Fletrec (defs, body, annot),
       approx
+  | Fprim(Pgetglobal id, [], dbg, annot) as expr ->
+    let approx =
+      if Ident.is_predef_exn id
+      then Value_unknown
+      else import_global id in
+    expr, approx
   | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr
     when id = Compilenv.current_unit_id () ->
       let approx = find_global i env in

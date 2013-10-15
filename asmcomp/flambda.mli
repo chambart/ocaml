@@ -42,7 +42,7 @@ module Symbol : PrintableHashOrdered with type t = symbol
 module Idt : PrintableHashOrdered with type t = Ident.t
 
 module ExprId : Id
-module FunId : Ext_types.Id
+module FunId : UnitId
 
 module SymbolSet : ExtSet with module M := Symbol
 module SymbolMap : ExtMap with module M := Symbol

@@ -15,35 +15,7 @@ open Flambda
 
 module Innerid = Id(struct end)
 
-module ExportId : UnitId = struct
-  type t = {
-    id : Innerid.t;
-    unit : string;
-  }
-  let compare x y =
-    let c = Innerid.compare x.id y.id in
-    if c <> 0
-    then c
-    else String.compare x.unit y.unit
-  let output oc x =
-    Printf.fprintf oc "%s.%a"
-      x.unit
-      Innerid.output x.id
-  let print ppf x =
-    Format.fprintf ppf "%s.%a"
-      x.unit
-      Innerid.print x.id
-  let hash off = Hashtbl.hash off
-  let equal o1 o2 = compare o1 o2 = 0
-  let name o = Innerid.name o.id
-  let to_string x =
-    Printf.sprintf "%s.%s"
-      x.unit
-      (Innerid.to_string x.id)
-  let create ?name unit =
-    let id = Innerid.create ?name () in
-    { id; unit }
-end
+module ExportId = UnitId(Innerid)
 module EidMap = ExtMap(ExportId)
 module EidSet = ExtSet(ExportId)
 module EidTbl = ExtHashtbl(ExportId)
@@ -146,3 +118,13 @@ let print_symbols ppf export =
     fprintf ppf "%a %s -> %a@." Ident.print id sym ExportId.print eid
   in
   EidMap.iter print_symbol export.ex_id_symbol
+
+let merge e1 e2 =
+  { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
+    ex_globals = IdentMap.empty;
+    ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
+    ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
+    ex_symbol_id = SymbolMap.disjoint_union e1.ex_symbol_id e2.ex_symbol_id;
+    ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;
+    ex_offset_fv = OffsetMap.disjoint_union e1.ex_offset_fv e2.ex_offset_fv;
+    ex_constants = SymbolSet.union e1.ex_constants e2.ex_constants }

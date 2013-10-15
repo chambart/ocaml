@@ -53,6 +53,8 @@ type exported = {
 
 val empty_export : exported
 
+val merge : exported -> exported -> exported
+
 (**/**)
 (* debug printing functions *)
 

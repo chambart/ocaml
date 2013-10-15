@@ -101,6 +101,7 @@ module type UnitId =
   end
 
 module Id : functor (E : Empty) -> Id
+module UnitId : functor (Id : Id) -> UnitId
 
 module Int :
   sig

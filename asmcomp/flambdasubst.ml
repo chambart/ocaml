@@ -168,7 +168,7 @@ module Subst(P:Param) = struct
         let id' = IdentMap.find id fun_id_subst in
         IdentMap.add id' (aux_ffunction id' ffun) map)
         ffuns.funs IdentMap.empty in
-    { ident = FunId.create ();
+    { ident = FunId.create ((Compilenv.current_unit_name ()));
       (* this ident is used only in value approximations,
          no need to propagate it *)
       funs;

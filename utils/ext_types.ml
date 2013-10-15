@@ -152,6 +152,36 @@ module Id(E:Empty) : Id = struct
   let print ppf v = Format.pp_print_string ppf (to_string v)
 end
 
+module UnitId(Innerid:Id) : UnitId = struct
+  type t = {
+    id : Innerid.t;
+    unit : string;
+  }
+  let compare x y =
+    let c = Innerid.compare x.id y.id in
+    if c <> 0
+    then c
+    else String.compare x.unit y.unit
+  let output oc x =
+    Printf.fprintf oc "%s.%a"
+      x.unit
+      Innerid.output x.id
+  let print ppf x =
+    Format.fprintf ppf "%s.%a"
+      x.unit
+      Innerid.print x.id
+  let hash off = Hashtbl.hash off
+  let equal o1 o2 = compare o1 o2 = 0
+  let name o = Innerid.name o.id
+  let to_string x =
+    Printf.sprintf "%s.%s"
+      x.unit
+      (Innerid.to_string x.id)
+  let create ?name unit =
+    let id = Innerid.create ?name () in
+    { id; unit }
+end
+
 module Int = struct
   type t = int
   let compare x y = x - y

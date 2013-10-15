@@ -167,13 +167,15 @@ module Conv(P:Param2) = struct
       cm : string IdentMap.t; (* variables associated to constants *)
       global : (int, approx) Hashtbl.t;
       ex_table : descr EidMap.t ref;
+      approx : approx IdentMap.t;
     }
 
   let empty_env () =
     { sb = IdentMap.empty;
       cm = IdentMap.empty;
       global = Hashtbl.create 10;
-      ex_table = ref EidMap.empty }
+      ex_table = ref EidMap.empty;
+      approx = IdentMap.empty }
 
   let add_sb id subst env =
     { env with sb = IdentMap.add id subst env.sb }
@@ -184,12 +186,19 @@ module Conv(P:Param2) = struct
   let add_global i approx env =
     Hashtbl.add env.global i approx
   let get_global i env =
+    (* /!\ si il n'y a pas on devrait mieux planter non ? /!\
+       à changer plus tard *)
     try Hashtbl.find env.global i with Not_found -> Value_unknown
 
   let new_descr descr env =
     let id = ExportId.create (Compilenv.current_unit_name ()) in
     env.ex_table := EidMap.add id descr !(env.ex_table);
-    Value_id id
+    id
+
+  let add_approx id approx env =
+    { env with approx = IdentMap.add id approx env.approx }
+  let get_approx id env =
+    try IdentMap.find id env.approx with Not_found -> Value_unknown
 
   let rec conv env expr = fst (conv_approx env expr)
   and conv_approx (env : env) = function
@@ -209,7 +218,7 @@ module Conv(P:Param2) = struct
           try IdentMap.find id env.sb
           with Not_found -> Uvar id
       end,
-      Value_unknown
+      get_approx id env
 
     | Fsymbol ((_,lbl) as sym,_) ->
       Uconst (Uconst_label lbl, None),
@@ -219,27 +228,29 @@ module Conv(P:Param2) = struct
       let ucst, descr = conv_const cst in
       let approx = match descr with
         | None -> Value_unknown
-        | Some descr -> new_descr descr env in
+        | Some descr -> Value_id (new_descr descr env) in
       Uconst (ucst, None),
       approx
 
     | Flet(str, id, lam, body, _) ->
-      let lam = conv env lam in
+      let lam, approx = conv_approx env lam in
+      let env = add_approx id approx env in
       if IdentSet.mem id not_constants.Constants.not_constant_id
-      then Ulet(id, lam, conv env body), Value_unknown
+      then
+        let ubody, body_approx = conv_approx env body in
+        Ulet(id, lam, ubody), body_approx
       else begin match constant_label lam with
         | No_lbl ->
-          (* no label: the value is an integer substitute it *)
-          conv (add_sb id lam env) body
+          (* no label: the value is an integer: substitute it *)
+          conv_approx (add_sb id lam env) body
         | Lbl lbl ->
           (* label: the value is a block: reference it *)
-          conv (add_cm id lbl env) body
+          conv_approx (add_cm id lbl env) body
         | Not_const ->
           Format.printf "%a@." Ident.print id;
           Printclambda.clambda Format.std_formatter lam;
           assert false
-      end,
-      Value_unknown
+      end
 
     | Fletrec(defs, body, _) ->
       let not_consts, consts =
@@ -310,13 +321,30 @@ module Conv(P:Param2) = struct
           fatal_error (Format.asprintf "missing closure %a"
                          Offset.print direct_func)
       in
-      let args = if closed then args else args @ [funct] in
+      let ufunct = conv env funct in
+      let uargs =
+        let uargs = conv_list env args in
+        if closed then uargs else uargs @ [ufunct] in
 
-      (* If usefull things are in ufunct they are eliminated: TODO
-         replace funct field by an ident field *)
       let closure = OffsetMap.find direct_func closures in
       let func = IdentMap.find direct_func.off_id closure.funs in
-      Udirect_apply((func.label:>string), conv_list env args, dbg),
+
+      let apply = Udirect_apply((func.label:>string), uargs, dbg) in
+
+      (* This is usualy sufficient to detect closure with side effects *)
+      let rec no_effect = function
+        | Uvar _ | Uconst _ | Uprim(Pgetglobal _, _, _) -> true
+        | Uprim(Pfield _, [arg], _) -> no_effect arg
+        | Uclosure _ ->
+          (* if the function is closed, then it is a Uconst otherwise,
+             we do not call this function *)
+          assert false
+        | _ -> false in
+
+      (* if the function is closed, the closure is not in the parameters,
+         so we must ensure that it is present if it does some side effects *)
+      (if closed && not (no_effect ufunct)
+       then Usequence(ufunct, apply) else apply),
       Value_unknown
 
     | Fapply(funct, args, None, dbg, _) ->
@@ -352,10 +380,11 @@ module Conv(P:Param2) = struct
             [Uprim(Pgetglobal (Ident.create_persistent
                                  (Compilenv.symbol_for_global id)), [], dbg)],
             dbg),
-      Value_unknown
+      get_global i env
 
     | Fprim(Psetglobalfield i, [arg], dbg, _) ->
       let uarg, approx = conv_approx env arg in
+      add_global i approx env;
       Uprim(Psetfield (i,false),
             [Uprim(Pgetglobal (Ident.create_persistent
                                  (Compilenv.make_symbol None)), [], dbg);
@@ -364,7 +393,7 @@ module Conv(P:Param2) = struct
       Value_unknown
 
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
-      let args = conv_list env args in
+      let args, approxs = conv_list_approx env args in
       begin match constant_list args with
         | None ->
           Uprim(p, args, dbg)
@@ -372,7 +401,7 @@ module Conv(P:Param2) = struct
           let cst = Uconst_block (tag,l) in
           Uconst(cst, None)
       end,
-      Value_unknown
+      Value_id (new_descr (Value_block (tag, Array.of_list approxs)) env)
 
     | Fprim(p, args, dbg, _) ->
       Uprim(p, conv_list env args, dbg),
@@ -391,9 +420,9 @@ module Conv(P:Param2) = struct
       Value_unknown
     | Fsequence(lam1, lam2, _) ->
       let ulam1 = conv env lam1 in
-      let ulam2 = conv env lam2 in
+      let ulam2, approx = conv_approx env lam2 in
       Usequence(ulam1, ulam2),
-      Value_unknown
+      approx
     | Fwhile(cond, body, _) ->
       Uwhile(conv env cond, conv env body),
       Value_unknown
@@ -578,6 +607,8 @@ module Conv(P:Param2) = struct
       Uclosure (ufunct, List.map snd fv_ulam)
 
   and conv_list env l = List.map (conv env) l
+  and conv_list_approx env l =
+    List.split (List.map (conv_approx env) l)
 
   and conv_const = function
     | Fconst_base c ->
@@ -634,6 +665,35 @@ module Conv(P:Param2) = struct
 
   let env = empty_env ()
   let res = conv env P.expr
+  let root_id =
+    let size_global =
+      1 + (Hashtbl.fold (fun k _ acc -> max k acc) env.global (-1)) in
+    let fields = Array.init size_global (fun i ->
+        try Hashtbl.find env.global i with
+        | Not_found -> Value_unknown) in
+    new_descr (Value_block (0,fields)) env
+  let root_approx = Value_id root_id
+  let ex_values = !(env.ex_table)
+
+  let module_symbol =
+    let id = Compilenv.current_unit_id () in
+    id, Compilenv.symbol_for_global id
+
+  let ex_symbol_id =
+    SymbolMap.singleton module_symbol root_id
+  let ex_id_symbol =
+    EidMap.singleton root_id module_symbol
+
+  let ex_functions =
+    let unitify clos =
+      { clos with
+        funs =
+          IdentMap.map
+            (fun ff -> { ff with body = Flambdaiter.map_data ignore ff.body })
+            clos.funs }
+    in
+    OffsetMap.fold (fun _ clos map -> FunMap.add clos.ident (unitify clos) map)
+      closures FunMap.empty
 
 end
 
@@ -656,6 +716,17 @@ let convert (type a) (expr:a Flambda.flambda) =
     let closures = closures
   end in
   let module C = Conv(P2) in
-  let export = Flambdaexport.empty_export in
+  let export = let open Flambdaexport in
+    { empty_export with
+      ex_values = C.ex_values;
+      ex_globals = IdentMap.singleton
+          (Compilenv.current_unit_id ()) C.root_approx;
+      ex_symbol_id = C.ex_symbol_id;
+      ex_id_symbol = C.ex_id_symbol;
+      ex_functions = C.ex_functions; }
+  in
+  Format.printf "%a@.%a@."
+    Flambdaexport.print_approx export
+    Flambdaexport.print_symbols export;
   Compilenv.set_export_info export;
   C.res
