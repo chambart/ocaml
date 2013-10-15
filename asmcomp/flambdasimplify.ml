@@ -71,7 +71,6 @@ module Import = struct
     with Not_found -> Value_unknown
 
   and import_approx (ap:Flambdaexport.approx) : t =
-    (* let ex_info = Compilenv.approx_env () in *)
     match ap with
     | Value_unknown -> Value_unknown
     | Value_id ex -> Value_extern ex
@@ -602,66 +601,67 @@ and inline env clos lfunc fun_id func args dbg eid =
   in
   loop env (Flet(Strict, clos_id, lfunc, body, ExprId.create ()))
 
-module Export = struct
-  type t = descr
-  open Flambdaexport
+(* module Export = struct *)
+(*   type t = descr *)
+(*   open Flambdaexport *)
 
-  type acc =
-    { mapping : descr EidMap.t }
+(*   type acc = *)
+(*     { mapping : descr EidMap.t } *)
 
-  let empty_acc = { mapping = EidMap.empty }
+(*   let empty_acc = { mapping = EidMap.empty } *)
 
-  let add ex descr acc =
-    { mapping = EidMap.add ex descr acc.mapping }
+(*   let add ex descr acc = *)
+(*     { mapping = EidMap.add ex descr acc.mapping } *)
 
-  let make_ex () =
-    ExportId.create (Compilenv.current_unit_name ())
+(*   let make_ex () = *)
+(*     ExportId.create (Compilenv.current_unit_name ()) *)
 
-  let rec prepare_descr : acc -> t -> (descr * acc) option = fun acc -> function
-    | Value_int i -> Some (Value_int i, acc)
-    | Value_constptr i -> Some (Value_constptr i, acc)
-    | Value_block (tag, fields) ->
-        let fields, acc = Array.fold_right
-            (fun descr (l,acc) ->
-               let v, acc' = prepare_approx acc descr in
-               (v::l, acc'))
-            fields ([],acc) in
-        Some (Value_block(tag,Array.of_list fields), acc)
+(*   let rec prepare_descr : acc -> t -> (descr * acc) option = fun acc -> function *)
+(*     | Value_int i -> Some (Value_int i, acc) *)
+(*     | Value_constptr i -> Some (Value_constptr i, acc) *)
+(*     | Value_block (tag, fields) -> *)
+(*         let fields, acc = Array.fold_right *)
+(*             (fun descr (l,acc) -> *)
+(*                let v, acc' = prepare_approx acc descr in *)
+(*                (v::l, acc')) *)
+(*             fields ([],acc) in *)
+(*         Some (Value_block(tag,Array.of_list fields), acc) *)
 
-    | Value_unknown
-    | Value_bottom -> None
+(*     | Value_unknown *)
+(*     | Value_bottom -> None *)
 
-    | _ -> None
-    (* | Value_unoffseted_closure of value_closure *)
-    (* | Value_closure of value_offset *)
-    (* | Value_extern of Flambdaexport.ExportId.t *)
+(*     | _ -> None *)
+(*     (\* | Value_unoffseted_closure of value_closure *\) *)
+(*     (\* | Value_closure of value_offset *\) *)
+(*     (\* | Value_extern of Flambdaexport.ExportId.t *\) *)
 
-  and prepare_approx : acc -> t -> approx * acc = fun acc -> function
-    | Value_extern ex ->
-        let id_symbol = (Compilenv.approx_env ()).ex_id_symbol in
-        let approx =
-          try Value_symbol (EidMap.find ex id_symbol) with
-          | Not_found -> Value_unknown in
-        approx, acc
-    | t -> match prepare_descr acc t with
-      | None -> Value_unknown, acc
-      | Some (descr,acc) ->
-          let ex = make_ex () in
-          let acc = add ex descr acc in
-          Value_id ex, acc
+(*   and prepare_approx : acc -> t -> approx * acc = fun acc -> function *)
+(*     | Value_extern ex -> *)
+(*         let id_symbol = (Compilenv.approx_env ()).ex_id_symbol in *)
+(*         let approx = *)
+(*           try Value_symbol (EidMap.find ex id_symbol) with *)
+(*           | Not_found -> Value_unknown in *)
+(*         approx, acc *)
+(*     | t -> match prepare_descr acc t with *)
+(*       | None -> Value_unknown, acc *)
+(*       | Some (descr,acc) -> *)
+(*           let ex = make_ex () in *)
+(*           let acc = add ex descr acc in *)
+(*           Value_id ex, acc *)
 
-  let prepare_export global =
-    let size_global =
-      1 + (Hashtbl.fold (fun k _ acc -> max k acc) global (-1)) in
-    let fields = Array.init size_global (fun i ->
-        try Hashtbl.find global i with Not_found -> (Value_unknown:t)) in
-    let root, acc = prepare_approx empty_acc (Value_block (0,fields)) in
-    root, acc.mapping
+(*   let prepare_export global = *)
+(*     let size_global = *)
+(*       1 + (Hashtbl.fold (fun k _ acc -> max k acc) global (-1)) in *)
+(*     let fields = Array.init size_global (fun i -> *)
+(*         try Hashtbl.find global i with Not_found -> (Value_unknown:t)) in *)
+(*     let root, acc = prepare_approx empty_acc (Value_block (0,fields)) in *)
+(*     root, acc.mapping *)
 
-end
+(* end *)
 
 let simplify tree =
   let env = empty_env () in
   let result, _ = loop env tree in
-  let root, mapping = Export.prepare_export env.global in
-  result, root, mapping
+  (* let root, mapping = Export.prepare_export env.global in *)
+  result
+(* , root, mapping *)
