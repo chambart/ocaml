@@ -544,7 +544,7 @@ and apply env funct args dbg eid =
       let func = IdentMap.find fun_id.off_id clos.funs in
       let nargs = List.length args in
       if nargs = func.arity
-      then direct_apply clos funct fun_id func args dbg eid
+      then direct_apply env clos funct fun_id func args dbg eid
       else
         Fapply (funct, args, None, dbg, eid),
         Value_unknown
@@ -552,12 +552,12 @@ and apply env funct args dbg eid =
       Fapply (funct, args, None, dbg, eid),
       Value_unknown
 
-and direct_apply clos funct fun_id func args dbg eid =
+and direct_apply env clos funct fun_id func args dbg eid =
   if not clos.recursives && lambda_smaller func.body
        ((!Clflags.inline_threshold + List.length func.params) * 2)
   then
     (* try inlining if the function is not too far above the threshold *)
-    let body, approx = inline clos funct fun_id func args dbg eid in
+    let body, approx = inline env clos funct fun_id func args dbg eid in
     if lambda_smaller body
         (!Clflags.inline_threshold + List.length func.params)
     then
@@ -568,7 +568,7 @@ and direct_apply clos funct fun_id func args dbg eid =
   else Fapply (funct, args, Some fun_id, dbg, eid),
        Value_unknown
 
-and inline clos lfunc fun_id func args dbg eid =
+and inline env clos lfunc fun_id func args dbg eid =
   let clos_id = Ident.create "inlined_closure" in
   let args' = List.map2 (fun id arg -> id, Ident.rename id, arg)
       func.params args in
@@ -593,8 +593,7 @@ and inline clos lfunc fun_id func args dbg eid =
              body, ExprId.create ()))
       fv'
   in
-  Flet(Strict, clos_id, lfunc, body, ExprId.create ()),
-  Value_unknown
+  loop env (Flet(Strict, clos_id, lfunc, body, ExprId.create ()))
 
 module Export = struct
   type t = descr
