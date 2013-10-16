@@ -559,7 +559,7 @@ and apply env funct args dbg eid =
       Value_unknown
 
 and direct_apply env clos funct fun_id func args dbg eid =
-  if not clos.recursives && lambda_smaller func.body
+  if not clos.recursives && not (func.kind = Tupled) && lambda_smaller func.body
        ((!Clflags.inline_threshold + List.length func.params) * 2)
   then
     (* try inlining if the function is not too far above the threshold *)
