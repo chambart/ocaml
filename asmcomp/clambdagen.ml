@@ -44,8 +44,11 @@ let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
     | Fenv_field({env_var;env_fun_id}, _) ->
       set_fun := OffsetSet.add env_fun_id !set_fun;
       set_fv := OffsetSet.add env_var !set_fv;
-    | Foffset(_,id, _) ->
-      set_fun := OffsetSet.add id !set_fun;
+    | Foffset(_,id, rel, _) ->
+      let set = match rel with
+        | None -> !set_fun
+        | Some rel -> OffsetSet.add rel !set_fun in
+      set_fun := OffsetSet.add id set;
     | e -> ()
   in
   Flambdaiter.iter aux expr;
@@ -58,10 +61,13 @@ let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
   let fv_map = OffsetSet.fold (f extern_fv_offset_table) !set_fv in
   fun_map, fv_map
 
+let offseted_label (lbl,i) =
+  if i = 0 then lbl else lbl ^ "_" ^ (string_of_int i)
+
 (* functions that assumes that the refered value is declared in the
    current unit: usage should be justified *)
 let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
-let to_symbol lbl = (Compilenv.current_unit_id (), lbl)
+let to_symbol lbl = (Compilenv.current_unit_id (), offseted_label lbl)
 
 module type Param1 = sig
   type t
@@ -144,7 +150,7 @@ module type Param2 = sig
 end
 
 type const_lbl =
-  | Lbl of string
+  | Lbl of offseted_label
   | No_lbl
   | Not_const
 
@@ -215,7 +221,7 @@ module Conv(P:Param2) = struct
 
   type env =
     { sb : ulambda IdentMap.t; (* substitution *)
-      cm : string IdentMap.t; (* variables associated to constants *)
+      cm : offseted_label IdentMap.t; (* variables associated to constants *)
       global : (int, approx) Hashtbl.t;
       ex_table : descr EidMap.t ref;
       ex_symbol_id : ExportId.t SymbolMap.t ref;
@@ -287,7 +293,7 @@ module Conv(P:Param2) = struct
       get_approx id env
 
     | Fsymbol ((_,lbl) as sym,_) ->
-      Uconst (Uconst_label lbl, None),
+      Uconst (Uconst_label (lbl,0), None),
       Value_symbol sym
 
     | Fconst (cst,_) ->
@@ -342,7 +348,7 @@ module Conv(P:Param2) = struct
               add_sb id (conv env def) env, acc
             | _ ->
               let lbl = Compilenv.new_const_symbol () in
-              let env = add_cm id lbl env in
+              let env = add_cm id (lbl,0) env in (* !!!!!! Heuuu si c'est une fonction ? *)
               env, (id,lbl,def)::acc) (env,[]) consts in
       List.iter (fun (id,lbl,def) ->
           set_label lbl (conv env def))
@@ -357,7 +363,7 @@ module Conv(P:Param2) = struct
     | Fclosure(funct, fv, _) ->
       conv_closure env funct fv
 
-    | Foffset(lam,id, _) ->
+    | Foffset(lam,id,rel, _) ->
       (* For compiling offset inside a constant closure as a constant,
          we compile it as a direct label to the function:
          label ^ "_" ^ offset
@@ -367,9 +373,14 @@ module Conv(P:Param2) = struct
       *)
       let ulam, fun_approx = conv_approx env lam in
       let offset = get_fun_offset id in
-      let uoffset = make_offset ulam offset in
+      let relative_offset = match rel with
+        | None -> offset
+        | Some rel -> get_fun_offset rel - offset
+      in
+      let uoffset = make_offset ulam relative_offset in
       let approx = match get_descr fun_approx env with
-        | Some (Value_unoffseted_closure closure) ->
+        | Some (Value_unoffseted_closure closure)
+        | Some (Value_closure { closure }) ->
           let ex = new_descr (Value_closure { fun_id = id; closure }) env in
           begin match constant_label uoffset with
           | No_lbl -> (* no label: the value is an integer: bug *)
@@ -461,7 +472,7 @@ module Conv(P:Param2) = struct
           Value_id ex
         | Some l ->
           let cst = Uconst_block (tag,l) in
-          let lbl = Compilenv.new_structured_constant cst true in
+          let lbl = Compilenv.new_structured_constant cst true, 0 in
           (* building a value in the current unit: ok to use to_symbol *)
           let sym = to_symbol lbl in
           add_symbol sym ex env;
@@ -519,10 +530,12 @@ module Conv(P:Param2) = struct
          that a closure is not offseted (Cmmgen.expr_size) *)
       else Uoffset(ulam, offset)
 
-  and offset_label lbl offset =
-    if offset = 0
-    then lbl
-    else lbl ^ "_" ^ string_of_int offset
+  and offset_label (lbl,orig) offset = (lbl,orig + offset)
+
+  (* and offset_label lbl offset = *)
+  (*   if offset = 0 *)
+  (*   then lbl *)
+  (*   else lbl ^ "_" ^ string_of_int offset *)
 
   and conv_switch env cases num_keys default =
     let num_keys =
@@ -633,7 +646,7 @@ module Conv(P:Param2) = struct
         then
           (* This case not be used: when the function is closed every
              acces to the environment is directly substituted *)
-          Uconst(Uconst_label (offset_label closure_lbl fun_offset), None)
+          Uconst(Uconst_label (offset_label (closure_lbl,0) fun_offset), None)
         else Uvar env_var in
 
       (* inside the body of the function, we cannot access variables
@@ -679,7 +692,7 @@ module Conv(P:Param2) = struct
           let offset = OffsetMap.find (to_offset id) fun_offset_table in
           if closed
           then
-            let lbl = offset_label closure_lbl offset in
+            let lbl = offset_label (closure_lbl,0) offset in
             add_cm id lbl env
           else
             let exp = Uoffset(Uvar env_var, offset - pos) in
@@ -702,7 +715,7 @@ module Conv(P:Param2) = struct
       | Some fv_const ->
         let cst = Uconst_closure (ufunct, closure_lbl, fv_const) in
         Compilenv.add_structured_constant closure_lbl cst true;
-        Uconst(cst,Some closure_lbl),
+        Uconst(cst,Some (closure_lbl,0)),
         value_closure
     else
 
@@ -757,18 +770,19 @@ module Conv(P:Param2) = struct
     | Uconst(Uconst_label lbl, _)
     | Uconst(_, Some lbl) -> Lbl lbl
     | Uconst(cst, None) ->
-      let lbl = Compilenv.new_structured_constant cst false in
+      let lbl = Compilenv.new_structured_constant cst false, 0 in
       Lbl lbl
     | Uprim(Pgetglobal id, [], _) ->
-      Lbl (Ident.name id)
+      Lbl (Ident.name id, 0)
     | _ -> Not_const
 
   and set_label set_lbl = function
     | Uconst(
         (Uconst_base(Const_int _ | Const_char _)
         | Uconst_pointer _), _) -> assert false
-    | Uconst(Uconst_label lbl, _)
-    | Uconst(_, Some lbl) ->
+    | Uconst(Uconst_label (lbl,off_lbl), _)
+    | Uconst(_, Some (lbl,off_lbl)) ->
+      if off_lbl <> 0 then fatal_error "TODO: handle alias to offseted symbol";
       if lbl <> set_lbl
       then Compilenv.new_symbol_alias ~orig:lbl ~alias:set_lbl false
     | Uconst(cst, None) ->

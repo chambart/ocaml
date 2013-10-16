@@ -113,8 +113,11 @@ type 'a flambda =
   | Fapply of 'a flambda * 'a flambda list *
                 offset option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
-  | Foffset of 'a flambda * offset * 'a
-    (* Foffset(closure, id) access to the function 'id' from the closure *)
+  | Foffset of 'a flambda * offset * offset option * 'a
+    (* Foffset(closure, id, previous_offset) access to the function 'id' from the closure.
+       If previous_offset is Some(off) this represent an offset
+       to an already offseted function: this is a relative offset.
+       It can appear when inlining multiply recursive functions *)
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
@@ -296,31 +299,39 @@ let rec check env = function
         else env.seen_env_var := IdentSet.add id !(env.seen_env_var);
         check env l) (IdentMap.bindings fv);
     check_closure env funct fv
-  | Foffset(lam,{ off_unit; off_id = id },_) ->
+  | Foffset(lam,{ off_unit; off_id = id },relative_offset, _) ->
     check env lam;
-    let rec find_var_offset = function
-      | Fclosure (ffun,fv,_) -> ffun,fv
-      | Fvar(id,_) ->
-        (try IdentMap.find id env.closure_variables
-         with Not_found ->
-           fatal_error (Printf.sprintf "Flambda.check: Foffset on a variable \
-                                        not bound to a closure: %s"
-                          (Ident.unique_name id)))
-      | Flet(_,_,_,body,_) -> find_var_offset body
-      | _ ->
-        fatal_error (Printf.sprintf "Flambda.check: Foffset on neither a \
-                                     variable nor a closure")
-    in
+    (* let rec find_var_offset = function *)
+    (*   | Fclosure (ffun,fv,_) -> ffun,fv *)
+    (*   | Fvar(id,_) -> *)
+    (*     (try IdentMap.find id env.closure_variables *)
+    (*      with Not_found -> *)
+    (*        fatal_error (Printf.sprintf "Flambda.check: Foffset on a variable \ *)
+    (*                                     not bound to a closure: %s" *)
+    (*                       (Ident.unique_name id))) *)
+    (*   | Flet(_,_,_,body,_) -> find_var_offset body *)
+    (*   | _ -> *)
+    (*     fatal_error (Printf.sprintf "Flambda.check: Foffset on neither a \ *)
+    (*                                  variable nor a closure") *)
+    (* in *)
+    begin match relative_offset with
+    | None -> ()
+    | Some { off_unit = rela_unit; off_id = rela_id } ->
+        if not (off_unit = rela_unit)
+        then fatal_error "Flambda.check relative offset"
+    end
 
-    if off_unit = env.current_unit
-    then
-      let (ffun,fv) = find_var_offset lam in
+    (* TODO: change the checks ! *)
 
-      (* TODO: also check the recursive flag *)
-      if not (IdentMap.mem id ffun.funs)
-      then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \
-                                        present in the closure"
-                          (Ident.unique_name id))
+    (* if off_unit = env.current_unit *)
+    (* then *)
+    (*   let (ffun,fv) = find_var_offset lam in *)
+
+    (*   (\* TODO: also check the recursive flag *\) *)
+    (*   if not (IdentMap.mem id ffun.funs) *)
+    (*   then fatal_error (Printf.sprintf "Flambda.check: Foffset function %s not \ *)
+    (*                                     present in the closure" *)
+    (*                       (Ident.unique_name id)) *)
 
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
     if env_var.off_unit = env.current_unit && env_fun_id.off_unit = env.current_unit
@@ -446,7 +457,7 @@ let data = function
   | Flet(str, id, lam, body,data) -> data
   | Fletrec(defs, body,data) -> data
   | Fclosure(funct, fv,data) -> data
-  | Foffset(lam,id,data) -> data
+  | Foffset(lam,id,rel,data) -> data
   | Fenv_field(_,data) -> data
   | Fapply(funct, args, _, _,data) -> data
   | Fswitch(arg, sw,data) -> data
@@ -471,7 +482,7 @@ let string_desc = function
       (Ident.unique_name id)
   | Fletrec(defs, body,data) -> "letrec"
   | Fclosure(funct, fv,data) -> "closure"
-  | Foffset(lam,id,data) -> "offset"
+  | Foffset(lam,id,rel,data) -> "offset"
   | Fenv_field(_,data) -> "env_field"
   | Fapply(funct, args, _, _,data) -> "apply"
   | Fswitch(arg, sw,data) -> "switch"

@@ -32,8 +32,11 @@ let rec lam ppf = function
       List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
     let direct = match direct_name with | None -> "" | Some _ -> "*" in
     fprintf ppf "@[<2>(apply%s@ %a%a)@]" direct lam lfun lams largs
-  | Foffset(l,off,_) ->
+  | Foffset(l,off,None,_) ->
     fprintf ppf "@[<2>(offset@ %a@ %a)@]" Offset.print off lam l
+  | Foffset(l,off,Some rel,_) ->
+    fprintf ppf "@[<2>(relative_offset@ %a - %a@ %a)@]"
+      Offset.print off Offset.print rel lam l
   | Fenv_field({env;env_fun_id;env_var},_) ->
     fprintf ppf "@[<2>(env@ %a@ %a@ %a)@]"
       Offset.print env_var Offset.print env_fun_id lam env

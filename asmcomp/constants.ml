@@ -190,7 +190,7 @@ module NotConstants(P:Param) = struct
     | Fprim(Pmakeblock(tag, Immutable), args, dbg, _) ->
       List.iter (mark_loop curr) args
 
-    | Foffset (f1, _,_) ->
+    | Foffset (f1, _, _, _) ->
       mark_loop curr f1
 
     | Fenv_field ({env = f1},_)

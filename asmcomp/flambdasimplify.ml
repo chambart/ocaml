@@ -204,7 +204,7 @@ let lambda_smaller lam threshold =
     | Fclosure(ffuns, fv, _) ->
         IdentMap.iter (fun _ -> lambda_size) fv;
         IdentMap.iter (fun _ ffun -> lambda_size ffun.body) ffuns.funs
-    | Foffset(lam, _, _) ->
+    | Foffset(lam, _, _, _) ->
         incr size; lambda_size lam
     | Fenv_field({ env }, _) ->
         incr size; lambda_size env
@@ -283,7 +283,7 @@ let rec no_effects = function
       List.for_all no_effects args
   | Fclosure (_, fv, _) ->
       IdentMap.for_all (fun id def -> no_effects def) fv
-  | Foffset (lam,_ , _) ->
+  | Foffset (lam,_ , _, _) ->
       no_effects lam
   | Fenv_field ({ env }, _) -> no_effects env
 
@@ -425,14 +425,14 @@ and loop_direct (env:env) tree : 'a flambda * descr =
               fv OffsetMap.empty } in
       Fclosure (ffuns, IdentMap.map fst fv, annot),
       Value_unoffseted_closure closure
-  | Foffset (flam, off, annot) ->
+  | Foffset (flam, off, rel, annot) ->
       let flam, approx = loop env flam in
       let ret_approx = match approx with
         | Value_unoffseted_closure closure ->
             Value_closure { fun_id = off; closure }
         | _ -> Value_unknown
       in
-      Foffset (flam, off, annot), ret_approx
+      Foffset (flam, off, rel, annot), ret_approx
   | Fenv_field (fenv_field, annot) ->
       Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot),
       Value_unknown
@@ -586,7 +586,15 @@ and inline env clos lfunc fun_id func args dbg eid =
   let arg_subst = List.fold_left
       (fun sb (id,id',_) -> IdentMap.add id id' sb) IdentMap.empty args' in
   let fv_subst = IdentMap.of_list fv' in
-  let subst = IdentMap.disjoint_union arg_subst fv_subst in
+  let closure_fun_subst = (* other functions from the closure *)
+    let other_functions =
+      IdentMap.filter (fun id _ -> not (Ident.same id fun_id.off_id))
+        clos.funs in
+    IdentMap.mapi (fun id _ -> Ident.rename id) other_functions
+  in
+  let subst =
+    IdentMap.disjoint_union closure_fun_subst
+      (IdentMap.disjoint_union arg_subst fv_subst) in
   let body =
     Flambdasubst.substitute subst func.body
     |> List.fold_right (fun (_,id',arg) body ->
@@ -601,6 +609,14 @@ and inline env clos lfunc fun_id func args dbg eid =
                          ExprId.create ()),
              body, ExprId.create ()))
       fv'
+    |> IdentMap.fold (fun id id' body ->
+        Flet(Strict, id',
+             Foffset (Fvar(clos_id, ExprId.create ()),
+                      {fun_id with off_id = id},
+                      Some fun_id,
+                      ExprId.create ()),
+             body, ExprId.create ()))
+      closure_fun_subst
   in
   loop env (Flet(Strict, clos_id, lfunc, body, ExprId.create ()))
 

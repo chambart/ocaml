@@ -532,7 +532,7 @@ let rec close fenv cenv = function
                             Value_constptr n)
       | _ ->
           let cst = convert_structured_constant cst in
-          (Uconst (cst, Some (Compilenv.new_structured_constant cst true)),
+          (Uconst (cst, Some (Compilenv.new_structured_constant cst true,0)),
            Value_unknown)
       end
   | Lfunction(kind, params, body) as funct ->

@@ -89,9 +89,9 @@ type 'a flambda =
       present in a closure, to use the closure, we must tell
       which function it refers to by using Foffset *)
 
-  | Foffset of 'a flambda * offset * 'a
+  | Foffset of 'a flambda * offset * offset option * 'a
   (** Transform an unoffseted closure into an offseted one by choosing
-      the referenced function (offset) *)
+      the referenced function (offset). *)
 
   | Fenv_field of 'a fenv_field * 'a
   (** Access a variable inside an offseted closure *)

@@ -45,7 +45,7 @@ let add_subst sb ~replace ~by =
 let nid = ExprId.create
 
 let foffset (lam, off_id, v) =
-  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_symbol () }, v)
+  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_symbol () }, None, v)
 
 let rec close sb = function
     Lvar id ->

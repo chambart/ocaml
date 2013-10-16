@@ -18,6 +18,8 @@ open Lambda
 
 type function_label = string
 
+type offseted_label = string * int
+
 type ustructured_constant =
     Uconst_base of constant
   | Uconst_pointer of int
@@ -25,11 +27,11 @@ type ustructured_constant =
   | Uconst_float_array of string list
   | Uconst_immstring of string
   | Uconst_closure of ufunction list * string * ustructured_constant list
-  | Uconst_label of string
+  | Uconst_label of offseted_label
 
 and ulambda =
     Uvar of Ident.t
-  | Uconst of ustructured_constant * string option
+  | Uconst of ustructured_constant * offseted_label option
   | Udirect_apply of function_label * ulambda list * Debuginfo.t
   | Ugeneric_apply of ulambda * ulambda list * Debuginfo.t
   | Uclosure of ufunction list * ulambda list

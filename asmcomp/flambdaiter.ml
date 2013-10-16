@@ -21,7 +21,7 @@ let iter ~f t =
     | Fconst _ -> ()
 
     | Fassign (_,f1,_)
-    | Foffset (f1, _,_)
+    | Foffset (f1, _, _, _)
     | Fenv_field ({env = f1},_) ->
       aux f1
 
@@ -73,7 +73,7 @@ let iter_toplevel ~f t =
     | Fconst _ -> ()
 
     | Fassign (_,f1,_)
-    | Foffset (f1, _,_)
+    | Foffset (f1,_,_,_)
     | Fenv_field ({env = f1},_) ->
       aux f1
 
@@ -128,8 +128,8 @@ let map f tree =
                 (fun ffun -> { ffun with body = aux ffun.body }) ffuns.funs } in
         let fv = IdentMap.map aux fv in
         Fclosure (ffuns, fv, annot)
-      | Foffset (flam, off, annot) ->
-        Foffset (aux flam, off, annot)
+      | Foffset (flam, off, rel, annot) ->
+        Foffset (aux flam, off, rel, annot)
       | Fenv_field (fenv_field, annot) ->
         Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot)
       | Flet(str, id, lam, body, annot) ->
@@ -212,7 +212,7 @@ let map_data (type t1) (type t2) (f:t1 -> t2) (tree:t1 flambda) : t2 flambda =
               funcs.funs } in
       let fv = IdentMap.map mapper fv in
       Fclosure(funcs, fv, f v)
-    | Foffset(lam,id, v) -> Foffset(mapper lam,id, f v)
+    | Foffset(lam, id, rel, v) -> Foffset(mapper lam, id, rel, f v)
     | Fenv_field(env, v) ->
       let env = { env with env = mapper env.env } in
       Fenv_field(env, f v)

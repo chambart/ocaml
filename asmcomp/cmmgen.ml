@@ -498,6 +498,9 @@ let new_const_symbol () =
 let structured_constants = ref ([] : (string * structured_constant) list)
 *)
 
+let offseted_label (lbl,i) =
+  if i = 0 then lbl else lbl ^ "_" ^ (string_of_int i)
+
 let transl_constant = function
     Uconst_base(Const_int n) ->
       int_const n
@@ -509,7 +512,7 @@ let transl_constant = function
       else Cconst_natpointer
               (Nativeint.add (Nativeint.shift_left (Nativeint.of_int n) 1) 1n)
   | Uconst_label lbl ->
-      Cconst_symbol lbl
+      Cconst_symbol (offseted_label lbl)
   | cst ->
       Cconst_symbol (Compilenv.new_structured_constant cst false)
 
@@ -1031,7 +1034,7 @@ let rec transl = function
     Uvar id ->
       Cvar id
   | Uconst ( _, Some const_label) ->
-      Cconst_symbol const_label
+      Cconst_symbol (offseted_label const_label)
   | Uconst (sc, None) ->
       transl_constant sc
   | Uclosure(fundecls, []) ->
@@ -2054,7 +2057,7 @@ and emit_constant_field field cont =
       List.iter (fun f -> Queue.add f functions) fundecls;
       (Csymbol_address lbl, cont)
   | Uconst_label lbl ->
-      (Csymbol_address lbl, cont)
+      (Csymbol_address (offseted_label lbl), cont)
 
 and emit_string_constant s cont =
   let n = size_int - 1 - (String.length s) mod size_int in

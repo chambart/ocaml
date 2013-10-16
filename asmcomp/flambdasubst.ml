@@ -46,12 +46,18 @@ module Subst(P:Param) = struct
       let sb_fv, fv = subst_free_vars ffuns.unit fv in
       Fclosure (aux_closure sb_fv ffuns,
           IdentMap.map (aux exn_sb sb) fv, annot)
-    | Foffset (flam, off, annot) ->
+    | Foffset (flam, off, rel, annot) ->
       let flam = aux exn_sb sb flam in
       let off =
         try OffsetMap.find off !fun_offset_subst_table with
         | Not_found -> off in
-      Foffset (flam, off, annot)
+      let rel =
+        match rel with
+        | None -> rel
+        | Some rel ->
+            try Some (OffsetMap.find rel !fun_offset_subst_table) with
+            | Not_found -> Some rel in
+      Foffset (flam, off, rel, annot)
 
     | Fenv_field ({ env = flam; env_var = off; env_fun_id }, annot) ->
       let flam = aux exn_sb sb flam in
