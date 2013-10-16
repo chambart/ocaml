@@ -516,7 +516,7 @@ let transl_constant = function
 (* Translate constant closures *)
 
 let constant_closures =
-  ref ([] : (string * ufunction list * ustructured_constant list) list)
+  ref ([] : ((bool * string) * ufunction list * ustructured_constant list) list)
 
 (* Boxed integers *)
 
@@ -1036,7 +1036,7 @@ let rec transl = function
       transl_constant sc
   | Uclosure(fundecls, []) ->
       let lbl = Compilenv.new_const_symbol() in
-      constant_closures := (lbl, fundecls, []) :: !constant_closures;
+      constant_closures := ((false,lbl), fundecls, []) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       Cconst_symbol lbl
   | Uclosure(fundecls, clos_vars) ->
@@ -1980,7 +1980,8 @@ let rec emit_constant symb cst cont =
       cdefine_symbol symb @
       Misc.map_end (fun f -> Cdouble f) fields cont
   | Uconst_closure(fundecls, lbl, fv) ->
-      constant_closures := (lbl, fundecls, fv) :: !constant_closures;
+      assert(lbl = snd symb);
+      constant_closures := (symb, fundecls, fv) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       cont
   | _ -> fatal_error "gencmm.emit_constant"
@@ -2049,7 +2050,7 @@ and emit_constant_field field cont =
        Cint(floatarray_header (List.length fields)) :: Cdefine_label lbl ::
        Misc.map_end (fun f -> Cdouble f) fields cont)
   | Uconst_closure(fundecls, lbl, fv) ->
-      constant_closures := (lbl, fundecls, fv) :: !constant_closures;
+      constant_closures := ((false,lbl), fundecls, fv) :: !constant_closures;
       List.iter (fun f -> Queue.add f functions) fundecls;
       (Csymbol_address lbl, cont)
   | Uconst_label lbl ->
@@ -2130,7 +2131,7 @@ let emit_all_constants cont =
   Hashtbl.clear immstrings;   (* PR#3979 *)
   List.iter
     (fun (symb, fundecls, clos_vars) ->
-       c := Cdata(emit_constant_closure (false,symb) fundecls clos_vars []) :: !c)
+       c := Cdata(emit_constant_closure symb fundecls clos_vars []) :: !c)
     !constant_closures;
   constant_closures := [];
   !c
