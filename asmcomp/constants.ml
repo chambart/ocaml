@@ -173,8 +173,11 @@ module NotConstants(P:Param) = struct
       (* then mark_curr curr *)
 
       (* Until we have informations from external modules, we consider
-         symbols are not constants (and they won't be generated...) *)
-      mark_curr curr
+         symbols are not constants (e.g. a module symbol).
+         For clambda constants are 'things that can be refered to by a symbol',
+         and it is obviously the case. *)
+      if not for_clambda
+      then mark_curr curr
 
     (* globals are symbols:constants *)
     | Fprim(Pgetglobal id, [], _, _) -> ()
