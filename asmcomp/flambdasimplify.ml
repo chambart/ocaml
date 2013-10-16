@@ -318,19 +318,19 @@ let check_constant_result lam approx =
   | Value_symbol sym when no_effects lam -> Fsymbol(sym, data lam), approx
   | _ -> (lam, approx)
 
+let get_field i = function
+  | [Value_block (tag, fields)] ->
+    if i >= 0 && i < Array.length fields
+    then fields.(i)
+    else Value_unknown
+  | _ -> Value_unknown
+
 let simplif_prim_pure p (args, approxs) expr dbg =
   match p with
   | Pmakeblock(tag, Immutable) ->
       expr, Value_block(tag, Array.of_list approxs)
   | Pfield i ->
-      let approx = match approxs with
-        | [Value_block (tag, fields)] ->
-            if i >= 0 && i < Array.length fields
-            then fields.(i)
-            else Value_unknown
-        | _ -> Value_unknown
-      in
-      check_constant_result expr approx
+      check_constant_result expr (get_field i approxs)
   | _ ->
       let eid = data expr in
       match approxs with
@@ -459,9 +459,11 @@ and loop_direct (env:env) tree : 'a flambda * descr =
       then Value_unknown
       else import_global id in
     expr, approx
-  | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr
-    when id = Compilenv.current_unit_id () ->
-      let approx = find_global i env in
+  | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr ->
+      let approx =
+        if id = Compilenv.current_unit_id ()
+        then find_global i env
+        else get_field i [really_import (import_global id)] in
       check_constant_result expr approx
   | Fprim(Psetglobalfield i, [arg], dbg, annot) as expr ->
       let arg', approx = loop env arg in
