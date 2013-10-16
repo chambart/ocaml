@@ -160,28 +160,79 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
   let closure_params =
     IdentMap.fold (fun id _ set -> IdentSet.add id set)
       clos_var IdentSet.empty in
+  let unit = Compilenv.current_unit_symbol () in
   let close_one = function
     | (id, Lfunction(kind, params, body)) ->
       let dbg = match body with
         | Levent (_,({lev_kind=Lev_function} as ev)) ->
           Debuginfo.from_call ev
         | _ -> Debuginfo.none in
-      { label = make_function_lbl id;
-        kind;
-        arity = List.length params;
-        params;
-        closure_params;
-        body = close sb body;
-        dbg }
+      begin match kind with
+      | Curried ->
+          { label = make_function_lbl id;
+            kind;
+            arity = List.length params;
+            params;
+            closure_params;
+            body = close sb body;
+            dbg }, id, None
+      | Tupled ->
+          (* let fun_var = Ident.rename id in *)
+          (* let fun_off = { off_unit = unit; off_id = fun_var } in *)
+          (* let tupled_stub = tupled_function_call_stub id params fun_off in *)
+          (* { label = make_function_lbl fun_var; *)
+          (*   kind = Curried; *)
+          (*   arity = List.length params; *)
+          (*   params; *)
+          (*   closure_params; *)
+          (*   body = close sb body; *)
+          (*   dbg }, fun_var, Some tupled_stub *)
+
+          { label = make_function_lbl id;
+            kind;
+            arity = List.length params;
+            params;
+            closure_params;
+            body = close sb body;
+            dbg }, id, None
+
+      end
     | (_, _) -> fatal_error "Flambdagen.close_functions"
   in
   let functions = List.fold_left (fun map (id, f) ->
-      IdentMap.add id (close_one (id,f)) map) IdentMap.empty fun_defs in
+      let flam, fun_id, stub = close_one (id,f) in
+      let map = IdentMap.add fun_id flam map in
+      match stub with
+      | None -> map
+      | Some stub -> IdentMap.add id stub map)
+      IdentMap.empty fun_defs in
   let ident = FunId.create (Compilenv.current_unit_name ()) in
   Fclosure ({ ident; funs = functions; recursives = !recursives;
               closed = false;
-              unit = Compilenv.current_unit_symbol ()},
+              unit },
     clos_var, nid ())
+
+and tupled_function_call_stub id params fun_off =
+  let tuple_param = Ident.create "tupled stub param" in
+  let params' = List.map (fun p -> Ident.rename p) params in
+  let call_params = List.map (fun p' -> Fvar(p',nid ())) params' in
+  let call = Fapply(Fvar(fun_off.off_id,nid ()), call_params, Some fun_off,
+                    Debuginfo.none, nid ()) in
+  let _, body =
+    List.fold_left (fun (pos,body) p' ->
+        let lam = Fprim(Pfield pos, [Fvar(tuple_param, nid ())],
+                        Debuginfo.none, nid ()) in
+        pos+1,
+        Flet(Strict,p',lam,body,nid ()))
+      (0,call) params' in
+
+  { label = make_function_lbl id;
+    kind = Curried;
+    arity = 1;
+    params = [tuple_param];
+    closure_params = IdentSet.empty;
+    body;
+    dbg = Debuginfo.none }
 
 and close_list sb l = List.map (close sb) l
 
