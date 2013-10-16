@@ -170,32 +170,23 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
       begin match kind with
       | Curried ->
           { label = make_function_lbl id;
-            kind;
+            stub = false;
             arity = List.length params;
             params;
             closure_params;
             body = close sb body;
             dbg }, id, None
       | Tupled ->
-          (* let fun_var = Ident.rename id in *)
-          (* let fun_off = { off_unit = unit; off_id = fun_var } in *)
-          (* let tupled_stub = tupled_function_call_stub id params fun_off in *)
-          (* { label = make_function_lbl fun_var; *)
-          (*   kind = Curried; *)
-          (*   arity = List.length params; *)
-          (*   params; *)
-          (*   closure_params; *)
-          (*   body = close sb body; *)
-          (*   dbg }, fun_var, Some tupled_stub *)
-
-          { label = make_function_lbl id;
-            kind;
+          let fun_var = Ident.rename id in
+          let fun_off = { off_unit = unit; off_id = fun_var } in
+          let tupled_stub = tupled_function_call_stub id params fun_off in
+          { label = make_function_lbl fun_var;
+            stub = false;
             arity = List.length params;
             params;
             closure_params;
             body = close sb body;
-            dbg }, id, None
-
+            dbg }, fun_var, Some tupled_stub
       end
     | (_, _) -> fatal_error "Flambdagen.close_functions"
   in
@@ -225,9 +216,8 @@ and tupled_function_call_stub id params fun_off =
         pos+1,
         Flet(Strict,p',lam,body,nid ()))
       (0,call) params' in
-
   { label = make_function_lbl id;
-    kind = Curried;
+    stub = true;
     arity = 1;
     params = [tuple_param];
     closure_params = IdentSet.empty;

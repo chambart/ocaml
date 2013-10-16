@@ -405,7 +405,7 @@ and loop_direct (env:env) tree : 'a flambda * descr =
   let aux v = fst (loop env v) in
   match tree with
   | Fsymbol (sym,_) -> tree, import_symbol sym
-  | Fvar (id,_) -> tree, find_unknwon id env
+  | Fvar (id,_) -> tree, (find_unknwon id env)
   | Fconst (cst,_) -> tree, const_approx cst
   | Fapply (funct, args, direc, dbg, annot) ->
       apply env funct args dbg annot
@@ -561,13 +561,15 @@ and apply env funct args dbg eid =
       Value_unknown
 
 and direct_apply env clos funct fun_id func args dbg eid =
-  if not clos.recursives && not (func.kind = Tupled) && lambda_smaller func.body
-       ((!Clflags.inline_threshold + List.length func.params) * 2)
+  if func.stub ||
+     (not clos.recursives && lambda_smaller func.body
+        ((!Clflags.inline_threshold + List.length func.params) * 2))
   then
     (* try inlining if the function is not too far above the threshold *)
     let body, approx = inline env clos funct fun_id func args dbg eid in
-    if lambda_smaller body
-        (!Clflags.inline_threshold + List.length func.params)
+    if func.stub ||
+       (lambda_smaller body
+          (!Clflags.inline_threshold + List.length func.params))
     then
       (* if the definitive size is small enought: keep it *)
       body, approx

@@ -132,7 +132,7 @@ and 'a flambda_switch = {
 
 and 'a ffunction = {
   label : function_label; (** an unique name used for linking *)
-  kind : Lambda.function_kind;
+  stub : bool;
   arity : int;
   params : Ident.t list; (** internal identifiers of parameters *)
   closure_params : IdentSet.t; (** free variables used in the function *)

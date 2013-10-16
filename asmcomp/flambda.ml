@@ -149,7 +149,7 @@ and 'a flambda_switch =
 
 and 'a ffunction = {
   label  : function_label;
-  kind   : function_kind;
+  stub   : bool;
   arity  : int;
   params : Ident.t list;
   closure_params : IdentSet.t;

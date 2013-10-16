@@ -206,13 +206,11 @@ module Conv(P:Param2) = struct
         fatal_error (Format.asprintf "missing closure %a"
                        Offset.print off)
 
-  let get_arity_and_kind off =
-    let arity_and_kind clos off =
-      let f = IdentMap.find off.off_id clos.funs in
-      f.arity, f.kind in
-    try arity_and_kind (OffsetMap.find off closures) off with
+  let get_arity off =
+    let arity clos off = (IdentMap.find off.off_id clos.funs).arity in
+    try arity (OffsetMap.find off closures) off with
     | Not_found ->
-      try arity_and_kind (OffsetMap.find off ex_closures) off with
+      try arity (OffsetMap.find off ex_closures) off with
       | Not_found ->
         fatal_error (Format.asprintf "missing closure %a"
                        Offset.print off)
@@ -414,8 +412,7 @@ module Conv(P:Param2) = struct
       let ufunct, fun_approx = conv_approx env funct in
       begin match get_descr fun_approx env with
       | Some (Value_closure { fun_id }) when
-          let arity, kind = get_arity_and_kind fun_id in
-          arity = List.length args && kind = Curried ->
+          (get_arity fun_id) = List.length args ->
           conv_direct_apply ufunct args fun_id dbg env
       | _ ->
         (* the closure parameter of the function is added by cmmgen, but
@@ -701,7 +698,7 @@ module Conv(P:Param2) = struct
         List.fold_left (add_offset_subst fun_offset) env funct in
 
       { Clambda.label = (func.label:>string);
-        arity = if func.kind = Tupled then -func.arity else func.arity;
+        arity = func.arity;
         params = if closed then func.params else func.params @ [env_var];
         body = conv env func.body;
         dbg = func.dbg } in
