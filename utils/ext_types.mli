@@ -27,7 +27,7 @@ module type ExtMap = sig
                  and type 'a t = 'a Map.Make(M).t
   val map_option : (key -> 'a -> 'b option) -> 'a t -> 'b t
   val of_list : (key * 'a) list -> 'a t
-  val disjoint_union : 'a t -> 'a t -> 'a t
+  val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
   val print :

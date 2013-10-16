@@ -125,6 +125,7 @@ let print_symbols ppf export =
   EidMap.iter print_symbol export.ex_id_symbol
 
 let merge e1 e2 =
+  let int_eq (i:int) j = i = j in
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
     ex_globals = IdentMap.empty;
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
@@ -132,6 +133,8 @@ let merge e1 e2 =
       OffsetMap.disjoint_union e1.ex_functions_off e2.ex_functions_off;
     ex_id_symbol = EidMap.disjoint_union e1.ex_id_symbol e2.ex_id_symbol;
     ex_symbol_id = SymbolMap.disjoint_union e1.ex_symbol_id e2.ex_symbol_id;
-    ex_offset_fun = OffsetMap.disjoint_union e1.ex_offset_fun e2.ex_offset_fun;
-    ex_offset_fv = OffsetMap.disjoint_union e1.ex_offset_fv e2.ex_offset_fv;
+    ex_offset_fun = OffsetMap.disjoint_union
+        ~eq:int_eq e1.ex_offset_fun e2.ex_offset_fun;
+    ex_offset_fv = OffsetMap.disjoint_union
+        ~eq:int_eq e1.ex_offset_fv e2.ex_offset_fv;
     ex_constants = SymbolSet.union e1.ex_constants e2.ex_constants }

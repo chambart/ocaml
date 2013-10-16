@@ -27,7 +27,7 @@ module type ExtMap = sig
                  and type 'a t = 'a Map.Make(M).t
   val map_option : (key -> 'a -> 'b option) -> 'a t -> 'b t
   val of_list : (key * 'a) list -> 'a t
-  val disjoint_union : 'a t -> 'a t -> 'a t
+  val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
   val print :
@@ -63,13 +63,19 @@ struct
       | Some r -> add id r map) m empty
   let of_list l =
     List.fold_left (fun map (id,v) -> add id v map) empty l
-  let disjoint_union m1 m2 =
+  let disjoint_union ?eq m1 m2 =
     merge (fun id x y -> match x, y with
         | None, None -> None
         | None, Some v | Some v, None -> Some v
-        | Some _, Some _ ->
-          let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
-          fatal_error err) m1 m2
+        | Some v1, Some v2 ->
+            let ok = match eq with
+            | None -> false
+            | Some eq -> eq v1 v2 in
+            if not ok
+            then
+              let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
+              fatal_error err
+            else Some v1) m1 m2
 
   let last_union m1 m2 =
     merge (fun id x y -> match x, y with
