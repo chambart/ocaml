@@ -58,7 +58,10 @@ let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
   let fv_map = OffsetSet.fold (f extern_fv_offset_table) !set_fv in
   fun_map, fv_map
 
+(* functions that assumes that the refered value is declared in the
+   current unit: usage should be justified *)
 let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
+let to_symbol lbl = (Compilenv.current_unit_id (), lbl)
 
 module type Param1 = sig
   type t
@@ -352,14 +355,27 @@ module Conv(P:Param2) = struct
          original label.
       *)
       let ulam, fun_approx = conv_approx env lam in
+      let offset = get_fun_offset id in
+      let uoffset = make_offset ulam offset in
       let approx = match get_descr fun_approx env with
         | Some (Value_unoffseted_closure closure) ->
-          Value_id (new_descr (Value_closure { fun_id = id; closure }) env)
+          let ex = new_descr (Value_closure { fun_id = id; closure }) env in
+          begin match constant_label uoffset with
+          | No_lbl -> (* no label: the value is an integer: bug *)
+            assert false
+          | Lbl lbl ->
+            (* it is ok to consider this label as a symbol exported by
+               this unit because Foffset are always directly applied
+               to the closure: in the same unit *)
+            let sym = to_symbol lbl in
+            add_symbol sym ex env;
+            Value_symbol sym
+          | Not_const ->
+            Value_id ex
+          end
         | Some _ -> assert false
         | None -> Value_unknown in
-      let offset = get_fun_offset id in
-      make_offset ulam offset,
-      approx
+      uoffset, approx
 
     | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
       let ulam = conv env lam in
@@ -455,7 +471,8 @@ module Conv(P:Param2) = struct
         | Some l ->
           let cst = Uconst_block (tag,l) in
           let lbl = Compilenv.new_structured_constant cst true in
-          let sym = (Compilenv.current_unit_id (),lbl) in
+          (* building a value in the current unit: ok to use to_symbol *)
+          let sym = to_symbol lbl in
           add_symbol sym ex env;
           Uconst(Uconst_label lbl, None),
           Value_symbol sym
