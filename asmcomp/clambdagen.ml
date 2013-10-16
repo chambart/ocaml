@@ -447,14 +447,19 @@ module Conv(P:Param2) = struct
 
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
       let args, approxs = conv_list_approx env args in
+      let ex = new_descr (Value_block (tag, Array.of_list approxs)) env in
       begin match constant_list args with
         | None ->
-          Uprim(p, args, dbg)
+          Uprim(p, args, dbg),
+          Value_id ex
         | Some l ->
           let cst = Uconst_block (tag,l) in
-          Uconst(cst, None)
-      end,
-      Value_id (new_descr (Value_block (tag, Array.of_list approxs)) env)
+          let lbl = Compilenv.new_structured_constant cst true in
+          let sym = (Compilenv.current_unit_id (),lbl) in
+          add_symbol sym ex env;
+          Uconst(Uconst_label lbl, None),
+          Value_symbol sym
+      end
 
     | Fprim(p, args, dbg, _) ->
       Uprim(p, conv_list env args, dbg),
@@ -745,9 +750,11 @@ module Conv(P:Param2) = struct
     id, Compilenv.symbol_for_global id
 
   let ex_symbol_id =
-    SymbolMap.singleton module_symbol root_id
+    SymbolMap.add module_symbol root_id
+      !(env.ex_symbol_id)
   let ex_id_symbol =
-    EidMap.singleton root_id module_symbol
+    SymbolMap.fold (fun sym id map -> EidMap.add id sym map)
+      ex_symbol_id EidMap.empty
 
   let ex_functions =
     let unitify clos =
