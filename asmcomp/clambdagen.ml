@@ -200,6 +200,17 @@ module Conv(P:Param2) = struct
         fatal_error (Format.asprintf "missing closure %a"
                        Offset.print off)
 
+  let get_arity_and_kind off =
+    let arity_and_kind clos off =
+      let f = IdentMap.find off.off_id clos.funs in
+      f.arity, f.kind in
+    try arity_and_kind (OffsetMap.find off closures) off with
+    | Not_found ->
+      try arity_and_kind (OffsetMap.find off ex_closures) off with
+      | Not_found ->
+        fatal_error (Format.asprintf "missing closure %a"
+                       Offset.print off)
+
   let not_constants = P.not_constants
 
   type env =
@@ -386,43 +397,23 @@ module Conv(P:Param2) = struct
       Value_unknown
 
     | Fapply(funct, args, Some direct_func, dbg, _) ->
-      (* Is the direct apply information really usefull ?
-         The main problem is recursive functions *)
-      let ufunct, fun_approx = conv_approx env funct in
-      (* let () = match get_descr fun_approx env with *)
-      (*   | Some (Value_closure { fun_id }) -> *)
-      (*     Format.printf "direct apply %a@." Offset.print fun_id *)
-      (*   | _ -> () in *)
-      let closed, label = get_closed_and_label direct_func in
-      let uargs =
-        let uargs = conv_list env args in
-        if closed then uargs else uargs @ [ufunct] in
-
-      let apply = Udirect_apply((label:>string), uargs, dbg) in
-
-      (* This is usualy sufficient to detect closure with side effects *)
-      let rec no_effect = function
-        | Uvar _ | Uconst _ | Uprim(Pgetglobal _, _, _) -> true
-        | Uprim(Pfield _, [arg], _) -> no_effect arg
-        | Uclosure _ ->
-          (* if the function is closed, then it is a Uconst otherwise,
-             we do not call this function *)
-          assert false
-        | _ -> false in
-
-      (* if the function is closed, the closure is not in the parameters,
-         so we must ensure that it is present if it does some side effects *)
-      (if closed && not (no_effect ufunct)
-       then Usequence(ufunct, apply) else apply),
-      Value_unknown
+      conv_direct_apply (conv env funct) args direct_func dbg env
 
     | Fapply(funct, args, None, dbg, _) ->
-      (* the closure parameter of the function is added by cmmgen, but
-         it already appears in the list of parameters of the clambda
-         function for generic calls. Notice that for direct calls it is
-         added here. *)
-      Ugeneric_apply(conv env funct, conv_list env args, dbg),
-      Value_unknown
+      let ufunct, fun_approx = conv_approx env funct in
+      begin match get_descr fun_approx env with
+      | Some (Value_closure { fun_id }) when
+          let arity, kind = get_arity_and_kind fun_id in
+          arity = List.length args && kind = Curried ->
+          conv_direct_apply ufunct args fun_id dbg env
+      | _ ->
+        (* the closure parameter of the function is added by cmmgen, but
+           it already appears in the list of parameters of the clambda
+           function for generic calls. Notice that for direct calls it is
+           added here. *)
+        Ugeneric_apply(ufunct, conv_list env args, dbg),
+        Value_unknown
+      end
 
     | Fswitch(arg, sw, _) ->
       (* NB: failaction might get copied, thus it should be some Lstaticraise *)
@@ -555,6 +546,32 @@ module Conv(P:Param2) = struct
     | [| |] -> [| |], [| |] (* May happen when default is None *)
     | _     -> index, actions
 
+  and conv_direct_apply ufunct args direct_func dbg env =
+    let closed, label = get_closed_and_label direct_func in
+    let uargs =
+      let uargs = conv_list env args in
+      if closed then uargs else uargs @ [ufunct] in
+
+    let apply = Udirect_apply((label:>string), uargs, dbg) in
+
+    (* This is usualy sufficient to detect closure with side effects *)
+    let rec no_effect = function
+      | Uvar _ | Uconst _ | Uprim(Pgetglobalfield _, _, _)
+      | Uprim(Pgetglobal _, _, _) -> true
+      | Uprim(Pfield _, [arg], _) -> no_effect arg
+      | Uclosure _ ->
+        (* if the function is closed, then it is a Uconst otherwise,
+           we do not call this function *)
+        assert false
+      | _ -> false in
+
+    (* if the function is closed, the closure is not in the parameters,
+       so we must ensure that it is present if it does some side effects *)
+    (if closed && not (no_effect ufunct)
+     then Usequence(ufunct, apply)
+     else apply),
+    Value_unknown
+
   and conv_closure env functs fv =
     (* Make the susbtitutions for variables bound by the closure:
        the variables bounds are the functions inside the closure and
@@ -599,15 +616,13 @@ module Conv(P:Param2) = struct
 
     let fv_ulam_approx = List.map (fun (id,lam) -> id,conv_approx env lam) fv in
     let fv_ulam = List.map (fun (id,(lam,_)) -> id, lam) fv_ulam_approx in
+    let value_closure' =
+      { closure_id = functs.ident;
+        bound_var = List.fold_left (fun map (off_id,(_,approx)) ->
+            OffsetMap.add { off_id; off_unit = functs.unit } approx map)
+            OffsetMap.empty fv_ulam_approx } in
     let value_closure =
-      Value_id
-        (new_descr
-           (Value_unoffseted_closure
-              { closure_id = functs.ident;
-                bound_var = List.fold_left (fun map (off_id,(_,approx)) ->
-                    OffsetMap.add { off_id; off_unit = functs.unit } approx map)
-                    OffsetMap.empty fv_ulam_approx })
-           env) in
+      Value_id (new_descr (Value_unoffseted_closure value_closure') env) in
 
     let conv_function (id,func) =
       (* adds variables from the closure to the substitution environment *)
@@ -624,6 +639,16 @@ module Conv(P:Param2) = struct
       (* inside the body of the function, we cannot access variables
          declared outside, so take a clean substitution table. *)
       let env = { env with sb = IdentMap.empty } in
+
+      (* add informations about currently defined functions to
+         allow direct call *)
+      let env =
+        IdentMap.fold (fun id _ map ->
+            let fun_id = { off_unit = functs.unit; off_id = id } in
+            let desc = Value_closure { fun_id; closure = value_closure' } in
+            add_approx id (Value_id (new_descr desc env)) env)
+          functs.funs env
+      in
 
       let env =
         (* Add to the substitution the value of the free variables *)
