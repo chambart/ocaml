@@ -1950,7 +1950,7 @@ let cdefine_offseted_symbol (global,symb) pos =
   let l = (global,symb) :: (Compilenv.symbol_alias symb) in
   List.flatten
     (List.map (fun (global,v) ->
-         cdefine_symbol (global,v ^ "_" ^ (string_of_int pos))) l)
+         cdefine_symbol (global,offseted_label (v,pos))) l)
 
 (* Emit structured constants *)
 
