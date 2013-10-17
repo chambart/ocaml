@@ -213,7 +213,7 @@ and close_functions (sb:Ident.t IdentMap.t)
     clos_var, nid ())
 
 and tupled_function_call_stub id params fun_off =
-  let tuple_param = Ident.create "tupled stub param" in
+  let tuple_param = Ident.create "tupled_stub_param" in
   let params' = List.map (fun p -> Ident.rename p) params in
   let call_params = List.map (fun p' -> Fvar(p',nid ())) params' in
   let call = Fapply(Fvar(fun_off.off_id,nid ()), call_params, Some fun_off,
