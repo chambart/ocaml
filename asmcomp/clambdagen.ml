@@ -439,9 +439,13 @@ module Conv(P:Param2) = struct
 
     | Fprim(Pgetglobal id, l, dbg, _) ->
       assert(l = []);
-      Uprim(Pgetglobal (Ident.create_persistent (Compilenv.symbol_for_global id)),
-        [], dbg),
-      Value_unknown
+      let lbl = Compilenv.symbol_for_global id in
+      let approx =
+        if Ident.is_predef_exn id
+        then Value_id (new_descr (Value_predef_exn id) env)
+        else Value_symbol (id,lbl) in
+      Uconst (Uconst_label (lbl,0), None),
+      approx
 
     | Fprim(Pgetglobalfield(id,i), l, dbg, _) ->
       assert(l = []);

@@ -179,8 +179,10 @@ module NotConstants(P:Param) = struct
       if not for_clambda
       then mark_curr curr
 
-    (* globals are symbols:constants *)
-    | Fprim(Pgetglobal id, [], _, _) -> ()
+    (* globals are symbols: handle like symbols *)
+    | Fprim(Pgetglobal id, [], _, _) ->
+      if not for_clambda
+      then mark_curr curr
 
     (* Constant constructors: those expressions are constant if all their parameters are:
        - makeblock is compiled to a constant block
