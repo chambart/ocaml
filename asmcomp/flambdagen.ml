@@ -59,7 +59,8 @@ let rec close sb = function
     Flet(str, id, close_named id sb lam, close sb body, nid ~name:"let" ())
   | Lfunction(kind, params, body) as funct ->
     let id = Ident.create "fun" in
-    foffset(close_functions sb [id,funct],id, nid ~name:"offset" ())
+    let id' = Ident.rename id in
+    foffset(close_functions sb [id,id',funct],id', nid ~name:"offset" ())
   | Lapply(funct, args, loc) ->
     Fapply(close sb funct, close_list sb args, None, Debuginfo.none,
         nid ~name:"apply" ())
@@ -70,11 +71,12 @@ let rec close sb = function
     then
       (* When all the binding are functions, we build a single closure
          for all the functions *)
+      let defs = List.map (fun (id,lam) -> id, Ident.rename id, lam) defs in
       let clos = close_functions sb defs in
       let clos_ident = Ident.create "clos" in
-      let body = List.fold_left (fun body (id,_) ->
-          Flet(Strict, id, foffset(Fvar (clos_ident, nid ()), id, nid ()),
-            body, nid ()))
+      let body = List.fold_left (fun body (id,id',_) ->
+          Flet(Strict, id, foffset(Fvar (clos_ident, nid ()), id', nid ()),
+               body, nid ()))
           (close sb body) defs in
       Flet(Strict, clos_ident, clos, body, nid ())
     else
@@ -138,30 +140,39 @@ let rec close sb = function
   | Lifused _ ->
     assert false
 
-and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
+and close_functions (sb:Ident.t IdentMap.t)
+    (fun_defs:(Ident.t * (* function id used externaly *)
+               Ident.t * (* function id to be used internaly *)
+               lambda) list) =
   let fv = List.fold_left
-      (fun set (_,body) -> IdentSet.union (free_variables body) set)
+      (fun set (_,_,body) -> IdentSet.union (free_variables body) set)
       IdentSet.empty fun_defs in
-  let fun_ids = List.fold_left (fun set (id,_) -> IdentSet.add id set)
+  let fun_ids = List.fold_left (fun set (id,_,_) -> IdentSet.add id set)
       IdentSet.empty fun_defs in
   let recursives = ref false in
   (* clos_var contains all free variables that are not functions
      declared in this closure *)
   let sb,clos_var = List.fold_left (fun (sb,clos_var) id ->
       let id = subst sb id in
-      let id' = Ident.rename id in
       if IdentSet.mem id fun_ids
       then (recursives := true;
         (sb,clos_var))
-      else (add_subst sb ~replace:id ~by:id',
-        IdentMap.add id' (Fvar (id, nid ())) clos_var))
+      else
+        let id' = Ident.rename id in
+        (add_subst sb ~replace:id ~by:id',
+         IdentMap.add id' (Fvar (id, nid ())) clos_var))
       (sb,IdentMap.empty)
       (IdentSet.elements fv) in
+  (* Rename function variables according to the substitution
+     provided (in fun_defs) *)
+  let sb = List.fold_left
+      (fun sb (id,id',_) -> add_subst sb ~replace:id ~by:id')
+      sb fun_defs in
   let closure_params =
     IdentMap.fold (fun id _ set -> IdentSet.add id set)
       clos_var IdentSet.empty in
   let unit = Compilenv.current_unit_symbol () in
-  let close_one = function
+  let close_one map = function
     | (id, Lfunction(kind, params, body)) ->
       let dbg = match body with
         | Levent (_,({lev_kind=Lev_function} as ev)) ->
@@ -169,33 +180,31 @@ and close_functions (sb:Ident.t IdentMap.t) (fun_defs:(Ident.t * lambda) list) =
         | _ -> Debuginfo.none in
       begin match kind with
       | Curried ->
-          { label = make_function_lbl id;
-            stub = false;
-            arity = List.length params;
-            params;
-            closure_params;
-            body = close sb body;
-            dbg }, id, None
+          IdentMap.add id
+            { label = make_function_lbl id;
+              stub = false;
+              arity = List.length params;
+              params;
+              closure_params;
+              body = close sb body;
+              dbg } map
       | Tupled ->
           let fun_var = Ident.rename id in
           let fun_off = { off_unit = unit; off_id = fun_var } in
           let tupled_stub = tupled_function_call_stub id params fun_off in
-          { label = make_function_lbl fun_var;
-            stub = false;
-            arity = List.length params;
-            params;
-            closure_params;
-            body = close sb body;
-            dbg }, fun_var, Some tupled_stub
+          let map = IdentMap.add id tupled_stub map in
+          IdentMap.add fun_var
+            { label = make_function_lbl fun_var;
+              stub = false;
+              arity = List.length params;
+              params;
+              closure_params;
+              body = close sb body;
+              dbg } map
       end
     | (_, _) -> fatal_error "Flambdagen.close_functions"
   in
-  let functions = List.fold_left (fun map (id, f) ->
-      let flam, fun_id, stub = close_one (id,f) in
-      let map = IdentMap.add fun_id flam map in
-      match stub with
-      | None -> map
-      | Some stub -> IdentMap.add id stub map)
+  let functions = List.fold_left (fun map (_, id', f) -> close_one map (id',f))
       IdentMap.empty fun_defs in
   let ident = FunId.create (Compilenv.current_unit_name ()) in
   Fclosure ({ ident; funs = functions; recursives = !recursives;
@@ -228,7 +237,8 @@ and close_list sb l = List.map (close sb) l
 
 and close_named id sb = function
   | Lfunction(kind, params, body) as funct ->
-    foffset(close_functions sb [id,funct],id, nid ())
+    let id' = Ident.rename id in
+    foffset(close_functions sb [id,id',funct],id', nid ())
   | lam ->
     close sb lam
 
