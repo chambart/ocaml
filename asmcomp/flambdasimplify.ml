@@ -411,18 +411,26 @@ and loop_direct (env:env) tree : 'a flambda * descr =
       apply env funct args dbg annot
   | Fclosure (ffuns, fv, annot) ->
       let fv = IdentMap.map (loop env) fv in
+      (* we use the previous closure for evaluating the functions *)
+      let off off_id = { off_unit = ffuns.unit; off_id } in
+      let internal_closure =
+        { ffunctions = ffuns;
+          bound_var = IdentMap.fold (fun id (_,desc) map ->
+              OffsetMap.add (off id) desc map)
+              fv OffsetMap.empty } in
       let closure_env = IdentMap.fold
-          (fun id (_,desc) env -> add_approx id desc env) fv (local_env env) in
+          (fun id _ env -> add_approx id
+              (Value_closure { fun_id = (off id);
+                               closure = internal_closure }) env)
+          ffuns.funs (local_env env) in
+      let closure_env = IdentMap.fold
+          (fun id (_,desc) env -> add_approx id desc env) fv closure_env in
       let ffuns =
         { ffuns with
           funs = IdentMap.map
               (fun ffun -> { ffun with body = fst(loop closure_env ffun.body) })
               ffuns.funs } in
-      let closure =
-        { ffunctions = ffuns;
-          bound_var = IdentMap.fold (fun id (_,desc) map ->
-              OffsetMap.add { off_unit = ffuns.unit; off_id = id } desc map)
-              fv OffsetMap.empty } in
+      let closure = { internal_closure with ffunctions = ffuns } in
       Fclosure (ffuns, IdentMap.map fst fv, annot),
       Value_unoffseted_closure closure
   | Foffset (flam, off, rel, annot) ->
