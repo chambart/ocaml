@@ -62,6 +62,7 @@ let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
   fun_map, fv_map
 
 let offseted_label (lbl,i) =
+  assert(i>=0);
   if i = 0 then lbl else lbl ^ "_" ^ (string_of_int i)
 
 (* functions that assumes that the refered value is declared in the
@@ -373,7 +374,7 @@ module Conv(P:Param2) = struct
       let offset = get_fun_offset id in
       let relative_offset = match rel with
         | None -> offset
-        | Some rel -> get_fun_offset rel - offset
+        | Some rel -> offset - get_fun_offset rel
       in
       let uoffset = make_offset ulam relative_offset in
       let approx = match get_descr fun_approx env with
@@ -521,6 +522,7 @@ module Conv(P:Param2) = struct
     | Uconst(_,Some lbl) ->
       Uconst(Uconst_label (offset_label lbl offset),None)
     | _ ->
+      assert(offset >= 0);
       if offset = 0
       then ulam
       (* compilation of let rec in cmmgen assumes

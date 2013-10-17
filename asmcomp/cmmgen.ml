@@ -499,6 +499,7 @@ let structured_constants = ref ([] : (string * structured_constant) list)
 *)
 
 let offseted_label (lbl,i) =
+  assert(i>=0);
   if i = 0 then lbl else lbl ^ "_" ^ (string_of_int i)
 
 let transl_constant = function
