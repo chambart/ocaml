@@ -73,9 +73,6 @@ val structured_constants :
   unit -> (string * bool * Clambda.ustructured_constant) list
 val clear_structured_constants : unit -> unit
 
-val new_symbol_alias : orig:string -> alias:string -> bool -> unit
-val symbol_alias : string -> (bool * string) list
-
 val read_unit_info: string -> unit_infos * Digest.t
         (* Read infos and MD5 from a [.cmx] file. *)
 val write_unit_info: unit_infos -> string -> unit

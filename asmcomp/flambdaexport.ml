@@ -42,8 +42,6 @@ and approx =
   | Value_unknown
   | Value_id of ExportId.t
   | Value_symbol of symbol
-  (* TODO: Value_symbol should be here, but this is too much changes
-     to do that now... *)
 
 type exported = {
   ex_functions : unit ffunctions FunMap.t;

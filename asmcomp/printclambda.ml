@@ -52,9 +52,7 @@ let rec struct_const ppf = function
       let sconsts ppf scl =
         List.iter (fun sc -> fprintf ppf "@ %a" struct_const sc) scl in
       fprintf ppf "@[<2>(const_closure%a %s@ %a)@]" funs clos sym sconsts fv
-  | Uconst_label (s,off) ->
-      if off = 0 then pp_print_string ppf s
-      else fprintf ppf "%s_%i" s off
+  | Uconst_label s -> pp_print_string ppf s
 
 and lam ppf = function
   | Uvar id ->

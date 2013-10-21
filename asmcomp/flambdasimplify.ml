@@ -76,12 +76,16 @@ module Import = struct
     | Value_id ex -> Value_extern ex
     | Value_symbol sym -> Value_symbol sym
 
-  let import_symbol ((unit,_) as sym) =
-    let symbol_id_map =
-      (Compilenv.approx_for_global unit).ex_symbol_id in
-    try import_ex (SymbolMap.find sym symbol_id_map) with
-    | Not_found ->
+  let import_symbol ((id,_) as sym) : t =
+    if Ident.is_predef_exn id
+    then
       Value_unknown
+    else
+      let symbol_id_map =
+        (Compilenv.approx_for_global id).ex_symbol_id in
+      try import_ex (SymbolMap.find sym symbol_id_map) with
+      | Not_found ->
+        Value_unknown
 
   let import_symbol sym =
     let r = import_symbol sym in

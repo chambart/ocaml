@@ -498,10 +498,6 @@ let new_const_symbol () =
 let structured_constants = ref ([] : (string * structured_constant) list)
 *)
 
-let offseted_label (lbl,i) =
-  assert(i>=0);
-  if i = 0 then lbl else lbl ^ "_" ^ (string_of_int i)
-
 let transl_constant = function
     Uconst_base(Const_int n) ->
       int_const n
@@ -513,7 +509,7 @@ let transl_constant = function
       else Cconst_natpointer
               (Nativeint.add (Nativeint.shift_left (Nativeint.of_int n) 1) 1n)
   | Uconst_label lbl ->
-      Cconst_symbol (offseted_label lbl)
+      Cconst_symbol lbl
   | cst ->
       Cconst_symbol (Compilenv.new_structured_constant cst false)
 
@@ -1035,7 +1031,7 @@ let rec transl = function
     Uvar id ->
       Cvar id
   | Uconst ( _, Some const_label) ->
-      Cconst_symbol (offseted_label const_label)
+      Cconst_symbol const_label
   | Uconst (sc, None) ->
       transl_constant sc
   | Uclosure(fundecls, []) ->
@@ -1940,18 +1936,9 @@ let rec transl_all_functions already_translated cont =
     cont, already_translated
 
 let cdefine_symbol (global,symb) =
-  let l = (global, symb) :: (Compilenv.symbol_alias symb) in
-  List.flatten
-    (List.map (fun (global,v) ->
-         if global
-         then [Cglobal_symbol v; Cdefine_symbol v]
-         else [Cdefine_symbol v]) l)
-
-let cdefine_offseted_symbol (global,symb) pos =
-  let l = (global,symb) :: (Compilenv.symbol_alias symb) in
-  List.flatten
-    (List.map (fun (global,v) ->
-         cdefine_symbol (global,offseted_label (v,pos))) l)
+  if global
+  then [Cglobal_symbol symb; Cdefine_symbol symb]
+  else [Cdefine_symbol symb]
 
 (* Emit structured constants *)
 
@@ -2058,7 +2045,7 @@ and emit_constant_field field cont =
       List.iter (fun f -> Queue.add f functions) fundecls;
       (Csymbol_address lbl, cont)
   | Uconst_label lbl ->
-      (Csymbol_address (offseted_label lbl), cont)
+      (Csymbol_address lbl, cont)
 
 and emit_string_constant s cont =
   let n = size_int - 1 - (String.length s) mod size_int in
@@ -2089,6 +2076,7 @@ and emit_boxed_int64_constant n cont =
 (* Emit constant closures *)
 
 let emit_constant_closure symb fundecls clos_vars cont =
+  let closure_symbol f = fst symb, f.label ^ "_closure" in
   match fundecls with
     [] -> assert false
   | f1 :: remainder ->
@@ -2099,19 +2087,20 @@ let emit_constant_closure symb fundecls clos_vars cont =
       | f2 :: rem ->
           if f2.arity = 1 then
             Cint(infix_header pos) ::
-            cdefine_offseted_symbol symb pos @
+            cdefine_symbol (closure_symbol f2) @
             Csymbol_address f2.label ::
             Cint 3n ::
             emit_others (pos + 3) rem
           else
             Cint(infix_header pos) ::
-            cdefine_offseted_symbol symb pos @
+            cdefine_symbol (closure_symbol f2) @
             Csymbol_address(curry_function f2.arity) ::
             Cint(Nativeint.of_int (f2.arity lsl 1 + 1)) ::
             Csymbol_address f2.label ::
             emit_others (pos + 4) rem in
       Cint(closure_header (fundecls_size fundecls + List.length clos_vars)) ::
       cdefine_symbol symb @
+      cdefine_symbol (closure_symbol f1) @
       if f1.arity = 1 then
         Csymbol_address f1.label ::
         Cint 3n ::

@@ -35,9 +35,6 @@ let imported_closure_table =
 let structured_constants =
   ref ([] : (string * bool * Clambda.ustructured_constant) list)
 
-let symbol_alias : (string,(bool*string) list) Hashtbl.t = Hashtbl.create 10
-let symbol_back_alias : (string,string) Hashtbl.t = Hashtbl.create 10
-
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
 let merged_environment = ref Flambdaexport.empty_export
 
@@ -86,9 +83,7 @@ let reset ?packname name =
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
   current_unit.ui_export_info <- Flambdaexport.empty_export;
-  structured_constants := [];
-  Hashtbl.clear symbol_alias;
-  Hashtbl.clear symbol_back_alias
+  structured_constants := []
 
 let current_unit_infos () =
   current_unit
@@ -197,7 +192,7 @@ let set_export_info export_info =
 
 let approx_for_global id =
   if Ident.is_predef_exn id || not (Ident.global id)
-  then invalid_arg "approx_for_global";
+  then invalid_arg (Format.asprintf "approx_for_global %a" Ident.print id);
   let modname = Ident.name id in
   try Hashtbl.find export_infos_table modname with
   | Not_found ->
@@ -292,24 +287,6 @@ let new_structured_constant cst global =
 let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
-
-let set_symbol_alias ~orig ~alias global =
-  let l = try Hashtbl.find symbol_alias orig with Not_found -> [] in
-  Hashtbl.replace symbol_alias orig ((global,alias)::l);
-  assert(not (Hashtbl.mem symbol_back_alias alias));
-  Hashtbl.add symbol_back_alias alias orig
-
-let rec new_symbol_alias ~orig ~alias global =
-  match (try Some (Hashtbl.find symbol_back_alias orig) with _ -> None) with
-  | Some orig -> new_symbol_alias ~orig ~alias global
-  | None -> set_symbol_alias ~orig ~alias global
-
-let symbol_alias s =
-  let rec aux (_,s) =
-    let l = try Hashtbl.find symbol_alias s with Not_found -> [] in
-    List.concat (l::(List.map aux l))
-  in
-  aux (false,s)
 
 (* Error report *)
 
