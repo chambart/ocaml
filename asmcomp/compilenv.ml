@@ -33,7 +33,7 @@ let imported_closure_table =
    : Flambda.ExprId.t Flambda.ffunctions Flambda.FunTbl.t)
 
 let structured_constants =
-  ref ([] : (string * bool * Lambda.structured_constant) list)
+  ref ([] : (string * bool * Clambda.ustructured_constant) list)
 
 let current_unit_id = ref (Ident.create_persistent "___UNINITIALIZED___")
 let merged_environment = ref Flambdaexport.empty_export
@@ -280,6 +280,8 @@ let new_structured_constant cst global =
   let lbl = new_const_symbol() in
   structured_constants := (lbl, global, cst) :: !structured_constants;
   lbl
+
+let clear_structured_constants () = structured_constants := []
 
 let structured_constants () = !structured_constants
 
