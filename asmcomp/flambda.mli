@@ -31,7 +31,10 @@ type symbol = Ident.t * string
     the [Ident.t] refer to the compilation unit containing the value.
     the [string] is the linking name of the variable *)
 
-type offset = { off_id : Ident.t; off_unit : string; }
+type offset = {
+  off_id : Ident.t;
+  off_unit : symbol;
+}
 (** An offset refer to a variable or a function inside a
     closure.
     [off_id] is the name of the variable.
@@ -144,7 +147,7 @@ and 'a ffunctions = {
   ident : FunId.t;
   funs : 'a ffunction IdentMap.t;
   (** The ident key correspond to off_id of offset type *)
-  unit : string;
+  unit : symbol;
   (** The compilation unit containing the closure *)
   closed : bool; (* should be deleted ? *)
   recursives : bool;
@@ -157,7 +160,7 @@ and 'a fenv_field = {
   env_var : offset; (** the accessed variable *)
 }
 
-val check : current_unit:string -> 'a flambda -> unit
+val check : current_unit:symbol -> 'a flambda -> unit
 (**
    Well formedness checking
    Ensures that:

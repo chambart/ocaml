@@ -264,7 +264,9 @@ let save_unit_info filename =
   current_unit.ui_imports_cmi <- Env.imported_units();
   write_unit_info current_unit filename
 
-
+let current_unit () =
+  current_unit_id (),
+  current_unit_symbol ()
 
 let const_label = ref 0
 

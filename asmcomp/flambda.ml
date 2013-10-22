@@ -68,7 +68,7 @@ module IdentTbl = ExtHashtbl(Idt)
 
 type offset = {
   off_id : Ident.t;
-  off_unit : string;
+  off_unit : symbol;
 }
 
 module Offset = struct
@@ -77,14 +77,14 @@ module Offset = struct
     let c = Idt.compare x.off_id y.off_id in
     if c <> 0
     then c
-    else String.compare x.off_unit y.off_unit
+    else Symbol.compare x.off_unit y.off_unit
   let output oc x =
     Printf.fprintf oc "%s.%a"
-      x.off_unit
+      (snd x.off_unit)
       Idt.output x.off_id
   let print ppf x =
     Format.fprintf ppf "%s.%a"
-      x.off_unit
+      (snd x.off_unit)
       Idt.print x.off_id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
@@ -160,7 +160,7 @@ and 'a ffunction = {
 and 'a ffunctions = {
   ident  : FunId.t;
   funs   : 'a ffunction IdentMap.t;
-  unit   : string;
+  unit   : symbol;
   closed : bool;
   recursives : bool;
 }
@@ -179,7 +179,7 @@ let same f1 f2 =
 (* Well formedness checking *)
 
 type 'a env = {
-  current_unit : string;
+  current_unit : symbol;
   bound_variables : IdentSet.t;
   seen_variables : IdentSet.t ref;
   seen_fun_label : StringSet.t ref;
@@ -334,7 +334,8 @@ let rec check env = function
     (*                       (Ident.unique_name id)) *)
 
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
-    if env_var.off_unit = env.current_unit && env_fun_id.off_unit = env.current_unit
+    if Symbol.equal env_var.off_unit env.current_unit &&
+       Symbol.equal env_fun_id.off_unit env.current_unit
     then begin
       need_env_var env_fun_id.off_id env_var.off_id env;
       let closure = match env_lam with

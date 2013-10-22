@@ -124,7 +124,7 @@ let compile_genfuns ppf f =
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
 let check flambda =
-  Flambda.check ~current_unit:(Compilenv.current_unit_name ()) flambda;
+  Flambda.check ~current_unit:(Compilenv.current_unit ()) flambda;
   flambda
 
 let test_flambda ppf size lam =

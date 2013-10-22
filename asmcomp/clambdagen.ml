@@ -57,7 +57,7 @@ let reexported_offset extern_fun_offset_table extern_fv_offset_table expr =
 
 (* functions that assumes that the refered value is declared in the
    current unit: usage should be justified *)
-let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
+let to_offset off_id = {off_id; off_unit = Compilenv.current_unit ()}
 
 module type Param1 = sig
   type t
@@ -150,8 +150,8 @@ module Conv(P:Param2) = struct
   let ex_closures =
     (Compilenv.approx_env ()).Flambdaexport.ex_functions_off
 
-  let is_current_unit id =
-    (Compilenv.current_unit_symbol ()) = id
+  let is_current_unit unit =
+    Symbol.equal (Compilenv.current_unit ()) unit
 
   let get_fun_offset off =
     try
