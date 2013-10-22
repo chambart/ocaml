@@ -46,7 +46,7 @@ let find_used_env_field expr =
 
 (* functions that assumes that the refered value is declared in the
    current unit: usage should be justified *)
-let to_offset off_id = {off_id; off_unit = Compilenv.current_unit_symbol ()}
+let to_offset off_id = {off_id; off_unit = Compilenv.current_unit ()}
 let to_symbol lbl : symbol = (Compilenv.current_unit_id (), lbl)
 
 module type Param2 = sig
@@ -95,9 +95,9 @@ module Conv(P:Param2) = struct
   let is_constant id = not (IdentSet.mem id not_constants.Constants.not_constant_id)
 
   let function_symbol off =
-    Ident.create_persistent off.off_unit,
+    fst off.off_unit,
     Compilenv.make_symbol
-      ~unitname:off.off_unit
+      ~unitname:(snd off.off_unit)
       (Some ((Ident.unique_name off.off_id) ^ "_closure"))
 
   type env =
@@ -348,12 +348,12 @@ module Conv(P:Param2) = struct
 
     | Fprim(Pgetglobalfield(id,i), l, dbg, v) ->
       assert(l = []);
+      let lam = Fprim(Pfield i, [Fprim(Pgetglobal id, l, dbg, v)], dbg, v) in
       if id = Compilenv.current_unit_id ()
       then
-        Fprim(Pgetglobalfield(id,i), conv_list env l, dbg, ()),
+        conv env lam,
         get_global i env
       else
-        let lam = Fprim(Pfield i, [Fprim(Pgetglobal id, l, dbg, v)], dbg, v) in
         conv_approx env lam
 
     | Fprim(Psetglobalfield i, [arg], dbg, _) ->

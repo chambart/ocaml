@@ -30,6 +30,7 @@ module type ExtMap = sig
   val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
+  val map_keys : (key -> key) -> 'a t -> 'a t
   val print :
     (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 end

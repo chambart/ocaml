@@ -57,6 +57,9 @@ val empty_export : exported
 
 val merge : exported -> exported -> exported
 
+val import_for_pack :
+  pack_units:Flambda.IdentSet.t -> pack:Ident.t -> exported -> exported
+
 (**/**)
 (* debug printing functions *)
 

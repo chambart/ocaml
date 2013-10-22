@@ -125,7 +125,7 @@ let print_symbols ppf export =
 let merge e1 e2 =
   let int_eq (i:int) j = i = j in
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
-    ex_globals = IdentMap.empty;
+    ex_globals = IdentMap.disjoint_union e1.ex_globals e2.ex_globals;
     ex_functions = FunMap.disjoint_union e1.ex_functions e2.ex_functions;
     ex_functions_off =
       OffsetMap.disjoint_union e1.ex_functions_off e2.ex_functions_off;
@@ -136,3 +136,67 @@ let merge e1 e2 =
     ex_offset_fv = OffsetMap.disjoint_union
         ~eq:int_eq e1.ex_offset_fv e2.ex_offset_fv;
     ex_constants = SymbolSet.union e1.ex_constants e2.ex_constants }
+
+(* importing informations to build a pack: the global identifying the
+   compilation unit of symbols is changed to be the pack one *)
+
+let import_symbol_for_pack units pack ((global, lbl) as symbol) =
+  if IdentSet.mem global units
+  then (pack, lbl)
+  else symbol
+
+let import_approx_for_pack units pack = function
+  | Value_symbol sym -> Value_symbol (import_symbol_for_pack units pack sym)
+  | approx -> approx
+
+let import_closure units pack closure =
+  { closure with
+    bound_var =
+      OffsetMap.map (import_approx_for_pack units pack) closure.bound_var }
+
+let import_descr_for_pack units pack = function
+  | Value_int _
+  | Value_constptr _
+  | Value_predef_exn _ as desc -> desc
+  | Value_block (tag, fields) ->
+    Value_block (tag, Array.map (import_approx_for_pack units pack) fields)
+  | Value_closure {fun_id; closure} ->
+    Value_closure {fun_id; closure = import_closure units pack closure}
+  | Value_unoffseted_closure closure ->
+    Value_unoffseted_closure (import_closure units pack closure)
+
+let import_code_for_pack units pack expr =
+  Flambdaiter.map (function
+      | Fsymbol (sym, ()) ->
+        Fsymbol (import_symbol_for_pack units pack sym, ())
+      | e -> e)
+    expr
+
+let import_ffunctions_for_pack units pack ffuns =
+  { ffuns with
+    funs = IdentMap.map (fun ffun ->
+        {ffun with body = import_code_for_pack units pack ffun.body})
+        ffuns.funs }
+
+let ex_functions_off ex_functions =
+  let aux_fun ffunctions off_id _ map =
+    OffsetMap.add {off_unit = ffunctions.unit; off_id} ffunctions map in
+  let aux _ f map = IdentMap.fold (aux_fun f) f.funs map in
+  FunMap.fold aux ex_functions OffsetMap.empty
+
+let import_for_pack ~pack_units ~pack exp =
+  let import_sym = import_symbol_for_pack pack_units pack in
+  let import_desr = import_descr_for_pack pack_units pack in
+  let import_approx = import_approx_for_pack pack_units pack in
+  let ex_functions =
+    FunMap.map (import_ffunctions_for_pack pack_units pack)
+      exp.ex_functions in
+  { ex_functions;
+    ex_functions_off = ex_functions_off ex_functions;
+    ex_globals = IdentMap.map import_approx exp.ex_globals;
+    ex_offset_fun = exp.ex_offset_fun;
+    ex_offset_fv = exp.ex_offset_fv;
+    ex_values = EidMap.map import_desr exp.ex_values;
+    ex_id_symbol = EidMap.map import_sym exp.ex_id_symbol;
+    ex_symbol_id = SymbolMap.map_keys import_sym exp.ex_symbol_id;
+    ex_constants = SymbolSet.map import_sym exp.ex_constants }

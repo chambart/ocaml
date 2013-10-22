@@ -45,7 +45,7 @@ let add_subst sb ~replace ~by =
 let nid = ExprId.create
 
 let foffset (lam, off_id, v) =
-  Foffset(lam, { off_id; off_unit = Compilenv.current_unit_symbol () }, None, v)
+  Foffset(lam, { off_id; off_unit = Compilenv.current_unit ()}, None, v)
 
 let rec close sb = function
     Lvar id ->
@@ -171,7 +171,7 @@ and close_functions (sb:Ident.t IdentMap.t)
   let closure_params =
     IdentMap.fold (fun id _ set -> IdentSet.add id set)
       clos_var IdentSet.empty in
-  let unit = Compilenv.current_unit_symbol () in
+  let unit = Compilenv.current_unit () in
   let close_one map = function
     | (id, Lfunction(kind, params, body)) ->
       let dbg = match body with

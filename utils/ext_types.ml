@@ -30,6 +30,7 @@ module type ExtMap = sig
   val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
+  val map_keys : (key -> key) -> 'a t -> 'a t
   val print :
     (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 end
@@ -86,6 +87,8 @@ struct
 
   let rename m v =
     try find v m with Not_found -> v
+  let map_keys f m =
+    of_list (List.map (fun (k,v) -> f k, v) (bindings m))
   let print f ppf s =
     let elts ppf s = iter (fun id v ->
         Format.fprintf ppf "@ (%a %a)" M.print id f v) s in
