@@ -18,7 +18,7 @@ open Flambda
 type tag = int
 
 type descr =
-  | Value_block of tag * descr array
+  | Value_block of tag * approx array
   | Value_int of int
   | Value_constptr of int
   | Value_unoffseted_closure of value_closure
@@ -34,14 +34,19 @@ and value_offset =
 
 and value_closure =
   { ffunctions : ExprId.t ffunctions;
-    bound_var : descr OffsetMap.t }
+    bound_var : approx OffsetMap.t }
+
+and approx =
+  { descr : descr;
+    var : Ident.t option;
+    symbol : symbol option }
 
 let rec print_descr ppf = function
   | Value_int i -> Format.pp_print_int ppf i
   | Value_constptr i -> Format.fprintf ppf "%ia" i
   | Value_block (tag,fields) ->
     let p ppf fields =
-      Array.iter (fun v -> Format.fprintf ppf "%a@ " print_descr v) fields in
+      Array.iter (fun v -> Format.fprintf ppf "%a@ " print_approx v) fields in
     Format.fprintf ppf "[%i:@ @[<1>%a@]]" tag p fields
   | Value_unknown -> Format.fprintf ppf "?"
   | Value_bottom -> Format.fprintf ppf "bottom"
@@ -51,41 +56,55 @@ let rec print_descr ppf = function
     Format.fprintf ppf "(fun:@ %a)" Offset.print fun_id
   | _ -> Format.fprintf ppf "TODO"
 
+and print_approx ppf { descr } = print_descr ppf descr
+
+let approx descr = { descr; var = None; symbol = None }
+
+let value_unknown = approx Value_unknown
+let value_int i = approx (Value_int i)
+let value_constptr i = approx (Value_constptr i)
+let value_closure c = approx (Value_closure c)
+let value_unoffseted_closure c = approx (Value_unoffseted_closure c)
+let value_block (t,b) = approx (Value_block (t,b))
+let value_extern ex = approx (Value_extern ex)
+let value_symbol sym = approx (Value_symbol sym)
+let value_bottom = approx Value_bottom
+
 module Import = struct
-  type t = descr
+  type t = approx
   open Flambdaexport
   let rec import_ex ex : t =
     let ex_info = Compilenv.approx_env () in
     try match EidMap.find ex ex_info.ex_values with
-      | Value_int i -> Value_int i
+      | Value_int i -> value_int i
       | Value_block (tag, fields) ->
-          Value_block (tag, Array.map import_approx fields)
+          value_block (tag, Array.map import_approx fields)
       | Value_closure { fun_id; closure = { closure_id; bound_var } } ->
         let bound_var = OffsetMap.map import_approx bound_var in
-        Value_closure
+        value_closure
           { fun_id;
             closure =
               { ffunctions = Compilenv.imported_closure closure_id;
                 bound_var } }
-      | _ -> Value_unknown
-    with Not_found -> Value_unknown
+      | _ -> value_unknown
+    with Not_found -> value_unknown
 
   and import_approx (ap:Flambdaexport.approx) : t =
     match ap with
-    | Value_unknown -> Value_unknown
-    | Value_id ex -> Value_extern ex
-    | Value_symbol sym -> Value_symbol sym
+    | Value_unknown -> value_unknown
+    | Value_id ex -> value_extern ex
+    | Value_symbol sym -> value_symbol sym
 
   let import_symbol ((id,_) as sym) : t =
     if Ident.is_predef_exn id
     then
-      Value_unknown
+      value_unknown
     else
       let symbol_id_map =
         (Compilenv.approx_for_global id).ex_symbol_id in
       try import_ex (SymbolMap.find sym symbol_id_map) with
       | Not_found ->
-        Value_unknown
+        value_unknown
 
   let import_symbol sym =
     let r = import_symbol sym in
@@ -98,10 +117,10 @@ module Import = struct
     | r -> r
 
   and really_import_ex ex =
-    really_import (import_ex ex)
+    really_import (import_ex ex).descr
 
   and really_import_symbol sym =
-    really_import (import_symbol sym)
+    really_import (import_symbol sym).descr
 
   let import_global id =
     import_approx
@@ -111,13 +130,13 @@ end
 
 open Import
 
-let make_const_int n eid = Fconst(Fconst_base(Const_int n),eid), Value_int n
-let make_const_ptr n eid = Fconst(Fconst_pointer n,eid), Value_constptr n
+let make_const_int n eid = Fconst(Fconst_base(Const_int n),eid), value_int n
+let make_const_ptr n eid = Fconst(Fconst_pointer n,eid), value_constptr n
 let make_const_bool b eid = make_const_ptr (if b then 1 else 0) eid
 
 type env =
-  { env_approx : descr IdentMap.t;
-    global : (int, descr) Hashtbl.t }
+  { env_approx : approx IdentMap.t;
+    global : (int, approx) Hashtbl.t }
 
 let empty_env () =
   { env_approx = IdentMap.empty;
@@ -129,30 +148,38 @@ let local_env env =
 let find id env = IdentMap.find id env.env_approx
 let find_unknwon id env =
   try find id env
-  with Not_found -> Value_unknown
+  with Not_found -> value_unknown
+let present id env = IdentMap.mem id env.env_approx
 let add_approx id approx env =
+  let approx =
+    match approx.var with
+    | Some var when present var env ->
+      approx
+    | _ ->
+      { approx with var = Some id }
+  in
   { env with env_approx = IdentMap.add id approx env.env_approx }
 
 let add_global i approx env =
   Hashtbl.add env.global i approx
 let find_global i env =
   try Hashtbl.find env.global i with
-  | Not_found -> Value_unknown
+  | Not_found -> value_unknown
 
 let const_approx = function
   | Fconst_base const ->
       begin match const with
-      | Const_int i -> Value_int i
-      | Const_char c -> Value_int (Char.code c)
-      | Const_string _ -> Value_unknown
-      | Const_float  _ -> Value_unknown
-      | Const_int32  _ -> Value_unknown
-      | Const_int64  _ -> Value_unknown
-      | Const_nativeint  _ -> Value_unknown
+      | Const_int i -> value_int i
+      | Const_char c -> value_int (Char.code c)
+      | Const_string _ -> value_unknown
+      | Const_float  _ -> value_unknown
+      | Const_int32  _ -> value_unknown
+      | Const_int64  _ -> value_unknown
+      | Const_nativeint  _ -> value_unknown
       end
-  | Fconst_pointer i -> Value_constptr i
-  | Fconst_float_array _ -> Value_unknown
-  | Fconst_immstring _ -> Value_unknown
+  | Fconst_pointer i -> value_constptr i
+  | Fconst_float_array _ -> value_unknown
+  | Fconst_immstring _ -> value_unknown
 
 (* Determine whether the estimated size of a flambda term is below
    some threshold *)
@@ -316,28 +343,39 @@ let rec no_effects = function
   | Funreachable _ -> true
 
 let check_constant_result lam approx =
-  match approx with
+  match approx.descr with
     Value_int n when no_effects lam -> make_const_int n (data lam)
   | Value_constptr n when no_effects lam -> make_const_ptr n (data lam)
   | Value_symbol sym when no_effects lam -> Fsymbol(sym, data lam), approx
   | _ -> (lam, approx)
 
+let check_var_and_constant_result env lam approx =
+  let res = match approx.var with
+    | None ->
+      lam
+    | Some var ->
+      if present var env
+      then Fvar(var, data lam)
+      else lam
+  in
+  check_constant_result res approx
+
 let get_field i = function
-  | [Value_block (tag, fields)] ->
+  | [{descr = Value_block (tag, fields)}] ->
     if i >= 0 && i < Array.length fields
     then fields.(i)
-    else Value_unknown
-  | _ -> Value_unknown
+    else value_unknown
+  | _ -> value_unknown
 
-let simplif_prim_pure p (args, approxs) expr dbg =
+let descrs approxs = List.map (fun v -> v.descr) approxs
+
+let simplif_prim_pure p (args, approxs) expr dbg : 'a flambda * approx =
   match p with
   | Pmakeblock(tag, Immutable) ->
-      expr, Value_block(tag, Array.of_list approxs)
-  | Pfield i ->
-      check_constant_result expr (get_field i approxs)
+      expr, value_block(tag, Array.of_list approxs)
   | _ ->
       let eid = data expr in
-      match approxs with
+      match descrs approxs with
         [Value_int x] ->
           begin match p with
             Pidentity -> make_const_int x eid
@@ -347,7 +385,7 @@ let simplif_prim_pure p (args, approxs) expr dbg =
                               ((x land 0xff00) lsr 8)) eid
           | Poffsetint y -> make_const_int (x + y) eid
           | _ ->
-              expr, Value_unknown
+              expr, value_unknown
           end
       | [Value_int x; Value_int y] ->
           begin match p with
@@ -372,7 +410,7 @@ let simplif_prim_pure p (args, approxs) expr dbg =
                 | Cge -> x >= y in
               make_const_bool result eid
           | _ ->
-              expr, Value_unknown
+              expr, value_unknown
           end
       | [Value_constptr x] ->
           begin match p with
@@ -389,27 +427,32 @@ let simplif_prim_pure p (args, approxs) expr dbg =
                 | Ostype_cygwin -> make_const_bool (Sys.os_type = "Cygwin") eid
               end
           | _ ->
-              expr, Value_unknown
+              expr, value_unknown
           end
       | [Value_constptr x; Value_constptr y] ->
           begin match p with
             Psequand -> make_const_bool(x <> 0 && y <> 0) eid
           | Psequor  -> make_const_bool(x <> 0 || y <> 0) eid
           | _ ->
-              expr, Value_unknown
+              expr, value_unknown
           end
       | _ ->
-          expr, Value_unknown
+          expr, value_unknown
+
+let really_import_approx approx =
+  { approx with descr = really_import approx.descr }
 
 let rec loop env tree =
-  let f, descr = loop_direct env tree in
-  f, really_import descr
+  let f, approx = loop_direct env tree in
+  f, really_import_approx approx
 
-and loop_direct (env:env) tree : 'a flambda * descr =
+and loop_direct (env:env) tree : 'a flambda * approx =
   let aux v = fst (loop env v) in
   match tree with
-  | Fsymbol (sym,_) -> tree, import_symbol sym
-  | Fvar (id,_) -> tree, (find_unknwon id env)
+  | Fsymbol (sym,_) ->
+      check_constant_result tree (import_symbol sym)
+  | Fvar (id,_) ->
+      check_var_and_constant_result env tree (find_unknwon id env)
   | Fconst (cst,_) -> tree, const_approx cst
   | Fapply (funct, args, direc, dbg, annot) ->
       apply env funct args dbg annot
@@ -424,7 +467,7 @@ and loop_direct (env:env) tree : 'a flambda * descr =
               fv OffsetMap.empty } in
       let closure_env = IdentMap.fold
           (fun id _ env -> add_approx id
-              (Value_closure { fun_id = (off id);
+              (value_closure { fun_id = (off id);
                                closure = internal_closure }) env)
           ffuns.funs (local_env env) in
       let closure_env = IdentMap.fold
@@ -432,22 +475,34 @@ and loop_direct (env:env) tree : 'a flambda * descr =
       let ffuns =
         { ffuns with
           funs = IdentMap.map
-              (fun ffun -> { ffun with body = fst(loop closure_env ffun.body) })
+              (fun ffun ->
+                 let closure_env = List.fold_left (fun env id ->
+                     add_approx id value_unknown env) closure_env ffun.params in
+                 { ffun with body = fst(loop closure_env ffun.body) })
               ffuns.funs } in
       let closure = { internal_closure with ffunctions = ffuns } in
       Fclosure (ffuns, IdentMap.map fst fv, annot),
-      Value_unoffseted_closure closure
+      value_unoffseted_closure closure
   | Foffset (flam, off, rel, annot) ->
       let flam, approx = loop env flam in
-      let ret_approx = match approx with
+      let ret_approx = match approx.descr with
         | Value_unoffseted_closure closure ->
-            Value_closure { fun_id = off; closure }
-        | _ -> Value_unknown
+            value_closure { fun_id = off; closure }
+        | _ -> value_unknown
       in
       Foffset (flam, off, rel, annot), ret_approx
-  | Fenv_field (fenv_field, annot) ->
-      Fenv_field ({ fenv_field with env = aux fenv_field.env }, annot),
-      Value_unknown
+  | Fenv_field (fenv_field, annot) as expr ->
+      let arg, env_approx = loop env fenv_field.env in
+      let approx = match env_approx.descr with
+        | Value_closure { closure = { bound_var } } ->
+            (try OffsetMap.find fenv_field.env_var bound_var with
+             | Not_found -> value_unknown)
+        | _ -> value_unknown in
+      let expr =
+        if arg == fenv_field.env
+        then expr
+        else Fenv_field ({ fenv_field with env = arg }, annot) in
+      check_var_and_constant_result env expr approx
   | Flet(str, id, lam, body, annot) ->
       let lam, lapprox = loop env lam in
       let body_env = match str with
@@ -468,21 +523,28 @@ and loop_direct (env:env) tree : 'a flambda * descr =
   | Fprim(Pgetglobal id, [], dbg, annot) as expr ->
     let approx =
       if Ident.is_predef_exn id
-      then Value_unknown
+      then value_unknown
       else import_global id in
     expr, approx
   | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr ->
       let approx =
         if id = Compilenv.current_unit_id ()
         then find_global i env
-        else get_field i [really_import (import_global id)] in
+        else get_field i [really_import_approx (import_global id)] in
       check_constant_result expr approx
   | Fprim(Psetglobalfield i, [arg], dbg, annot) as expr ->
       let arg', approx = loop env arg in
       let expr = if arg == arg' then expr
         else Fprim(Psetglobalfield i, [arg'], dbg, annot) in
       add_global i approx env;
-      expr, Value_unknown
+      expr, value_unknown
+  | Fprim(Pfield i, [arg], dbg, annot) as expr ->
+      let arg', block_approx = loop env arg in
+      let expr =
+        if arg == arg' then expr
+        else Fprim(Pfield i, [arg'], dbg, annot) in
+      let approx = get_field i [block_approx] in
+      check_var_and_constant_result env expr approx
   | Fprim(p, args, dbg, annot) as expr ->
       let (args', approxs) = loop_list env args in
       let expr = if args' == args then expr else Fprim(p, args', dbg, annot) in
@@ -490,49 +552,52 @@ and loop_direct (env:env) tree : 'a flambda * descr =
   | Fstaticfail(i, args, annot) ->
       let args = List.map aux args in
       Fstaticfail (i, args, annot),
-      Value_unknown
+      value_bottom
   | Fcatch (i, vars, body, handler, annot) ->
-      let body = aux body in
-      let handler = aux handler in
+      let body, _ = loop env body in
+      let env = List.fold_left (fun env id -> add_approx id value_unknown env)
+          env vars in
+      let handler, _ = loop env handler in
       Fcatch (i, vars, body, handler, annot),
-      Value_unknown
+      value_unknown
   | Ftrywith(body, id, handler, annot) ->
-      let body = aux body in
-      let handler = aux handler in
+      let body, _ = loop env body in
+      let env = add_approx id value_unknown env in
+      let handler, _ = loop env handler in
       Ftrywith(body, id, handler, annot),
-      Value_unknown
+      value_unknown
   | Fifthenelse(arg, ifso, ifnot, annot) ->
       let arg = aux arg in
       let ifso = aux ifso in
       let ifnot = aux ifnot in
       Fifthenelse(arg, ifso, ifnot, annot),
-      Value_unknown
+      value_unknown
   | Fsequence(lam1, lam2, annot) ->
       let lam1 = aux lam1 in
-      let lam2 = aux lam2 in
+      let lam2, approx = loop env lam2 in
       Fsequence(lam1, lam2, annot),
-      Value_unknown
+      approx
   | Fwhile(cond, body, annot) ->
       let cond = aux cond in
       let body = aux body in
       Fwhile(cond, body, annot),
-      Value_unknown
+      value_unknown
   | Fsend(kind, met, obj, args, dbg, annot) ->
       let met = aux met in
       let obj = aux obj in
       let args = List.map aux args in
       Fsend(kind, met, obj, args, dbg, annot),
-      Value_unknown
+      value_unknown
   | Ffor(id, lo, hi, dir, body, annot) ->
       let lo = aux lo in
       let hi = aux hi in
       let body = aux body in
       Ffor(id, lo, hi, dir, body, annot),
-      Value_unknown
+      value_unknown
   | Fassign(id, lam, annot) ->
       let lam = aux lam in
       Fassign(id, lam, annot),
-      Value_unknown
+      value_unknown
   | Fswitch(arg, sw, annot) ->
       let arg = aux arg in
       let sw =
@@ -541,8 +606,8 @@ and loop_direct (env:env) tree : 'a flambda * descr =
           fs_consts = List.map (fun (i,v) -> i, aux v) sw.fs_consts;
           fs_blocks = List.map (fun (i,v) -> i, aux v) sw.fs_blocks; } in
       Fswitch(arg, sw, annot),
-      Value_unknown
-  | Funreachable _ -> tree, Value_bottom
+      value_unknown
+  | Funreachable _ -> tree, value_bottom
 
 and loop_list env l = match l with
   | [] -> [], []
@@ -557,7 +622,7 @@ and loop_list env l = match l with
 and apply env funct args dbg eid =
   let funct, fapprox = loop env funct in
   let args, approxs = loop_list env args in
-  match fapprox with
+  match fapprox.descr with
   | Value_closure { fun_id; closure } ->
       let clos = closure.ffunctions in
       assert(fun_id.off_unit = clos.unit);
@@ -567,10 +632,10 @@ and apply env funct args dbg eid =
       then direct_apply env clos funct fun_id func args dbg eid
       else
         Fapply (funct, args, None, dbg, eid),
-        Value_unknown
+        value_unknown
   | _ ->
       Fapply (funct, args, None, dbg, eid),
-      Value_unknown
+      value_unknown
 
 and direct_apply env clos funct fun_id func args dbg eid =
   if func.stub ||
@@ -586,10 +651,10 @@ and direct_apply env clos funct fun_id func args dbg eid =
       (* if the definitive size is small enought: keep it *)
       body, approx
     else Fapply (funct, args, Some fun_id, dbg, eid),
-         Value_unknown
+         value_unknown
          (* do not use approximation: there can be renamed offsets *)
   else Fapply (funct, args, Some fun_id, dbg, eid),
-       Value_unknown
+       value_unknown
 
 and inline env clos lfunc fun_id func args dbg eid =
   let clos_id = Ident.create "inlined_closure" in
