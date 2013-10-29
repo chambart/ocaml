@@ -63,6 +63,7 @@ module IdentSet : sig
   include Set.S with type t = Lambda.IdentSet.t and type elt = Ident.t
   val of_list : Ident.t list -> t
   val map : (Ident.t -> Ident.t) -> t -> t
+  val print : Format.formatter -> t -> unit
 end
 module IdentMap : ExtMap with module M := Idt
 module IdentTbl : ExtHashtbl with module M := Idt

@@ -62,6 +62,9 @@ struct
     | [t] -> singleton t
     | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
   let map f s = of_list (List.map f (elements s))
+  let print ppf s =
+    let elts ppf s = iter (fun e -> Format.fprintf ppf "@ %a" Ident.print e) s in
+    Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
 end
 module IdentMap = ExtMap(Idt)
 module IdentTbl = ExtHashtbl(Idt)
