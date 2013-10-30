@@ -11,6 +11,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
+open Ext_types
 open Lambda
 open Asttypes
 open Flambda
@@ -143,7 +144,8 @@ let local_env env =
 
 type ret =
   { approx : approx;
-    used_variables : IdentSet.t }
+    used_variables : IdentSet.t;
+    used_staticfail : IntSet.t }
 
 let ret (acc:ret) approx = { acc with approx }
 
@@ -153,9 +155,16 @@ let use_var acc var =
 let exit_scope acc var =
   { acc with used_variables = IdentSet.remove var acc.used_variables }
 
+let use_staticfail acc i =
+  { acc with used_staticfail = IntSet.add i acc.used_staticfail }
+
+let exit_scope_catch acc i =
+  { acc with used_staticfail = IntSet.remove i acc.used_staticfail }
+
 let init_r () =
   { approx = value_unknown;
-    used_variables = IdentSet.empty }
+    used_variables = IdentSet.empty;
+    used_staticfail = IntSet.empty }
 
 let make_const_int r n eid = Fconst(Fconst_base(Const_int n),eid), ret r (value_int n)
 let make_const_ptr r n eid = Fconst(Fconst_pointer n,eid), ret r (value_constptr n)
@@ -471,6 +480,11 @@ let simplif_prim r p (args, approxs) expr dbg : 'a flambda * ret =
       | _ ->
           expr, ret r value_unknown
 
+let sequence l1 l2 annot =
+  if no_effects l1
+  then l2
+  else Fsequence(l1,l2,annot)
+
 let really_import_approx approx =
   { approx with descr = really_import approx.descr }
 
@@ -601,17 +615,21 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       simplif_prim r p (args, approxs) expr dbg
   | Fstaticfail(i, args, annot) ->
       let args, _, r = loop_list env r args in
+      let r = use_staticfail r i in
       Fstaticfail (i, args, annot),
       ret r value_bottom
   | Fcatch (i, vars, body, handler, annot) ->
-      (* TODO, think about passing order *)
       let body, r = loop env r body in
-      let env = List.fold_left (fun env id -> add_approx id value_unknown env)
-          env vars in
-      let handler, r = loop env r handler in
-      let r = List.fold_left exit_scope r vars in
-      Fcatch (i, vars, body, handler, annot),
-      ret r value_unknown
+      if not (IntSet.mem i r.used_staticfail)
+      then body, r
+      else
+        let env = List.fold_left (fun env id -> add_approx id value_unknown env)
+            env vars in
+        let handler, r = loop env r handler in
+        let r = List.fold_left exit_scope r vars in
+        let r = exit_scope_catch r i in
+        Fcatch (i, vars, body, handler, annot),
+        ret r value_unknown
   | Ftrywith(body, id, handler, annot) ->
       let body, r = loop env r body in
       let env = add_approx id value_unknown env in
@@ -621,18 +639,25 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       ret r value_unknown
   | Fifthenelse(arg, ifso, ifnot, annot) ->
       let arg, r = loop env r arg in
-      let ifso, r = loop env r ifso in
-      let ifnot, r = loop env r ifnot in
-      Fifthenelse(arg, ifso, ifnot, annot),
-      ret r value_unknown
+      begin match r.approx.descr with
+      | Value_constptr 0 ->
+          let ifnot, r = loop env r ifnot in
+          sequence arg ifnot annot, r
+      | Value_constptr _
+      | Value_block _ ->
+          let ifso, r = loop env r ifso in
+          sequence arg ifso annot, r
+      | _ ->
+          let ifso, r = loop env r ifso in
+          let ifnot, r = loop env r ifnot in
+          Fifthenelse(arg, ifso, ifnot, annot),
+          ret r value_unknown
+      end
   | Fsequence(lam1, lam2, annot) ->
       let lam1, r = loop env r lam1 in
       let lam2, r = loop env r lam2 in
-      let expr =
-        if no_effects lam1
-        then lam2
-        else Fsequence(lam1, lam2, annot) in
-      expr, r
+      sequence lam1 lam2 annot,
+      r
   | Fwhile(cond, body, annot) ->
       let cond, r = loop env r cond in
       let body, r = loop env r body in
@@ -658,18 +683,34 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       ret r value_unknown
   | Fswitch(arg, sw, annot) ->
       let arg, r = loop env r arg in
-      let f (i,v) (acc, r) =
-        let lam, r = loop env r v in
-        ((i,lam)::acc, r) in
-      let fs_consts, r = List.fold_right f sw.fs_consts ([], r) in
-      let fs_blocks, r = List.fold_right f sw.fs_blocks ([], r) in
-      let fs_failaction, r = match sw.fs_failaction with
-        | None -> None, r
-        | Some l -> let l, r = loop env r l in Some l, r in
-      let sw =
-        { sw with fs_failaction; fs_consts; fs_blocks; } in
-      Fswitch(arg, sw, annot),
-      ret r value_unknown
+      let get_failaction () = match sw.fs_failaction with
+        | None -> Funreachable (ExprId.create ())
+        | Some f -> f in
+      begin match r.approx.descr with
+      | Value_constptr i ->
+          let lam = try List.assoc i sw.fs_consts with
+            | Not_found -> get_failaction () in
+          let lam, r = loop env r lam in
+          sequence arg lam annot, r
+      | Value_block(tag,_) ->
+          let lam = try List.assoc tag sw.fs_blocks with
+            | Not_found -> get_failaction () in
+          let lam, r = loop env r lam in
+          sequence arg lam annot, r
+      | _ ->
+          let f (i,v) (acc, r) =
+            let lam, r = loop env r v in
+            ((i,lam)::acc, r) in
+          let fs_consts, r = List.fold_right f sw.fs_consts ([], r) in
+          let fs_blocks, r = List.fold_right f sw.fs_blocks ([], r) in
+          let fs_failaction, r = match sw.fs_failaction with
+            | None -> None, r
+            | Some l -> let l, r = loop env r l in Some l, r in
+          let sw =
+            { sw with fs_failaction; fs_consts; fs_blocks; } in
+          Fswitch(arg, sw, annot),
+          ret r value_unknown
+      end
   | Funreachable _ -> tree, ret r value_bottom
 
 and loop_list env r l = match l with
