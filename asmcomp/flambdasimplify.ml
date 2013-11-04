@@ -543,47 +543,17 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       check_var_and_constant_result env r tree (find_unknwon id env)
   | Fconst (cst,_) -> tree, ret r (const_approx cst)
   | Fapply (funct, args, direc, dbg, annot) ->
-      apply env r funct args dbg annot
+      let funct, ({ approx = fapprox } as r) = loop env r funct in
+      let args, approxs, r = loop_list env r args in
+      apply env r (funct,fapprox) (args,approxs) dbg annot
+
   | Fclosure (ffuns, fv, annot) ->
-      let fv, r = IdentMap.fold (fun id lam (fv,r) ->
-          let lam, r = loop env r lam in
-          IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
-      (* we use the previous closure for evaluating the functions *)
-      let off off_id = { off_unit = ffuns.unit; off_id } in
-      let internal_closure =
-        { ffunctions = ffuns;
-          bound_var = IdentMap.fold (fun id (_,desc) map ->
-              OffsetMap.add (off id) desc map)
-              fv OffsetMap.empty } in
-      let closure_env = IdentMap.fold
-          (fun id _ env -> add_approx id
-              (value_closure { fun_id = (off id);
-                               closure = internal_closure }) env)
-          ffuns.funs (local_env env) in
-      let closure_env = IdentMap.fold
-          (fun id (_,desc) env -> add_approx id desc env) fv closure_env in
-      let funs, r = IdentMap.fold (fun fid ffun (funs,r) ->
-          let closure_env = List.fold_left (fun env id ->
-              add_approx id value_unknown env) closure_env ffun.params in
-          let body, r = loop closure_env r ffun.body in
-          let r = List.fold_left exit_scope r ffun.params in
-          let r = IdentSet.fold (fun id r -> exit_scope r id)
-              ffun.closure_params r in
-          IdentMap.add fid { ffun with body } funs, r)
-          ffuns.funs (IdentMap.empty, r) in
-      let ffuns = { ffuns with funs } in
-      let closure = { internal_closure with ffunctions = ffuns } in
-      let r = IdentMap.fold (fun id _ r -> exit_scope r id) ffuns.funs r in
-      Fclosure (ffuns, IdentMap.map fst fv, annot),
-      ret r (value_unoffseted_closure closure)
+      closure env r ffuns fv annot
+
   | Foffset (flam, off, rel, annot) ->
       let flam, r = loop env r flam in
-      let ret_approx = match r.approx.descr with
-        | Value_unoffseted_closure closure ->
-            value_closure { fun_id = off; closure }
-        | _ -> value_unknown
-      in
-      Foffset (flam, off, rel, annot), ret r ret_approx
+      offset r flam off rel annot
+
   | Fenv_field (fenv_field, annot) as expr ->
       let arg, r = loop env r fenv_field.env in
       let approx = match r.approx.descr with
@@ -766,9 +736,48 @@ and loop_list env r l = match l with
       then l, approxs, r
       else h' :: t', approxs, r
 
-and apply env r funct args dbg eid =
-  let funct, ({ approx = fapprox } as r) = loop env r funct in
-  let args, approxs, r = loop_list env r args in
+and closure env r ffuns fv annot =
+  let fv, r = IdentMap.fold (fun id lam (fv,r) ->
+      let lam, r = loop env r lam in
+      IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
+  (* we use the previous closure for evaluating the functions *)
+  let off off_id = { off_unit = ffuns.unit; off_id } in
+  let internal_closure =
+    { ffunctions = ffuns;
+      bound_var = IdentMap.fold (fun id (_,desc) map ->
+          OffsetMap.add (off id) desc map)
+          fv OffsetMap.empty } in
+  let closure_env = IdentMap.fold
+      (fun id _ env -> add_approx id
+          (value_closure { fun_id = (off id);
+                           closure = internal_closure }) env)
+      ffuns.funs (local_env env) in
+  let closure_env = IdentMap.fold
+      (fun id (_,desc) env -> add_approx id desc env) fv closure_env in
+  let funs, r = IdentMap.fold (fun fid ffun (funs,r) ->
+      let closure_env = List.fold_left (fun env id ->
+          add_approx id value_unknown env) closure_env ffun.params in
+      let body, r = loop closure_env r ffun.body in
+      let r = List.fold_left exit_scope r ffun.params in
+      let r = IdentSet.fold (fun id r -> exit_scope r id)
+          ffun.closure_params r in
+      IdentMap.add fid { ffun with body } funs, r)
+      ffuns.funs (IdentMap.empty, r) in
+  let ffuns = { ffuns with funs } in
+  let closure = { internal_closure with ffunctions = ffuns } in
+  let r = IdentMap.fold (fun id _ r -> exit_scope r id) ffuns.funs r in
+  Fclosure (ffuns, IdentMap.map fst fv, annot),
+  ret r (value_unoffseted_closure closure)
+
+and offset r flam off rel annot =
+  let ret_approx = match r.approx.descr with
+    | Value_unoffseted_closure closure ->
+        value_closure { fun_id = off; closure }
+    | _ -> value_unknown
+  in
+  Foffset (flam, off, rel, annot), ret r ret_approx
+
+and apply env r (funct,fapprox) (args,approxs) dbg eid =
   match fapprox.descr with
   | Value_closure { fun_id; closure } ->
       let clos = closure.ffunctions in
