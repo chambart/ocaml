@@ -575,6 +575,17 @@ let sequence l1 l2 annot =
 let really_import_approx approx =
   { approx with descr = really_import approx.descr }
 
+let split_list n l =
+  let rec aux n acc l =
+    if n = 0
+    then List.rev acc, l
+    else
+      match l with
+      | [] -> assert false
+      | t::q ->
+          aux (n-1) (t::acc) q in
+  aux n [] l
+
 let rec loop env r tree =
   loop_no_escape (escaping env) r tree
 
@@ -850,6 +861,14 @@ and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
       let nargs = List.length args in
       if nargs = func.arity
       then direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg eid
+      else
+      if nargs > func.arity
+      then
+        let h_args, q_args = split_list func.arity args in
+        let h_approxs, q_approxs = split_list func.arity approxs in
+        let expr, r = direct_apply env r clos funct fun_id func fapprox closure (h_args,h_approxs)
+            dbg (ExprId.create ()) in
+        loop env r (Fapply(expr, q_args, None, dbg, eid))
       else
         let r = merge_escape tmp_escape r in
         if nargs > 0 && nargs < func.arity
