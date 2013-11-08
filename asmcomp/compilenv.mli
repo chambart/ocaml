@@ -37,6 +37,8 @@ val make_symbol: ?unitname:string -> string option -> string
            corresponds to symbol [id] in the compilation unit [u]
            (or the current unit). *)
 
+val closure_symbol: Flambda.Offset.t -> Flambda.symbol
+
 val symbol_in_current_unit: string -> bool
         (* Return true if the given asm symbol belongs to the
            current compilation unit, false otherwise. *)

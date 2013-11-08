@@ -102,6 +102,12 @@ let make_symbol ?(unitname = current_unit.ui_symbol) idopt =
   | None -> prefix
   | Some id -> prefix ^ "__" ^ id
 
+let closure_symbol off =
+  fst off.Flambda.off_unit,
+  make_symbol
+    ~unitname:(snd off.Flambda.off_unit)
+    (Some ((Ident.unique_name off.Flambda.off_id) ^ "_closure"))
+
 let symbol_in_current_unit name =
   let prefix = "caml" ^ current_unit.ui_symbol in
   name = prefix || 

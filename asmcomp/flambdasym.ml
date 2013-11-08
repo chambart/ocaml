@@ -95,10 +95,7 @@ module Conv(P:Param2) = struct
   let is_constant id = not (IdentSet.mem id not_constants.Constants.not_constant_id)
 
   let function_symbol off =
-    fst off.off_unit,
-    Compilenv.make_symbol
-      ~unitname:(snd off.off_unit)
-      (Some ((Ident.unique_name off.off_id) ^ "_closure"))
+    Compilenv.closure_symbol off
 
   type env =
     { sb : unit flambda IdentMap.t; (* substitution *)

@@ -139,6 +139,7 @@ and 'a ffunction = {
   stub : bool;
   arity : int;
   params : Ident.t list; (** internal identifiers of parameters *)
+  kept_params : IdentSet.t; (** parameters that are kept across recursive calls *)
   closure_params : IdentSet.t; (** free variables used in the function *)
   body : 'a flambda;
   dbg : Debuginfo.t;
