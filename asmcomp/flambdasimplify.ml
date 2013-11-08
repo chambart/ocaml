@@ -179,13 +179,15 @@ type env =
   { env_approx : approx IdentMap.t;
     global : (int, approx) Hashtbl.t;
     escaping : bool;
-    current_functions : FunSet.t }
+    current_functions : FunSet.t;
+    level : int }
 
 let empty_env () =
   { env_approx = IdentMap.empty;
     global = Hashtbl.create 10;
     escaping = true;
-    current_functions = FunSet.empty }
+    current_functions = FunSet.empty;
+    level = 0 }
 
 let local_env env =
   { env with env_approx = IdentMap.empty }
@@ -266,6 +268,8 @@ let add_approx id approx env =
       { approx with var = Some id }
   in
   { env with env_approx = IdentMap.add id approx env.env_approx }
+
+let level_up env = { env with level = env.level + 1 }
 
 let add_global i approx env =
   Hashtbl.add env.global i approx
@@ -566,6 +570,7 @@ let simplif_prim r p (args, approxs) expr dbg : 'a flambda * ret =
           end
       | _ ->
           expr, ret r value_unknown
+
 
 let sequence l1 l2 annot =
   if no_effects l1
@@ -906,9 +911,12 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
         | Some id' when Ident.same id id' -> r
         | _ -> not_kept_param id r) r approxs func.params
   in
+  let max_level = 3 in
+  (* if env.level > max_level then Format.printf "current level: %i in %a@." env.level Offset.print fun_id; *)
   if func.stub ||
      (not clos.recursives && lambda_smaller func.body
-        ((!Clflags.inline_threshold + List.length func.params) * 2))
+        ((!Clflags.inline_threshold + List.length func.params) * 2)
+      && env.level <= max_level)
   then
     (* try inlining if the function is not too far above the threshold *)
     let body, r_inline = inline env r clos funct fun_id func args dbg eid in
@@ -990,6 +998,7 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
   expr, r
 
 and inline env r clos lfunc fun_id func args dbg eid =
+  let env = level_up env in
   let clos_id = Ident.create "inlined_closure" in
   let args' = List.map2 (fun id arg -> id, Ident.rename id, arg)
       func.params args in
