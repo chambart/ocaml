@@ -249,3 +249,21 @@ let map_data (type t1) (type t2) (f:t1 -> t2) (tree:t1 flambda) : t2 flambda =
   and list_mapper l = List.map mapper l in
   mapper tree
 
+let free_variables tree =
+  let free = ref IdentSet.empty in
+  let bound = ref IdentSet.empty in
+  let aux = function
+    | Fvar (id,_) ->
+      if not (IdentSet.mem id !free) then free := IdentSet.add id !free
+    | Ftrywith(_,id,_,_)
+    | Ffor(id, _, _, _, _, _)
+    | Flet ( _, id, _, _,_) ->
+      bound := IdentSet.add id !bound
+    | Fletrec (l, _,_) ->
+      List.iter (fun (id,_) -> bound := IdentSet.add id !bound) l
+    | Fcatch (_,ids,_,_,_) ->
+      List.iter (fun id -> bound := IdentSet.add id !bound) ids
+    | _ -> ()
+  in
+  iter_toplevel aux tree;
+  IdentSet.diff !free !bound

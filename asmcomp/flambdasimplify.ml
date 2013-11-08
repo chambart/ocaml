@@ -16,6 +16,49 @@ open Lambda
 open Asttypes
 open Flambda
 
+let make_function id lam params =
+  let fv = Flambdaiter.free_variables lam in
+  let param_set = List.fold_right IdentSet.add params IdentSet.empty in
+  let fv = IdentSet.diff fv param_set in
+  let sb = IdentSet.fold (fun id sb -> IdentMap.add id (Ident.rename id) sb)
+      (IdentSet.union fv param_set) IdentMap.empty in
+  let body = Flambdasubst.substitute sb lam in
+  let closure =
+    { label = Flambdagen.make_function_lbl id;
+      stub = false;
+      arity = List.length params;
+      params = List.map (fun id -> IdentMap.find id sb) params;
+      closure_params = IdentSet.map (fun id -> IdentMap.find id sb) fv;
+      body;
+      dbg = Debuginfo.none } in
+  let unit = Compilenv.current_unit () in
+  let unit_name = Compilenv.current_unit_name () in
+  let fv' = IdentMap.fold (fun id id' fv' ->
+      IdentMap.add id' (Fvar(id,ExprId.create ())) fv')
+      (IdentMap.filter (fun id _ -> IdentSet.mem id fv) sb)
+      IdentMap.empty in
+  Fclosure
+    ({ ident = FunId.create unit_name;
+       funs = IdentMap.singleton id closure;
+       recursives = false;
+       closed = IdentSet.is_empty fv;
+       unit },
+     fv', ExprId.create ())
+
+let rec map_rem f l1 l2 =
+  match l1, l2 with
+  | [], _ -> [], l2
+  | h::t, [] -> raise (Invalid_argument "map_length_1")
+  | h1::t1, h2::t2 ->
+      let h = f h1 h2 in
+      let (t,rem) = map_rem f t1 t2 in
+      h::t, rem
+
+let fvar id = Fvar(id,ExprId.create ())
+let foffset (lam, off_id) =
+  Foffset(lam, { off_id; off_unit = Compilenv.current_unit ()},
+          None, ExprId.create ())
+
 type tag = int
 
 type descr =
@@ -735,11 +778,32 @@ and apply env r funct args dbg eid =
       if nargs = func.arity
       then direct_apply env r clos funct fun_id func args dbg eid
       else
-        Fapply (funct, args, None, dbg, eid),
-        ret r value_unknown
+        if nargs > 0 && nargs < func.arity
+        then
+          loop env r (partial_apply funct fun_id func args dbg eid)
+        else
+          Fapply (funct, args, None, dbg, eid),
+          ret r value_unknown
   | _ ->
       Fapply (funct, args, None, dbg, eid),
       ret r value_unknown
+
+and partial_apply funct fun_id func args dbg eid =
+  let remaining_args = func.arity - (List.length args) in
+  assert(remaining_args > 0);
+  let param_sb = List.map (fun id -> Ident.rename id) func.params in
+  let applied_args, remaining_args = map_rem
+    (fun arg id' -> id', arg) args param_sb in
+  let call_args = List.map (fun id' -> fvar id') param_sb in
+  let funct_id = Ident.create "partial_called_fun" in
+  let new_fun_id = Ident.create "partial_fun" in
+  let expr = Fapply (funct, call_args, Some fun_id, dbg, ExprId.create ()) in
+  let fclosure = make_function new_fun_id expr remaining_args in
+  let offset = foffset (fclosure, new_fun_id) in
+  let with_args = List.fold_right (fun (id', arg) expr ->
+      Flet(Strict, id', arg, expr, ExprId.create ()))
+      applied_args offset in
+  Flet(Strict, funct_id, funct, with_args, ExprId.create ())
 
 and direct_apply env r clos funct fun_id func args dbg eid =
   if func.stub ||
