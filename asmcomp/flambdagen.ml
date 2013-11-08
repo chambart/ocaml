@@ -186,6 +186,7 @@ and close_functions (sb:Ident.t IdentMap.t)
               arity = List.length params;
               params;
               closure_params;
+              kept_params = IdentSet.empty;
               body = close sb body;
               dbg } map
       | Tupled ->
@@ -199,6 +200,7 @@ and close_functions (sb:Ident.t IdentMap.t)
               arity = List.length params;
               params;
               closure_params;
+              kept_params = IdentSet.empty;
               body = close sb body;
               dbg } map
       end
@@ -230,6 +232,7 @@ and tupled_function_call_stub id params fun_off =
     arity = 1;
     params = [tuple_param];
     closure_params = IdentSet.empty;
+    kept_params = IdentSet.empty;
     body;
     dbg = Debuginfo.none }
 

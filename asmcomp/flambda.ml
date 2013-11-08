@@ -155,6 +155,7 @@ and 'a ffunction = {
   stub   : bool;
   arity  : int;
   params : Ident.t list;
+  kept_params : IdentSet.t;
   closure_params : IdentSet.t;
   body   : 'a flambda;
   dbg    : Debuginfo.t;

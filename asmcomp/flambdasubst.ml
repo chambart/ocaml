@@ -4,7 +4,7 @@ open Flambda
 module StringMap = Map.Make(String)
 
 module type Param = sig
-  val sb : IdentSet.elt IdentMap.t
+  val sb : Ident.t IdentMap.t
 end
 
 module Subst(P:Param) = struct
@@ -21,11 +21,24 @@ module Subst(P:Param) = struct
     let off_id' = { off_id = id'; off_unit } in
     fun_offset_subst_table := OffsetMap.add id off_id' !fun_offset_subst_table
 
-  let rec aux exn_sb sb orig = match orig with
+  type sb = { var : Ident.t IdentMap.t;
+              sym : Ident.t SymbolMap.t }
+
+  let empty_sb = { var = IdentMap.empty; sym = SymbolMap.empty }
+
+  let add_var id id' sb = { sb with var = IdentMap.add id id' sb.var }
+  let add_sym sym id' sb = { sb with sym = SymbolMap.add sym id' sb.sym }
+
+  let rec aux exn_sb (sb:sb) orig = match orig with
     | Fvar (id,annot) ->
-      begin try Fvar(IdentMap.find id sb,annot) with
+      begin try Fvar(IdentMap.find id sb.var,annot) with
         | Not_found -> orig end
-    | Fsymbol _ | Fconst _ -> orig
+    | Fsymbol (sym,annot) ->
+      begin try
+        Fvar(SymbolMap.find sym sb.sym,annot)
+      with
+        | Not_found -> orig end
+    | Fconst _ -> orig
     | Fapply (funct, args, direct, dbg, annot) ->
       let args = aux_list exn_sb sb args in
       let funct = aux exn_sb sb funct in
@@ -83,13 +96,13 @@ module Subst(P:Param) = struct
       let lam = aux exn_sb sb lam in
       let id' = Ident.rename id in
       (* Printf.printf "let rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-      let sb = IdentMap.add id id' sb in
+      let sb = add_var id id' sb in
       Flet(str, id', lam, aux exn_sb sb body, annot)
     | Fletrec(defs, body, annot) ->
       let new_ids = List.map Ident.rename (List.map fst defs) in
       let sb = List.fold_left2 (fun sb (id,def) id' ->
           (* Printf.printf "let rec rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-          IdentMap.add id id' sb) sb defs new_ids in
+          add_var id id' sb) sb defs new_ids in
       let defs = List.map2 (fun id' (_,def) -> id', aux exn_sb sb def) new_ids defs in
       let body = aux exn_sb sb body in
       Fletrec(defs, body, annot)
@@ -109,11 +122,11 @@ module Subst(P:Param) = struct
       Fsend(kind, aux exn_sb sb met, aux exn_sb sb obj, aux_list exn_sb sb args, dbg, annot)
     | Ffor(id, lo, hi, dir, body, annot) ->
       let id' = Ident.rename id in
-      let sb = IdentMap.add id id' sb in
+      let sb = add_var id id' sb in
       Ffor(id', aux exn_sb sb lo, aux exn_sb sb hi, dir, aux exn_sb sb body, annot)
     | Fassign(id, lam, annot) ->
       let lam = aux exn_sb sb lam in
-      begin try Fassign(IdentMap.find id sb, lam, annot) with
+      begin try Fassign(IdentMap.find id sb.var, lam, annot) with
         | Not_found -> orig end
     | Fcatch (i, vars, body, handler, annot) ->
       let i' = Lambda.next_raise_count () in
@@ -122,13 +135,13 @@ module Subst(P:Param) = struct
         aux exn_sb sb body in
       let vars' = List.map Ident.rename vars in
       let sb = List.fold_left2 (fun sb id id' ->
-          IdentMap.add id id' sb) sb vars vars' in
+          add_var id id' sb) sb vars vars' in
       let handler = aux exn_sb sb handler in
       Fcatch (i', vars', body, handler, annot)
     | Ftrywith(body, id, handler, annot) ->
       let body = aux exn_sb sb body in
       let id' = Ident.rename id in
-      let sb = IdentMap.add id id' sb in
+      let sb = add_var id id' sb in
       let handler = aux exn_sb sb handler in
       Ftrywith(body, id', handler, annot)
     | Fswitch(arg, sw, annot) ->
@@ -140,42 +153,47 @@ module Subst(P:Param) = struct
       Fswitch(aux exn_sb sb arg, sw, annot)
     | Funreachable _ -> orig
 
-  and subst_free_vars unit fv =
+  and subst_free_vars unit fv : sb * 'a =
     let sb, fv' =
       IdentMap.fold (fun id value (sb, map) ->
         let id' = Ident.rename id in
         (* Printf.printf "rename closure params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
         add_offset { off_id = id; off_unit = unit } id';
         let map = IdentMap.add id' value map in
-        let sb = IdentMap.add id id' sb in
-        sb, map) fv (IdentMap.empty, IdentMap.empty) in
+        let sb = add_var id id' sb in
+        sb, map) fv (empty_sb, IdentMap.empty) in
     sb, fv'
 
-  and aux_closure sb_fv ffuns =
+  and aux_closure (sb_fv:sb) ffuns =
     let fun_id_subst =
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
         (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
         add_fun_offset { off_id = id; off_unit = ffuns.unit } id';
-        IdentMap.add id id' map)
+        add_var id id' map)
         ffuns.funs sb_fv in
-    let aux_ffunction fun_id ffun =
+    let aux_ffunction orig_id fun_id ffun =
       let label = Flambdagen.make_function_lbl fun_id in
+      (* only handle simply recursive functions: TODO multiple ones *)
+      let closure_symbol = Compilenv.closure_symbol
+          { off_unit = ffuns.unit; off_id = orig_id } in
+      let fun_id_subst = add_sym closure_symbol fun_id fun_id_subst in
       let sb, params = List.fold_right (fun id (sb,l) ->
           let id' = Ident.rename id in
           (* Printf.printf "rename params: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-          let sb = IdentMap.add id id' sb in
+          let sb = add_var id id' sb in
           let l = id'::l in
           sb,l) ffun.params (fun_id_subst, []) in
-      let closure_params = IdentSet.fold (fun id set -> IdentSet.add (IdentMap.find id sb) set)
+      let closure_params = IdentSet.fold (fun id set -> IdentSet.add (IdentMap.find id sb.var) set)
           ffun.closure_params IdentSet.empty in
+      let kept_params = IdentSet.map (fun id -> IdentMap.find id sb.var) ffun.kept_params in
       let body = aux IntMap.empty sb ffun.body in
-      { ffun with label; params; closure_params; body }
+      { ffun with label; params; closure_params; kept_params; body }
     in
     let funs =
       IdentMap.fold (fun id ffun map ->
-        let id' = IdentMap.find id fun_id_subst in
-        IdentMap.add id' (aux_ffunction id' ffun) map)
+        let id' = IdentMap.find id fun_id_subst.var in
+        IdentMap.add id' (aux_ffunction id id' ffun) map)
         ffuns.funs IdentMap.empty in
     { ident = FunId.create ((Compilenv.current_unit_name ()));
       (* this ident is used only in value approximations,
@@ -188,19 +206,23 @@ module Subst(P:Param) = struct
   and aux_list exn_sb sb l = List.map (aux exn_sb sb) l
 
   let expr lam =
-    aux IntMap.empty P.sb lam
+    aux IntMap.empty { empty_sb with var = P.sb } lam
 
   let closures clos =
-    List.map (aux_closure P.sb) clos
+    List.map (aux_closure { empty_sb with var = P.sb }) clos
 
 end
 
 let substitute sb lam =
-  let module P = struct let sb = sb end in
+  let module P = struct
+    let sb = sb
+  end in
   let module S = Subst(P) in
   S.expr lam
 
 let substitute_closures sb clos =
-  let module P = struct let sb = sb end in
+  let module P = struct
+    let sb = sb
+  end in
   let module S = Subst(P) in
   S.closures clos
