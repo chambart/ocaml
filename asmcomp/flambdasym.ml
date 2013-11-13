@@ -10,10 +10,26 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(*
+Transform an expression to prepare conversion to clambda
+- attributes symbols to structured constants
+- replace access to constants from the current compilation unit by Fsymbol nodes,
+  including access to fields from a constant closure inside the body of the function.
+- mark closed functions
+- Find used closure fields and remove unused ones.
+- build value approximations for export
+
+During symbol assignment, some alias can be created (when building let rec for instance).
+They are replaced by their cannonical representent in the Prepare functor application.
+
+Then the tables needed to build the Flambdaexport.exported type are build.
+*)
+
 open Misc
 open Asttypes
 open Lambda
 open Flambda
+open Flambdaexport
 
 (** annotate closed functions and build a label -> closed map *)
 let mark_closed not_constants expr =
@@ -49,7 +65,7 @@ let find_used_env_field expr =
 let to_offset off_id = {off_id; off_unit = Compilenv.current_unit ()}
 let to_symbol lbl : symbol = (Compilenv.current_unit_id (), lbl)
 
-module type Param2 = sig
+module type Param1 = sig
   type t
   val expr : t Flambda.flambda
   val not_constants : Constants.constant_result
@@ -62,7 +78,37 @@ type const_sym =
   | Not_const
   | Const_closure
 
-module Conv(P:Param2) = struct
+type infos =
+  { global : (int, approx) Hashtbl.t;
+    ex_table : descr EidMap.t ref;
+    ex_symbol_id : ExportId.t SymbolMap.t ref;
+    constants : unit flambda SymbolTbl.t;
+    symbol_alias : symbol SymbolTbl.t;
+    ex_functions : unit ffunctions FunMap.t ref }
+
+let init_infos () =
+  { global = Hashtbl.create 10;
+    ex_table = ref EidMap.empty;
+    ex_symbol_id = ref SymbolMap.empty;
+    constants = SymbolTbl.create 10;
+    symbol_alias = SymbolTbl.create 10;
+    ex_functions = ref FunMap.empty }
+
+let rec canonical_symbol s infos =
+  try
+    let s' = SymbolTbl.find infos.symbol_alias s in
+    let s'' = canonical_symbol s' infos in
+    if s' != s''
+    then SymbolTbl.replace infos.symbol_alias s s'';
+    s''
+  with Not_found -> s
+
+let new_descr descr infos =
+  let id = ExportId.create (Compilenv.current_unit_name ()) in
+  infos.ex_table := EidMap.add id descr !(infos.ex_table);
+  id
+
+module Conv(P:Param1) = struct
   open Flambdaexport
   let closures = P.closures
 
@@ -72,7 +118,7 @@ module Conv(P:Param2) = struct
 
   let used_env_field = find_used_env_field P.expr
 
-  let get_closed_and_label off =
+  let function_closed_and_label off =
     let closed_and_label clos off =
       clos.closed, (IdentMap.find off.off_id clos.funs).label in
     try closed_and_label (OffsetMap.find off closures) off with
@@ -82,7 +128,7 @@ module Conv(P:Param2) = struct
         fatal_error (Format.asprintf "missing closure %a"
                        Offset.print off)
 
-  let get_arity off =
+  let function_arity off =
     let arity clos off = (IdentMap.find off.off_id clos.funs).arity in
     try arity (OffsetMap.find off closures) off with
     | Not_found ->
@@ -100,40 +146,21 @@ module Conv(P:Param2) = struct
   type env =
     { sb : unit flambda IdentMap.t; (* substitution *)
       cm : symbol IdentMap.t; (* variables associated to constants *)
-      approx : approx IdentMap.t;
-      global : (int, approx) Hashtbl.t;
-      ex_table : descr EidMap.t ref;
-      ex_symbol_id : ExportId.t SymbolMap.t ref;
-      constants : unit flambda SymbolTbl.t;
-      symbol_alias : symbol SymbolTbl.t;
-      ex_functions : unit ffunctions FunMap.t ref;
-    }
+      approx : approx IdentMap.t }
 
-  let empty_env () =
+  let infos = init_infos ()
+
+  let empty_env =
     { sb = IdentMap.empty;
       cm = IdentMap.empty;
-      global = Hashtbl.create 10;
-      ex_table = ref EidMap.empty;
-      ex_symbol_id = ref SymbolMap.empty;
-      approx = IdentMap.empty;
-      constants = SymbolTbl.create 10;
-      symbol_alias = SymbolTbl.create 10;
-      ex_functions = ref FunMap.empty }
+      approx = IdentMap.empty }
 
-  let rec canonical_symbol s env =
-    try
-      let s' = SymbolTbl.find env.symbol_alias s in
-      let s'' = canonical_symbol s' env in
-      if s' != s''
-      then SymbolTbl.replace env.symbol_alias s s'';
-      s''
-    with Not_found -> s
-
-  let set_symbol_alias s1 s2 env =
-    let s1' = canonical_symbol s1 env in
-    let s2' = canonical_symbol s2 env in
+  let canonical_symbol s = canonical_symbol s infos
+  let set_symbol_alias s1 s2 =
+    let s1' = canonical_symbol s1 in
+    let s2' = canonical_symbol s2 in
     if s1' <> s2'
-    then SymbolTbl.add env.symbol_alias s1' s2'
+    then SymbolTbl.add infos.symbol_alias s1' s2'
 
   let add_sb id subst env =
     { env with sb = IdentMap.add id subst env.sb }
@@ -141,43 +168,39 @@ module Conv(P:Param2) = struct
   let add_cm id const env =
     { env with cm = IdentMap.add id const env.cm }
 
-  let add_global i approx env =
-    Hashtbl.add env.global i approx
-  let get_global i env =
-    try Hashtbl.find env.global i
+  let add_global i approx =
+    Hashtbl.add infos.global i approx
+  let get_global i =
+    try Hashtbl.find infos.global i
     with Not_found ->
       (* Value_unknown *)
       fatal_error (Format.asprintf "no global %i" i)
-
-  let new_descr descr env =
-    let id = ExportId.create (Compilenv.current_unit_name ()) in
-    env.ex_table := EidMap.add id descr !(env.ex_table);
-    id
 
   let add_approx id approx env =
     { env with approx = IdentMap.add id approx env.approx }
   let get_approx id env =
     try IdentMap.find id env.approx with Not_found -> Value_unknown
 
-  let get_descr approx env =
+  let get_descr approx =
     match approx with
     | Value_unknown -> None
-    | Value_id ex -> Some (EidMap.find ex !(env.ex_table))
+    | Value_id ex -> Some (EidMap.find ex !(infos.ex_table))
     | Value_symbol sym ->
       try
-        let ex = SymbolMap.find sym !(env.ex_symbol_id) in
-        Some (EidMap.find ex !(env.ex_table))
+        let ex = SymbolMap.find sym !(infos.ex_symbol_id) in
+        Some (EidMap.find ex !(infos.ex_table))
       with Not_found -> None
 
-  let add_symbol sym id env =
-    env.ex_symbol_id := SymbolMap.add sym id !(env.ex_symbol_id)
+  let add_symbol sym id =
+    infos.ex_symbol_id := SymbolMap.add sym id !(infos.ex_symbol_id)
 
-  let add_constant lam env =
+  let add_constant lam =
     let sym = to_symbol (Compilenv.new_const_symbol ()) in
-    SymbolTbl.add env.constants sym lam;
+    SymbolTbl.add infos.constants sym lam;
     sym
 
-  let unit_approx env = Value_id (new_descr (Value_constptr 0) env)
+  let new_descr descr = new_descr descr infos
+  let unit_approx () = Value_id (new_descr (Value_constptr 0))
 
   let rec conv env expr = fst (conv_approx env expr)
   and conv_approx (env : env) : P.t flambda -> unit flambda * approx = function
@@ -207,10 +230,10 @@ module Conv(P:Param2) = struct
         begin match c with
         | Const_int i ->
             Fconst(cst, ()),
-            Value_id (new_descr (Value_int i) env)
+            Value_id (new_descr (Value_int i))
         | Const_char c ->
             Fconst(cst, ()),
-            Value_id (new_descr (Value_int (Char.code c)) env)
+            Value_id (new_descr (Value_int (Char.code c)))
         | Const_float _
         | Const_int32 _
         | Const_int64 _
@@ -218,17 +241,17 @@ module Conv(P:Param2) = struct
             Fconst(cst, ()),
             Value_unknown
         | Const_string _ ->
-            Fsymbol (add_constant (Fconst (cst,())) env,()),
+            Fsymbol (add_constant (Fconst (cst,())),()),
             Value_unknown
         end
 
     | Fconst (Fconst_pointer c as cst,_) ->
-      Fconst (cst, ()), Value_id (new_descr (Value_constptr c) env)
+      Fconst (cst, ()), Value_id (new_descr (Value_constptr c))
     | Fconst (Fconst_float_array c as cst, _) ->
-      Fsymbol(add_constant (Fconst (cst,())) env,()),
+      Fsymbol(add_constant (Fconst (cst,())),()),
       Value_unknown
     | Fconst (Fconst_immstring c as cst, _) ->
-      Fsymbol(add_constant (Fconst (cst,())) env,()),
+      Fsymbol(add_constant (Fconst (cst,())),()),
       Value_unknown
 
     | Flet(str, id, lam, body, _) ->
@@ -283,7 +306,7 @@ module Conv(P:Param2) = struct
       List.iter (fun (id,sym,def) ->
           match constant_symbol (conv env def) with
           | Lbl sym' ->
-            set_symbol_alias sym sym' env
+            set_symbol_alias sym sym'
           | _ ->
               fatal_error (Format.asprintf
                              "recursive constant value without symbol %a"
@@ -302,17 +325,17 @@ module Conv(P:Param2) = struct
 
     | Foffset(lam,id,rel, _) ->
       let ulam, fun_approx = conv_approx env lam in
-      let closed, _ = get_closed_and_label id in
+      let closed, _ = function_closed_and_label id in
       if closed
       then
         let sym = function_symbol id in
         Fsymbol (sym,()),
         Value_symbol sym
       else
-        let approx = match get_descr fun_approx env with
+        let approx = match get_descr fun_approx with
           | Some (Value_unoffseted_closure closure)
           | Some (Value_closure { closure }) ->
-            let ex = new_descr (Value_closure { fun_id = id; closure }) env in
+            let ex = new_descr (Value_closure { fun_id = id; closure }) in
             Value_id ex
           | Some _ -> assert false
           | _ ->
@@ -331,9 +354,9 @@ module Conv(P:Param2) = struct
       let ufunct, fun_approx = conv_approx env funct in
       let direct = match direct with
         | Some _ -> direct
-        | None -> match get_descr fun_approx env with
+        | None -> match get_descr fun_approx with
           | Some (Value_closure { fun_id }) when
-              (get_arity fun_id) = List.length args ->
+              (function_arity fun_id) = List.length args ->
             Some fun_id
           | _ -> None
       in
@@ -354,7 +377,7 @@ module Conv(P:Param2) = struct
       let sym = id, Compilenv.symbol_for_global id in
       let approx =
         if Ident.is_predef_exn id
-        then Value_id (new_descr (Value_predef_exn id) env)
+        then Value_id (new_descr (Value_predef_exn id))
         else Value_symbol sym in
       Fsymbol (sym, ()),
       approx
@@ -365,30 +388,30 @@ module Conv(P:Param2) = struct
       if id = Compilenv.current_unit_id ()
       then
         conv env lam,
-        get_global i env
+        get_global i
       else
         conv_approx env lam
 
     | Fprim(Psetglobalfield i, [arg], dbg, _) ->
       let uarg, approx = conv_approx env arg in
-      add_global i approx env;
+      add_global i approx;
       Fprim(Psetglobalfield i, [uarg], dbg, ()),
       Value_unknown
 
     | Fprim(Pmakeblock(tag, Immutable) as p, args, dbg, _) ->
       let args, approxs = conv_list_approx env args in
       let block = Fprim(p, args, dbg, ()) in
-      let ex = new_descr (Value_block (tag, Array.of_list approxs)) env in
+      let ex = new_descr (Value_block (tag, Array.of_list approxs)) in
       if not (List.for_all is_simple_constant args)
       then block, Value_id ex
       else
-        let sym = add_constant block env in
-        add_symbol sym ex env;
+        let sym = add_constant block in
+        add_symbol sym ex;
         Fsymbol(sym, ()), Value_symbol sym
 
     | Fprim(Pfield i, [arg], dbg, _) ->
       let block, block_approx = conv_approx env arg in
-      let approx = match get_descr block_approx env with
+      let approx = match get_descr block_approx with
         | Some (Value_block (_,fields)) ->
           if i > 0 && i < Array.length fields
           then fields.(i)
@@ -426,15 +449,15 @@ module Conv(P:Param2) = struct
 
     | Fwhile(cond, body, _) ->
       Fwhile(conv env cond, conv env body, ()),
-      unit_approx env
+      unit_approx ()
 
     | Ffor(id, lo, hi, dir, body, _) ->
       Ffor(id, conv env lo, conv env hi, dir, conv env body, ()),
-      unit_approx env
+      unit_approx ()
 
     | Fassign(id, lam, _) ->
       Fassign(id, conv env lam, ()),
-      unit_approx env
+      unit_approx ()
 
     | Fsend(kind, met, obj, args, dbg, _) ->
       Fsend(kind, conv env met, conv env obj, conv_list env args, dbg, ()),
@@ -463,7 +486,7 @@ module Conv(P:Param2) = struct
               OffsetMap.add { off_id; off_unit = functs.unit } approx map)
             used_fv_approx OffsetMap.empty } in
     let value_closure =
-      Value_id (new_descr (Value_unoffseted_closure value_closure') env) in
+      Value_id (new_descr (Value_unoffseted_closure value_closure')) in
 
     let conv_function id func =
 
@@ -477,14 +500,13 @@ module Conv(P:Param2) = struct
         IdentMap.fold (fun id _ map ->
             let fun_id = { off_unit = functs.unit; off_id = id } in
             let desc = Value_closure { fun_id; closure = value_closure' } in
-            let ex = new_descr desc env in
-            if closed then add_symbol (function_symbol fun_id) ex env;
+            let ex = new_descr desc in
+            if closed then add_symbol (function_symbol fun_id) ex;
             add_approx id (Value_id ex) env)
           functs.funs env
       in
 
       (* Add to the substitution the value of the free variables *)
-
       let add_env_variable id lam env =
         match constant_symbol lam with
         | Not_const ->
@@ -497,7 +519,6 @@ module Conv(P:Param2) = struct
         | Const_closure ->
           env
       in
-
       let env = IdentMap.fold add_env_variable fv_ulam env in
 
       let env =
@@ -516,12 +537,12 @@ module Conv(P:Param2) = struct
     let ufunct =
       { functs with funs = IdentMap.mapi conv_function functs.funs } in
 
-    env.ex_functions := FunMap.add ufunct.ident ufunct !(env.ex_functions);
+    infos.ex_functions := FunMap.add ufunct.ident ufunct !(infos.ex_functions);
 
     let expr =
       let expr = Fclosure (ufunct, used_fv, ()) in
       if ufunct.closed
-      then Fsymbol(add_constant expr env, ())
+      then Fsymbol(add_constant expr, ())
       else expr in
     expr, value_closure
 
@@ -546,23 +567,38 @@ module Conv(P:Param2) = struct
     | _ -> Not_const
 
 
-  let env = empty_env ()
-  let res = conv env P.expr
+  let expr = conv empty_env P.expr
+
+end
+
+module type Param2 = sig
+  include Param1
+  val infos : infos
+  val expr : unit flambda
+end
+
+module Prepare(P:Param2) = struct
+  open P
+
+  (*** Preparing export informations: Replacing every symbol by its
+       cannonical representant ***)
+
+  let canonical_symbol s = canonical_symbol s infos
 
   (* Replace all symbols occurences by their representative *)
-  let res, constants =
+  let expr, constants =
     let use_canonical_symbols = function
       | Fsymbol(sym, ()) as expr ->
-        let sym' = canonical_symbol sym env in
+        let sym' = canonical_symbol sym in
         if sym == sym' then expr
         else Fsymbol(sym', ())
       | expr -> expr in
     let aux sym lam map =
-      let sym' = canonical_symbol sym env in
+      let sym' = canonical_symbol sym in
       SymbolMap.add sym' (Flambdaiter.map use_canonical_symbols lam) map
     in
-    Flambdaiter.map use_canonical_symbols res,
-    SymbolTbl.fold aux env.constants SymbolMap.empty
+    Flambdaiter.map use_canonical_symbols expr,
+    SymbolTbl.fold aux infos.constants SymbolMap.empty
 
   (* Preparing export informations *)
 
@@ -570,7 +606,7 @@ module Conv(P:Param2) = struct
     | Value_unknown
     | Value_id _ as v -> v
     | Value_symbol sym ->
-      Value_symbol (canonical_symbol sym env)
+      Value_symbol (canonical_symbol sym)
 
   let rec canonical_descr = function
     | Value_block (tag, fields) ->
@@ -586,21 +622,23 @@ module Conv(P:Param2) = struct
   and aux_closure clos =
     { clos with bound_var = OffsetMap.map canonical_approx clos.bound_var }
 
+  let new_descr descr = new_descr descr infos
+
   (* build the approximation of the root module *)
   let root_id =
     let size_global =
-      1 + (Hashtbl.fold (fun k _ acc -> max k acc) env.global (-1)) in
+      1 + (Hashtbl.fold (fun k _ acc -> max k acc) infos.global (-1)) in
     let fields = Array.init size_global (fun i ->
-        try canonical_approx (Hashtbl.find env.global i) with
+        try canonical_approx (Hashtbl.find infos.global i) with
         | Not_found -> Value_unknown) in
-    new_descr (Value_block (0,fields)) env
+    new_descr (Value_block (0,fields))
 
   let root_approx =
     Value_id root_id
 
   (* replace symbol by their representative in value approximations *)
   let ex_values =
-    EidMap.map canonical_descr !(env.ex_table)
+    EidMap.map canonical_descr !(infos.ex_table)
 
   (* build the symbol to id and id to symbol maps *)
   let module_symbol =
@@ -609,10 +647,10 @@ module Conv(P:Param2) = struct
 
   let ex_symbol_id =
     let aux sym ex map =
-      let sym' = canonical_symbol sym env in
+      let sym' = canonical_symbol sym in
       SymbolMap.add sym' ex map
     in
-    SymbolMap.fold aux !(env.ex_symbol_id) SymbolMap.empty
+    SymbolMap.fold aux !(infos.ex_symbol_id) SymbolMap.empty
 
   let ex_symbol_id =
     SymbolMap.add module_symbol root_id
@@ -621,7 +659,7 @@ module Conv(P:Param2) = struct
     SymbolMap.fold (fun sym id map -> EidMap.add id sym map)
       ex_symbol_id EidMap.empty
 
-  let ex_functions = !(env.ex_functions)
+  let ex_functions = !(infos.ex_functions)
 
   let ex_functions_off =
     let aux_fun ffunctions off_id _ map =
@@ -634,24 +672,30 @@ end
 let convert (type a) (expr:a Flambda.flambda) =
   let not_constants = Constants.not_constants ~for_clambda:true expr in
   let expr, closures = mark_closed not_constants expr in
-  let module P2 = struct
+  let module P1 = struct
     type t = a
     let expr = expr
     let not_constants = not_constants
     let closures = closures
   end in
-  let module C = Conv(P2) in
+  let module C = Conv(P1) in
+  let module P2 = struct
+    include P1
+    let expr = C.expr
+    let infos = C.infos
+  end in
+  let module C2 = Prepare(P2) in
 
   let export = let open Flambdaexport in
     { empty_export with
-      ex_values = C.ex_values;
+      ex_values = C2.ex_values;
       ex_globals = IdentMap.singleton
-          (Compilenv.current_unit_id ()) C.root_approx;
-      ex_symbol_id = C.ex_symbol_id;
-      ex_id_symbol = C.ex_id_symbol;
-      ex_functions = C.ex_functions;
-      ex_functions_off = C.ex_functions_off }
+          (Compilenv.current_unit_id ()) C2.root_approx;
+      ex_symbol_id = C2.ex_symbol_id;
+      ex_id_symbol = C2.ex_id_symbol;
+      ex_functions = C2.ex_functions;
+      ex_functions_off = C2.ex_functions_off }
   in
 
-  C.res, C.constants, export
+  C2.expr, C2.constants, export
 
