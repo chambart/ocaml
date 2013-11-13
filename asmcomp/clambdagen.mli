@@ -18,7 +18,6 @@
     * build the switch tables
     * add closure parameter for direct calls
     * detect constants values and transform them to Uconst
-    * mark closed functions
    For everything else, it is basically the identity.
 *)
 open Flambda

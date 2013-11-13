@@ -10,9 +10,13 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(* simple constant propagation and simplifications *)
+(* Simple constant propagation and simplifications:
+- mark direct calls
+- simple inlining
+- duplicates recursive functions for specialisation
+- eliminates unused staticcatch
+- build an explicit closure for partial direct applications *)
 
 open Flambda
 
-val simplify : Flambda.ExprId.t flambda ->
-  Flambda.ExprId.t flambda
+val simplify : ExprId.t flambda -> ExprId.t flambda
