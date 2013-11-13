@@ -355,6 +355,8 @@ module Conv(P:Param1) = struct
       let direct = match direct with
         | Some _ -> direct
         | None -> match get_descr fun_approx with
+          (* We mark some calls as direct when it is unknown:
+             for instance if simplify wasn't run before. *)
           | Some (Value_closure { fun_id }) when
               (function_arity fun_id) = List.length args ->
             Some fun_id

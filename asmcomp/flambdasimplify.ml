@@ -16,45 +16,6 @@ open Lambda
 open Asttypes
 open Flambda
 
-let make_function id lam params =
-  let fv = Flambdaiter.free_variables lam in
-  let param_set = List.fold_right IdentSet.add params IdentSet.empty in
-  let fv = IdentSet.diff fv param_set in
-  let sb = IdentSet.fold (fun id sb -> IdentMap.add id (Ident.rename id) sb)
-      (IdentSet.union fv param_set) IdentMap.empty in
-  let body = Flambdasubst.substitute sb lam in
-  let closure =
-    { label = Flambdagen.make_function_lbl id;
-      stub = false;
-      arity = List.length params;
-      params = List.map (fun id -> IdentMap.find id sb) params;
-      closure_params = IdentSet.map (fun id -> IdentMap.find id sb) fv;
-      kept_params = IdentSet.empty;
-      body;
-      dbg = Debuginfo.none } in
-  let unit = Compilenv.current_unit () in
-  let unit_name = Compilenv.current_unit_name () in
-  let fv' = IdentMap.fold (fun id id' fv' ->
-      IdentMap.add id' (Fvar(id,ExprId.create ())) fv')
-      (IdentMap.filter (fun id _ -> IdentSet.mem id fv) sb)
-      IdentMap.empty in
-  Fclosure
-    ({ ident = FunId.create unit_name;
-       funs = IdentMap.singleton id closure;
-       recursives = false;
-       closed = IdentSet.is_empty fv;
-       unit },
-     fv', ExprId.create ())
-
-let rec map_rem f l1 l2 =
-  match l1, l2 with
-  | [], _ -> [], l2
-  | h::t, [] -> raise (Invalid_argument "map_length_1")
-  | h1::t1, h2::t2 ->
-      let h = f h1 h2 in
-      let (t,rem) = map_rem f t1 t2 in
-      h::t, rem
-
 let fvar id = Fvar(id,ExprId.create ())
 let foffset (lam, off_id) =
   Foffset(lam, { off_id; off_unit = Compilenv.current_unit ()},
@@ -175,19 +136,31 @@ end
 
 open Import
 
+(* There are two types of informations propagated.
+   - propagating top-down: in the env type
+   - propagating following approximatively the evaluation order ~ bottom-up:
+     in the ret type *)
+
 type env =
   { env_approx : approx IdentMap.t;
     global : (int, approx) Hashtbl.t;
     escaping : bool;
+    (* Wether the current expression is in a position to escape:
+       i.e. if the current expression is a Fvar, will the variable
+       will be considered as escaping. *)
     current_functions : FunSet.t;
-    level : int }
+    (* The functions currently being declared: used to avoid inlining
+       recursively *)
+    inlining_level : int
+    (* Number of times "inline" has been called recursively *)
+  }
 
 let empty_env () =
   { env_approx = IdentMap.empty;
     global = Hashtbl.create 10;
     escaping = true;
     current_functions = FunSet.empty;
-    level = 0 }
+    inlining_level = 0 }
 
 let local_env env =
   { env with env_approx = IdentMap.empty }
@@ -198,7 +171,12 @@ type ret =
     used_staticfail : IntSet.t;
     escape_variables : IdentSet.t;
     tmp_escape_variables : IdentSet.t list;
-    not_kept_param : IdentSet.t }
+    not_kept_param : IdentSet.t
+    (* Variables used for a recursive call with a different argument
+       than the one used to enter the function. *)
+  }
+
+(* Utility functions *)
 
 let ret (acc:ret) approx = { acc with approx }
 
@@ -269,7 +247,7 @@ let add_approx id approx env =
   in
   { env with env_approx = IdentMap.add id approx env.env_approx }
 
-let level_up env = { env with level = env.level + 1 }
+let inlining_level_up env = { env with inlining_level = env.inlining_level + 1 }
 
 let add_global i approx env =
   Hashtbl.add env.global i approx
@@ -291,6 +269,38 @@ let const_approx = function
   | Fconst_pointer i -> value_constptr i
   | Fconst_float_array _ -> value_unknown
   | Fconst_immstring _ -> value_unknown
+
+(* Utility function to duplicate an expression and makes a function from it *)
+
+let make_function id lam params =
+  let fv = Flambdaiter.free_variables lam in
+  let param_set = List.fold_right IdentSet.add params IdentSet.empty in
+  let fv = IdentSet.diff fv param_set in
+  let sb = IdentSet.fold (fun id sb -> IdentMap.add id (Ident.rename id) sb)
+      (IdentSet.union fv param_set) IdentMap.empty in
+  let body = Flambdasubst.substitute sb lam in
+  let closure =
+    { label = Flambdagen.make_function_lbl id;
+      stub = false;
+      arity = List.length params;
+      params = List.map (fun id -> IdentMap.find id sb) params;
+      closure_params = IdentSet.map (fun id -> IdentMap.find id sb) fv;
+      kept_params = IdentSet.empty;
+      body;
+      dbg = Debuginfo.none } in
+  let unit = Compilenv.current_unit () in
+  let unit_name = Compilenv.current_unit_name () in
+  let fv' = IdentMap.fold (fun id id' fv' ->
+      IdentMap.add id' (Fvar(id,ExprId.create ())) fv')
+      (IdentMap.filter (fun id _ -> IdentSet.mem id fv) sb)
+      IdentMap.empty in
+  Fclosure
+    ({ ident = FunId.create unit_name;
+       funs = IdentMap.singleton id closure;
+       recursives = false;
+       closed = IdentSet.is_empty fv;
+       unit },
+     fv', ExprId.create ())
 
 (* Determine whether the estimated size of a flambda term is below
    some threshold *)
@@ -591,6 +601,9 @@ let split_list n l =
           aux (n-1) (t::acc) q in
   aux n [] l
 
+(* The main functions: iterate on the expression rewriting it and
+   propagating up an approximation of the value *)
+
 let rec loop env r tree =
   loop_no_escape (escaping env) r tree
 
@@ -611,14 +624,11 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let tmp_escape, r = end_escape_region r in
       let args, approxs, r = loop_list env r args in
       apply env r tmp_escape (funct,fapprox) (args,approxs) dbg annot
-
   | Fclosure (ffuns, fv, annot) ->
       closure env r ffuns fv IdentMap.empty annot
-
   | Foffset (flam, off, rel, annot) ->
       let flam, r = loop env r flam in
       offset r flam off rel annot
-
   | Fenv_field (fenv_field, annot) as expr ->
       let arg, r = loop env r fenv_field.env in
       let approx = match r.approx.descr with
@@ -857,6 +867,8 @@ and offset r flam off rel annot =
   in
   Foffset (flam, off, rel, annot), ret r ret_approx
 
+(* Apply a function to its parameters: if the function is known, we will go to the special cases:
+   direct apply of parial apply *)
 and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
   match fapprox.descr with
   | Value_closure { fun_id; closure } ->
@@ -891,7 +903,7 @@ and partial_apply funct fun_id func args dbg eid =
   let remaining_args = func.arity - (List.length args) in
   assert(remaining_args > 0);
   let param_sb = List.map (fun id -> Ident.rename id) func.params in
-  let applied_args, remaining_args = map_rem
+  let applied_args, remaining_args = Misc.map2_head
     (fun arg id' -> id', arg) args param_sb in
   let call_args = List.map (fun id' -> fvar id') param_sb in
   let funct_id = Ident.create "partial_called_fun" in
@@ -912,11 +924,12 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
         | _ -> not_kept_param id r) r approxs func.params
   in
   let max_level = 3 in
-  (* if env.level > max_level then Format.printf "current level: %i in %a@." env.level Offset.print fun_id; *)
+  (* if env.inlining_level > max_level then
+     Format.printf "current level: %i in %a@." env.inlining_level Offset.print fun_id; *)
   if func.stub ||
      (not clos.recursives && lambda_smaller func.body
         ((!Clflags.inline_threshold + List.length func.params) * 2)
-      && env.level <= max_level)
+      && env.inlining_level <= max_level)
   then
     (* try inlining if the function is not too far above the threshold *)
     let body, r_inline = inline env r clos funct fun_id func args dbg eid in
@@ -955,6 +968,8 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
       Fapply (funct, args, Some fun_id, dbg, eid),
       ret r value_unknown
 
+(* Inlining for recursive functions: duplicates the function
+   declaration and specialise it *)
 and duplicate_apply env r funct clos fun_id func fapprox closure_approx
     (args,approxs) dbg =
   let clos_id = Ident.create "dup_closure" in
@@ -997,8 +1012,9 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
   let expr = Flet(Strict, clos_id, funct, expr, ExprId.create ()) in
   expr, r
 
+(* Duplicates the body of the called function *)
 and inline env r clos lfunc fun_id func args dbg eid =
-  let env = level_up env in
+  let env = inlining_level_up env in
   let clos_id = Ident.create "inlined_closure" in
   let args' = List.map2 (fun id arg -> id, Ident.rename id, arg)
       func.params args in

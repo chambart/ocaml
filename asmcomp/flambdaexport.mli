@@ -43,22 +43,41 @@ and approx =
 
 type exported = {
   ex_functions : unit Flambda.ffunctions Flambda.FunMap.t;
+  (** Code of exported functions indexed by function identifier *)
   ex_functions_off : unit Flambda.ffunctions Flambda.OffsetMap.t;
+  (** Code of exported functions indexed by offset identifier *)
   ex_values : descr EidMap.t;
+  (** Structure of exported values  *)
   ex_globals : approx Flambda.IdentMap.t;
+  (** Global variables provided by the unit: usualy only the top-level
+      module identifier, but packs contains multiple ones. *)
+
   ex_id_symbol : Flambda.symbol EidMap.t;
   ex_symbol_id : ExportId.t Flambda.SymbolMap.t;
+  (** Associates symbols and values *)
+
   ex_offset_fun : int Flambda.OffsetMap.t;
+  (** Positions of function pointers in their closures *)
   ex_offset_fv : int Flambda.OffsetMap.t;
+  (** Positions of value pointers in their closures *)
   ex_constants : Flambda.SymbolSet.t;
+  (** Symbols that are effectively constants (the top-level module is
+      not always a constant for instance) *)
 }
 
 val empty_export : exported
 
 val merge : exported -> exported -> exported
+(** Union of export informations. Verify that there is no identifier
+    clash. *)
 
 val import_for_pack :
   pack_units:Flambda.IdentSet.t -> pack:Ident.t -> exported -> exported
+(** Transform the informations from [exported] to be suitable to
+    be reexported as the informations for a pack named [pack]
+    containing units [pack_units].
+    It mainly change symbols of units [pack_units] to refer to
+    [pack] instead. *)
 
 (**/**)
 (* debug printing functions *)
