@@ -5,11 +5,13 @@ module StringMap = Map.Make(String)
 
 module type Param = sig
   val sb : Ident.t IdentMap.t
+  val fv : Offset.t OffsetMap.t
+  val func : Offset.t OffsetMap.t
 end
 
 module Subst(P:Param) = struct
-  let offset_subst_table = ref OffsetMap.empty
-  let fun_offset_subst_table = ref OffsetMap.empty
+  let offset_subst_table = ref P.fv
+  let fun_offset_subst_table = ref P.func
 
   let add_offset id id' =
     let off_unit = Compilenv.current_unit () in
@@ -75,7 +77,10 @@ module Subst(P:Param) = struct
     | Fenv_field ({ env = flam; env_var = off; env_fun_id }, annot) ->
       let flam = aux exn_sb sb flam in
       let off =
-        try OffsetMap.find off !offset_subst_table with
+        try
+          let v = OffsetMap.find off !offset_subst_table in
+          v
+        with
         | Not_found ->
           (* Printf.printf "not found %s\n%!" (Ident.unique_name off); *)
           off in
@@ -169,7 +174,8 @@ module Subst(P:Param) = struct
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
         (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
-        add_fun_offset { off_id = id; off_unit = ffuns.unit } id';
+        let off = { off_id = id; off_unit = ffuns.unit } in
+        add_fun_offset off id';
         add_var id id' map)
         ffuns.funs sb_fv in
     let aux_ffunction orig_id fun_id ffun =
@@ -216,6 +222,8 @@ end
 let substitute sb lam =
   let module P = struct
     let sb = sb
+    let fv = OffsetMap.empty
+    let func = OffsetMap.empty
   end in
   let module S = Subst(P) in
   S.expr lam
@@ -223,6 +231,28 @@ let substitute sb lam =
 let substitute_closures sb clos =
   let module P = struct
     let sb = sb
+    let fv = OffsetMap.empty
+    let func = OffsetMap.empty
   end in
   let module S = Subst(P) in
   S.closures clos
+
+type context =
+  { fv : Offset.t OffsetMap.t;
+    func : Offset.t OffsetMap.t }
+
+let empty_context =
+  { fv = OffsetMap.empty;
+    func = OffsetMap.empty }
+
+let substitute' sb context lam =
+  let module P = struct
+    let sb = sb
+    let fv = context.fv
+    let func = context.func
+  end in
+  let module S = Subst(P) in
+  let expr = S.expr lam in
+  let context = { fv = !S.offset_subst_table;
+                  func = !S.fun_offset_subst_table } in
+  expr, context
