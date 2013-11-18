@@ -151,8 +151,9 @@ type env =
     current_functions : FunSet.t;
     (* The functions currently being declared: used to avoid inlining
        recursively *)
-    inlining_level : int
+    inlining_level : int;
     (* Number of times "inline" has been called recursively *)
+    substitution_context : Flambdasubst.context;
   }
 
 let empty_env () =
@@ -160,7 +161,8 @@ let empty_env () =
     global = Hashtbl.create 10;
     escaping = true;
     current_functions = FunSet.empty;
-    inlining_level = 0 }
+    inlining_level = 0;
+    substitution_context = Flambdasubst.empty_context }
 
 let local_env env =
   { env with env_approx = IdentMap.empty }
@@ -982,8 +984,12 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
                    ExprId.create ())) fv
   in
   let fv = OffsetMap.fold make_fv closure_approx.bound_var IdentMap.empty in
-  let clos' = Flambdasubst.substitute IdentMap.empty
+
+  let clos', substitution_context =
+    Flambdasubst.substitute' IdentMap.empty env.substitution_context
       (Fclosure(clos, fv, ExprId.create ())) in
+  let env = { env with substitution_context } in
+
   let env = add_approx clos_id fapprox env in
   let fid, clos', func', fv, eid = match clos' with
     | Fclosure (clos', fv, eid) ->
@@ -1032,8 +1038,11 @@ and inline env r clos lfunc fun_id func args dbg eid =
   let subst =
     IdentMap.disjoint_union closure_fun_subst
       (IdentMap.disjoint_union arg_subst fv_subst) in
+  let body, substitution_context =
+    Flambdasubst.substitute' subst env.substitution_context func.body in
+  let env = { env with substitution_context } in
   let body =
-    Flambdasubst.substitute subst func.body
+    body
     |> List.fold_right (fun (_,id',arg) body ->
         Flet(Strict, id', arg, body, ExprId.create ~name:"inline arg" ()))
       args'
