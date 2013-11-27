@@ -945,9 +945,10 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
          ret r value_unknown
          (* do not use approximation: there can be renamed offsets *)
   else
-    if clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
+    if false (* Recursive function specialisation temporarily disabled *)
+    (* clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
        not (IdentSet.is_empty func.kept_params)
-       && OffsetMap.is_empty closure.bound_var (* closed *)
+       && OffsetMap.is_empty closure.bound_var (* closed *) *)
     then begin
       let f id approx acc =
         match approx.descr with
