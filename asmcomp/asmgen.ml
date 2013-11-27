@@ -135,9 +135,9 @@ let test_flambda ppf size lam =
   ++ flambda_dump_if ppf
   ++ check
 
-  (* ++ Flambdasimplify.simplify *)
-  (* ++ flambda_dump_if ppf *)
-  (* ++ check *)
+  ++ Flambdasimplify.simplify
+  ++ flambda_dump_if ppf
+  ++ check
 
   ++ Flambdasym.convert
   ++ flambda'_dump_if ppf
