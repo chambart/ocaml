@@ -879,6 +879,8 @@ and offset r flam off rel annot =
   let ret_approx = match r.approx.descr with
     | Value_unoffseted_closure closure ->
         value_closure { fun_id = off; closure }
+    | Value_closure { closure } ->
+        value_closure { fun_id = off; closure }
     | _ -> value_unknown
   in
   Foffset (flam, off, rel, annot), ret r ret_approx
