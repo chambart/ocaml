@@ -193,10 +193,19 @@ module Conv(P:Param1) = struct
       with
       | Not_found -> None
 
+  let extern_id_descr ex =
+    let unit_id = Ident.create_persistent (ExportId.unit ex) in
+    let export = Compilenv.approx_for_global unit_id in
+    try Some (EidMap.find ex export.ex_values)
+    with Not_found -> None
+
   let get_descr approx =
     match approx with
     | Value_unknown -> None
-    | Value_id ex -> Some (EidMap.find ex !(infos.ex_table))
+    | Value_id ex ->
+      (try Some (EidMap.find ex !(infos.ex_table)) with
+       | Not_found ->
+         extern_id_descr ex)
     | Value_symbol sym ->
       try
         let ex = SymbolMap.find sym !(infos.ex_symbol_id) in
@@ -518,6 +527,11 @@ module Conv(P:Param1) = struct
     let value_closure =
       Value_id (new_descr (Value_unoffseted_closure value_closure')) in
 
+    (* add informations about free variables *)
+    let env =
+      IdentMap.fold (fun id (_,approx) -> add_approx id approx)
+        fv_ulam_approx env in
+
     let conv_function id func =
 
       (* inside the body of the function, we cannot access variables
@@ -527,7 +541,7 @@ module Conv(P:Param1) = struct
       (* add informations about currently defined functions to
          allow direct call *)
       let env =
-        IdentMap.fold (fun id _ map ->
+        IdentMap.fold (fun id _ env ->
             let fun_id = { off_unit = functs.unit; off_id = id } in
             let desc = Value_closure { fun_id; closure = value_closure' } in
             let ex = new_descr desc in
