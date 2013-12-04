@@ -40,6 +40,9 @@ val map2_head: ('a -> 'b -> 'c) -> 'a list -> 'b list -> ('c list * 'b list)
         (* [let (r1,r2) = map2_head f l1 l2]
            If [l1] is of length n and [l2 = h2 @ t2] with h2 of length n
            and t2 of length k, r1 is [List.map2 f l1 h1] and r2 is t2 *)
+val combine_min: 'a list -> 'b list -> ('a * 'b) list
+        (* Like [List.combine] but do not fail when list have different length:
+           returns a list of length [min (length l1) (length l2)] *)
 
 val may: ('a -> unit) -> 'a option -> unit
 val may_map: ('a -> 'b) -> 'a option -> 'b option

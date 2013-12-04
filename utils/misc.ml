@@ -72,6 +72,11 @@ let rec map2_head f l1 l2 =
       let (t,rem) = map2_head f t1 t2 in
       h::t, rem
 
+let rec combine_min l1 l2 =
+  match l1, l2 with
+  | [], _ | _, [] -> []
+  | h1::t1, h2::t2 -> (h1,h2) :: combine_min t1 t2
+
 (* Options *)
 
 let may f = function
