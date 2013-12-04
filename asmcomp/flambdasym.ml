@@ -415,7 +415,7 @@ module Conv(P:Param1) = struct
       let block, block_approx = conv_approx env arg in
       let approx = match get_descr block_approx with
         | Some (Value_block (_,fields)) ->
-          if i > 0 && i < Array.length fields
+          if i >= 0 && i < Array.length fields
           then fields.(i)
           else Value_unknown
         | _ -> Value_unknown
