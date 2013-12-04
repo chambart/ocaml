@@ -181,6 +181,18 @@ module Conv(P:Param1) = struct
   let get_approx id env =
     try IdentMap.find id env.approx with Not_found -> Value_unknown
 
+  let extern_symbol_descr ((id,_) as sym) =
+    if Ident.is_predef_exn id
+    then None
+    else
+      let export = Compilenv.approx_for_global id in
+      try
+        let id = SymbolMap.find sym export.ex_symbol_id in
+        let descr = EidMap.find id export.ex_values in
+        Some descr
+      with
+      | Not_found -> None
+
   let get_descr approx =
     match approx with
     | Value_unknown -> None
@@ -189,7 +201,8 @@ module Conv(P:Param1) = struct
       try
         let ex = SymbolMap.find sym !(infos.ex_symbol_id) in
         Some (EidMap.find ex !(infos.ex_table))
-      with Not_found -> None
+      with Not_found ->
+        extern_symbol_descr sym
 
   let add_symbol sym id =
     infos.ex_symbol_id := SymbolMap.add sym id !(infos.ex_symbol_id)
@@ -323,7 +336,7 @@ module Conv(P:Param1) = struct
     | Fclosure(funct, fv, _) ->
       conv_closure env funct fv
 
-    | Foffset(lam,id,rel, _) ->
+    | Foffset(lam,id,rel, _) as expr ->
       let ulam, fun_approx = conv_approx env lam in
       let closed, _ = function_closed_and_label id in
       if closed
@@ -339,16 +352,31 @@ module Conv(P:Param1) = struct
             Value_id ex
           | Some _ -> assert false
           | _ ->
+            Format.printf "Unknown closure in offset %a@."
+              Printflambda.flambda expr;
+            assert false;
             Value_unknown
             (* TODO: export at least the function used, just put an unknown
                  closure *)
         in
         Foffset (ulam,id,rel,()), approx
 
-    | Fenv_field({env = lam;env_var;env_fun_id}, _) ->
-      Fenv_field({env = conv env lam;env_var;env_fun_id}, ()),
-      Value_unknown
-      (* TODO: better approximation *)
+    | Fenv_field({env = lam;env_var;env_fun_id}, _) as expr ->
+      let ulam, fun_approx = conv_approx env lam in
+      let approx = match get_descr fun_approx with
+        | Some (Value_closure { closure = { bound_var } }) ->
+          (try OffsetMap.find env_var bound_var with
+           | Not_found ->
+             Format.printf "Wrong closure in env_field %a@."
+               Printflambda.flambda expr;
+             assert false)
+        | Some _ -> assert false
+        | None ->
+          Format.printf "Unknown closure in env_field %a@."
+            Printflambda.flambda expr;
+          assert false in
+      Fenv_field({env = ulam;env_var;env_fun_id}, ()),
+      approx
 
     | Fapply(funct, args, direct, dbg, _) ->
       let ufunct, fun_approx = conv_approx env funct in
