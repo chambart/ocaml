@@ -634,10 +634,24 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
   | Fenv_field (fenv_field, annot) as expr ->
       let arg, r = loop env r fenv_field.env in
       let approx = match r.approx.descr with
-        | Value_closure { closure = { bound_var } } ->
+        | Value_closure { closure = { bound_var }; fun_id } ->
             (try OffsetMap.find fenv_field.env_var bound_var with
-             | Not_found -> value_unknown)
-        | _ -> value_unknown in
+             | Not_found ->
+                 Format.printf "not right closure:@ %a : %a@ =@ %a@."
+                   Offset.print fenv_field.env_fun_id
+                   Offset.print fun_id
+                   Printflambda.flambda expr;
+                 assert false;
+                 value_unknown)
+
+        | Value_unknown ->
+            Format.printf "Unknown:@ %a@." Printflambda.flambda expr;
+            assert false;
+            value_unknown
+
+        | _ ->
+            assert false;
+            value_unknown in
       let expr =
         if arg == fenv_field.env
         then expr
