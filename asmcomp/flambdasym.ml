@@ -194,8 +194,7 @@ module Conv(P:Param1) = struct
       | Not_found -> None
 
   let extern_id_descr ex =
-    let unit_id = Ident.create_persistent (ExportId.unit ex) in
-    let export = Compilenv.approx_for_global unit_id in
+    let export = Compilenv.approx_env () in
     try Some (EidMap.find ex export.ex_values)
     with Not_found -> None
 
