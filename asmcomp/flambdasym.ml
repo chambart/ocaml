@@ -215,6 +215,9 @@ module Conv(P:Param1) = struct
   let add_symbol sym id =
     infos.ex_symbol_id := SymbolMap.add sym id !(infos.ex_symbol_id)
 
+  let symbol_id sym =
+    try Some (SymbolMap.find sym !(infos.ex_symbol_id)) with Not_found -> None
+
   let add_constant lam =
     let sym = to_symbol (Compilenv.new_const_symbol ()) in
     SymbolTbl.add infos.constants sym lam;
@@ -231,17 +234,19 @@ module Conv(P:Param1) = struct
            constant label *)
         try
           let lbl = IdentMap.find id env.cm in
-          Fsymbol(lbl, ())
+          Fsymbol(lbl, ()), Value_symbol lbl
         with Not_found ->
 
           (* If the variable is a recursive access to the function
              currently being defined: it is replaced by an offset in the
              closure. If the variable is bound by the closure, it is
              replace by a field access inside the closure *)
-          try IdentMap.find id env.sb
-          with Not_found -> Fvar (id, ())
-      end,
-      get_approx id env
+          try
+            let lam = IdentMap.find id env.sb in
+            lam, get_approx id env
+          with Not_found ->
+            Fvar (id, ()), get_approx id env
+      end
 
     | Fsymbol (sym,_) ->
       Fsymbol (sym,()),
@@ -327,6 +332,9 @@ module Conv(P:Param1) = struct
       List.iter (fun (id,sym,def) ->
           match constant_symbol (conv env def) with
           | Lbl sym' ->
+            (match symbol_id sym' with
+             | None -> ()
+             | Some eid -> add_symbol sym eid);
             set_symbol_alias sym sym'
           | _ ->
               fatal_error (Format.asprintf
@@ -334,7 +342,12 @@ module Conv(P:Param1) = struct
                              Ident.print id))
         consts;
 
-      let not_consts = List.map (fun (id,def) -> id, conv env def) not_consts in
+      let not_consts, env =
+        List.fold_right (fun (id,def) (not_consts,env') ->
+            let flam, approx = conv_approx env def in
+            let env' = add_approx id approx env' in
+            (id, flam) :: not_consts, env') not_consts ([],env) in
+
       let body, approx = conv_approx env body in
       (match not_consts with
        | [] -> body
