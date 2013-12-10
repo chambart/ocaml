@@ -620,12 +620,36 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
   | Fvar (id,_) ->
       check_var_and_constant_result env r tree (find_unknwon id env)
   | Fconst (cst,_) -> tree, ret r (const_approx cst)
+
+(*
+  (* The only form to allow specialising function to parameters: no escaping guaranteed.
+     if the function was an escaping recursive function, the transformation wouldn't
+     have been allowed. *)
+  | Fapply (Foffset (Fclosure (ffuns, fv, a_clo), off, (None as rel), a_off),
+            args, direc, dbg, a_app) ->
+      (* suppose no strange effect in fv: eval args before closure *)
+      let args, approxs, r = loop_list env r args in
+      let r = start_escape_region r in
+
+      let func = IdentMap.find off.off_id ffuns.funs in
+      let used_params = Misc.combine_min approxs func.params in
+      let params_approx =
+        List.fold_left (fun map (approx, param_id) -> IdentMap.add param_id approx map)
+          IdentMap.empty used_params in
+
+      let clos, r = closure env r ffuns fv params_approx a_clo in
+      let funct, ({ approx = fapprox } as r) = offset r clos off rel a_off in
+      let tmp_escape, r = end_escape_region r in
+      apply env r tmp_escape (funct,fapprox) (args,approxs) dbg a_app
+*)
+
   | Fapply (funct, args, direc, dbg, annot) ->
       let r = start_escape_region r in
       let funct, ({ approx = fapprox } as r) = loop_no_escape (escaping ~b:false env) r funct in
       let tmp_escape, r = end_escape_region r in
       let args, approxs, r = loop_list env r args in
       apply env r tmp_escape (funct,fapprox) (args,approxs) dbg annot
+
   | Fclosure (ffuns, fv, annot) ->
       closure env r ffuns fv IdentMap.empty annot
   | Foffset (flam, off, rel, annot) ->
