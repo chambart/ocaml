@@ -1027,7 +1027,8 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
   let fv = OffsetMap.fold make_fv closure_approx.bound_var IdentMap.empty in
 
   let clos', substitution_context =
-    Flambdasubst.substitute' IdentMap.empty env.substitution_context
+    (* Flambdasubst.substitute' IdentMap.empty env.substitution_context *)
+    Flambdasubst.substitute' IdentMap.empty Flambdasubst.empty_context
       (Fclosure(clos, fv, ExprId.create ())) in
   let env = { env with substitution_context } in
 
@@ -1080,7 +1081,10 @@ and inline env r clos lfunc fun_id func args dbg eid =
     IdentMap.disjoint_union closure_fun_subst
       (IdentMap.disjoint_union arg_subst fv_subst) in
   let body, substitution_context =
-    Flambdasubst.substitute' subst env.substitution_context func.body in
+    (* Format.printf "subst inline body %a@." Offset.print fun_id; *)
+    (* Flambdasubst.substitute' subst env.substitution_context func.body *)
+    Flambdasubst.substitute' subst Flambdasubst.empty_context func.body
+  in
   let env = { env with substitution_context } in
   let body =
     body
