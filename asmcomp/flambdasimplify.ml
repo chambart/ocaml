@@ -40,7 +40,9 @@ and value_offset =
 
 and value_closure =
   { ffunctions : ExprId.t ffunctions;
-    bound_var : approx OffsetMap.t }
+    bound_var : approx OffsetMap.t;
+    fv_subst_renaming : offset OffsetMap.t;
+    fun_subst_renaming : offset OffsetMap.t }
 
 and approx =
   { descr : descr;
@@ -91,7 +93,9 @@ module Import = struct
           { fun_id;
             closure =
               { ffunctions = Compilenv.imported_closure closure_id;
-                bound_var } }
+                bound_var;
+                fv_subst_renaming = OffsetMap.empty;
+                fun_subst_renaming = OffsetMap.empty } }
       | _ -> value_unknown
     with Not_found -> value_unknown
 
@@ -141,6 +145,10 @@ open Import
    - propagating following approximatively the evaluation order ~ bottom-up:
      in the ret type *)
 
+type sb = { sb_var : Ident.t IdentMap.t;
+            sb_sym : Ident.t SymbolMap.t;
+            sb_exn : int IntMap.t; }
+
 type env =
   { env_approx : approx IdentMap.t;
     global : (int, approx) Hashtbl.t;
@@ -154,7 +162,13 @@ type env =
     inlining_level : int;
     (* Number of times "inline" has been called recursively *)
     substitution_context : Flambdasubst.context;
+    sb : sb;
+    substitute : bool;
   }
+
+let empty_sb = { sb_var = IdentMap.empty;
+                 sb_sym = SymbolMap.empty;
+                 sb_exn = IntMap.empty }
 
 let empty_env () =
   { env_approx = IdentMap.empty;
@@ -162,7 +176,9 @@ let empty_env () =
     escaping = true;
     current_functions = FunSet.empty;
     inlining_level = 0;
-    substitution_context = Flambdasubst.empty_context }
+    substitution_context = Flambdasubst.empty_context;
+    sb = empty_sb;
+    substitute = false }
 
 let local_env env =
   { env with env_approx = IdentMap.empty }
@@ -179,6 +195,69 @@ type ret =
   }
 
 (* Utility functions *)
+
+(* substitution utility functions *)
+let add_sb_var id id' env = { env with sb = { env.sb with sb_var = IdentMap.add id id' env.sb.sb_var } }
+let add_sb_sym sym id' env = { env with sb = { env.sb with sb_sym = SymbolMap.add sym id' env.sb.sb_sym } }
+let add_sb_exn i i' env = { env with sb = { env.sb with sb_exn = IntMap.add i i' env.sb.sb_exn } }
+
+let sb_exn i env = try IntMap.find i env.sb.sb_exn with Not_found -> i
+
+let new_subst_exn i env =
+  if env.substitute
+  then
+    let i' = Lambda.next_raise_count () in
+    let env = add_sb_exn i i' env in
+    i', env
+  else i, env
+
+let new_subst_id id env =
+  if env.substitute
+  then
+    let id' = Ident.rename id in
+    let env = add_sb_var id id' env in
+    id', env
+  else id, env
+
+let new_subst_ids defs env =
+  List.fold_right (fun (id,lam) (defs, env) ->
+      let id', env = new_subst_id id env in
+      (id',lam) :: defs, env) defs ([],env)
+
+let new_subst_ids' ids env =
+  List.fold_right (fun id (ids,env) ->
+      let id', env = new_subst_id id env in
+      id' :: ids, env) ids ([],env)
+
+let find_subst' id env = IdentMap.find id env.sb.sb_var
+
+type offset_subst =
+  { os_fv : offset OffsetMap.t;
+    os_fun : offset OffsetMap.t }
+
+let empty_offset_subst =
+  { os_fv = OffsetMap.empty; os_fun = OffsetMap.empty }
+
+let new_subst_off id off_unit env off_sb =
+  if env.substitute
+  then
+    let id' = Ident.rename id in
+    let env = add_sb_var id id' env in
+    let off = { off_unit; off_id = id } in
+    let off' = { off_unit = Compilenv.current_unit (); off_id = id' } in
+    let off_sb = OffsetMap.add off off' off_sb in
+    id', env, off_sb
+  else id, env, off_sb
+
+let new_subst_fv_off id off_unit env off_sb =
+  let id, env, os_fv = new_subst_off id off_unit env off_sb.os_fv in
+  id, env, { off_sb with os_fv }
+
+let new_subst_fun_off id off_unit env off_sb =
+  let id, env, os_fun = new_subst_off id off_unit env off_sb.os_fun in
+  id, env, { off_sb with os_fun }
+
+(* approximation utility functions *)
 
 let ret (acc:ret) approx = { acc with approx }
 
@@ -609,15 +688,28 @@ let split_list n l =
 let rec loop env r tree =
   loop_no_escape (escaping env) r tree
 
+and loop_substitute env r tree =
+  loop { env with substitute = true } r tree
+
 and loop_no_escape env r tree =
   let f, r = loop_direct env r tree in
   f, ret r (really_import_approx r.approx)
 
 and loop_direct (env:env) r tree : 'a flambda * ret =
   match tree with
-  | Fsymbol (sym,_) ->
-      check_constant_result r tree (import_symbol sym)
-  | Fvar (id,_) ->
+  | Fsymbol (sym,annot) ->
+      let id' = try Some (SymbolMap.find sym env.sb.sb_sym) with Not_found -> None in
+      begin match id' with
+      | Some id' -> loop_direct env r (Fvar(id',annot))
+      | None -> check_constant_result r tree (import_symbol sym)
+      end
+  | Fvar (id,annot) ->
+      let id, tree =
+        try
+          let id' = IdentMap.find id env.sb.sb_var in
+          id', Fvar(id',annot) with
+        | Not_found -> id, tree
+      in
       check_var_and_constant_result env r tree (find_unknwon id env)
   | Fconst (cst,_) -> tree, ret r (const_approx cst)
 
@@ -656,32 +748,44 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let flam, r = loop env r flam in
       offset r flam off rel annot
   | Fenv_field (fenv_field, annot) as expr ->
+      let fun_off_id off closure =
+        try
+          let off' = OffsetMap.find off closure.fun_subst_renaming in
+          (* Format.printf "enf_field fun %a -> %a@." Offset.print off Offset.print off'; *)
+          off'
+        with Not_found -> off in
+      let fv_off_id off closure =
+        try
+          let off' = OffsetMap.find off closure.fv_subst_renaming in
+          (* Format.printf "enf_field fv %a -> %a@." Offset.print off Offset.print off'; *)
+          off'
+        with Not_found -> off in
+
       let arg, r = loop env r fenv_field.env in
-      let approx = match r.approx.descr with
-        | Value_closure { closure = { bound_var }; fun_id } ->
-            (try OffsetMap.find fenv_field.env_var bound_var with
-             | Not_found ->
-                 Format.printf "not right closure:@ %a : %a@ =@ %a@."
-                   Offset.print fenv_field.env_fun_id
-                   Offset.print fun_id
-                   Printflambda.flambda expr;
-                 assert false;
-                 value_unknown)
+      let closure, approx_fun_id = match r.approx.descr with
+        | Value_closure { closure; fun_id } -> closure, fun_id
+        | _ -> assert false in
+      let env_var = fv_off_id fenv_field.env_var closure in
+      let env_fun_id = fun_off_id fenv_field.env_fun_id closure in
 
-        | Value_unknown ->
-            Format.printf "Unknown:@ %a@." Printflambda.flambda expr;
-            assert false;
-            value_unknown
+      assert(Offset.equal env_fun_id approx_fun_id);
 
-        | _ ->
-            assert false;
-            value_unknown in
+      let approx =
+        try OffsetMap.find env_var closure.bound_var with
+        | Not_found ->
+            Format.printf "no field %a in closure %a@ %a@."
+              Offset.print env_var
+              Offset.print env_fun_id
+              Printflambda.flambda expr;
+            assert false in
+
       let expr =
         if arg == fenv_field.env
-        then expr
-        else Fenv_field ({ fenv_field with env = arg }, annot) in
+        then expr (* if the argument didn't change, the names didn't also *)
+        else Fenv_field ({ env = arg; env_fun_id; env_var }, annot) in
       check_var_and_constant_result env r expr approx
   | Flet(str, id, lam, body, annot) ->
+      let id, env = new_subst_id id env in
       let init_used_var = r.used_variables in
       let lam, r = loop env r lam in
       let def_used_var = r.used_variables in
@@ -703,6 +807,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
                         IdentSet.union def_used_var r.used_variables } in
       expr, exit_scope r id
   | Fletrec(defs, body, annot) ->
+      let defs, env = new_subst_ids defs env in
       let defs, body_env, r = List.fold_left (fun (defs, env_acc, r) (id,lam) ->
           let lam, r = loop env r lam in
           let defs = (id,lam) :: defs in
@@ -713,11 +818,11 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       Fletrec (defs, body, annot),
       r
   | Fprim(Pgetglobal id, [], dbg, annot) as expr ->
-    let approx =
-      if Ident.is_predef_exn id
-      then value_unknown
-      else import_global id in
-    expr, ret r approx
+      let approx =
+        if Ident.is_predef_exn id
+        then value_unknown
+        else import_global id in
+      expr, ret r approx
   | Fprim(Pgetglobalfield(id,i), [], dbg, annot) as expr ->
       let approx =
         if id = Compilenv.current_unit_id ()
@@ -742,15 +847,18 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let expr = if args' == args then expr else Fprim(p, args', dbg, annot) in
       simplif_prim r p (args, approxs) expr dbg
   | Fstaticfail(i, args, annot) ->
+      let i = sb_exn i env in
       let args, _, r = loop_list env r args in
       let r = use_staticfail r i in
       Fstaticfail (i, args, annot),
       ret r value_bottom
   | Fcatch (i, vars, body, handler, annot) ->
+      let i, env = new_subst_exn i env in
       let body, r = loop env r body in
       if not (IntSet.mem i r.used_staticfail)
       then body, r
       else
+        let vars, env = new_subst_ids' vars env in
         let env = List.fold_left (fun env id -> add_approx id value_unknown env)
             env vars in
         let handler, r = loop env r handler in
@@ -760,6 +868,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
         ret r value_unknown
   | Ftrywith(body, id, handler, annot) ->
       let body, r = loop env r body in
+      let id, env = new_subst_id id env in
       let env = add_approx id value_unknown env in
       let handler, r = loop env r handler in
       let r = exit_scope r id in
@@ -800,12 +909,15 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
   | Ffor(id, lo, hi, dir, body, annot) ->
       let lo, r = loop env r lo in
       let hi, r = loop env r hi in
+      let id, env = new_subst_id id env in
       let body, r = loop env r body in
       let r = exit_scope r id in
       Ffor(id, lo, hi, dir, body, annot),
       ret r value_unknown
   | Fassign(id, lam, annot) ->
       let lam, r = loop env r lam in
+      let id = try IdentMap.find id env.sb.sb_var with
+        | Not_found -> id in
       let r = use_var r id in
       Fassign(id, lam, annot),
       ret r value_unknown
@@ -851,7 +963,46 @@ and loop_list env r l = match l with
       then l, approxs, r
       else h' :: t', approxs, r
 
+and subst_free_vars unit fv env =
+  IdentMap.fold (fun id lam (fv, env, off_sb) ->
+      let id, env, off_sb = new_subst_fv_off id unit env off_sb in
+      IdentMap.add id lam fv, env, off_sb)
+    fv (IdentMap.empty, env, empty_offset_subst)
+
+and ffuns_subst env ffuns off_sb =
+  if env.substitute
+  then
+    (* only the structure of ffunction, the body is substituted later *)
+    let subst_ffunction fun_id ffun env =
+      let label = Flambdagen.make_function_lbl fun_id in
+      let closure_params = IdentSet.fold (fun id set -> IdentSet.add (find_subst' id env) set)
+          ffun.closure_params IdentSet.empty in
+      let kept_params = IdentSet.map (fun id -> find_subst' id env) ffun.kept_params in
+      let params, env = new_subst_ids' ffun.params env in
+      (* It is not a problem to share the substitution of parameter
+         names between function: There should be no clash *)
+      { ffun with
+        closure_params;
+        kept_params;
+        params;
+        label }, env
+    in
+    let funs, env, off_sb =
+      IdentMap.fold (fun id ffun (funs, env, off_sb) ->
+          let id, env, off_sb = new_subst_fun_off id ffuns.unit env off_sb in
+          let ffun, env = subst_ffunction id ffun env in
+          let funs = IdentMap.add id ffun funs in
+          funs, env, off_sb)
+        ffuns.funs (IdentMap.empty,env,off_sb) in
+    { ffuns with
+      ident = FunId.create ((Compilenv.current_unit_name ()));
+      funs }, env, off_sb
+  else ffuns, env,off_sb
+
 and closure env r ffuns fv approxs annot =
+  let fv, env, off_sb = subst_free_vars ffuns.unit fv env in
+  let ffuns, env, off_sb = ffuns_subst env ffuns off_sb in
+
   let env = { env with current_functions = FunSet.add ffuns.ident env.current_functions } in
   let fv, r = IdentMap.fold (fun id lam (fv,r) ->
       let lam, r = loop env r lam in
@@ -862,7 +1013,9 @@ and closure env r ffuns fv approxs annot =
     { ffunctions = ffuns;
       bound_var = IdentMap.fold (fun id (_,desc) map ->
           OffsetMap.add (off id) desc map)
-          fv OffsetMap.empty } in
+          fv OffsetMap.empty;
+      fv_subst_renaming = off_sb.os_fv;
+      fun_subst_renaming = off_sb.os_fun } in
   let closure_env = IdentMap.fold
       (fun id _ env -> add_approx id
           (value_closure { fun_id = (off id);
@@ -900,12 +1053,24 @@ and closure env r ffuns fv approxs annot =
   ret r (value_unoffseted_closure closure)
 
 and offset r flam off rel annot =
-  let ret_approx = match r.approx.descr with
+  let off_id off closure =
+    try
+      let off' = OffsetMap.find off closure.fun_subst_renaming in
+      (* Format.printf "offset %a -> %a@." Offset.print off Offset.print off'; *)
+      off'
+    with Not_found -> off in
+  let ret_approx, off = match r.approx.descr with
     | Value_unoffseted_closure closure ->
-        value_closure { fun_id = off; closure }
+        let off = off_id off closure in
+        assert(IdentMap.mem off.off_id closure.ffunctions.funs);
+        value_closure { fun_id = off; closure }, off
     | Value_closure { closure } ->
-        value_closure { fun_id = off; closure }
-    | _ -> value_unknown
+        let off = off_id off closure in
+        assert(IdentMap.mem off.off_id closure.ffunctions.funs);
+        value_closure { fun_id = off; closure }, off
+    | _ ->
+        assert false
+        (* value_unknown *)
   in
   Foffset (flam, off, rel, annot), ret r ret_approx
 
@@ -916,7 +1081,12 @@ and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
   | Value_closure { fun_id; closure } ->
       let clos = closure.ffunctions in
       assert(fun_id.off_unit = clos.unit);
-      let func = IdentMap.find fun_id.off_id clos.funs in
+      let func =
+        try IdentMap.find fun_id.off_id clos.funs with
+        | Not_found ->
+            Format.printf "missing %a@." Ident.print fun_id.off_id;
+            assert false
+      in
       let nargs = List.length args in
       if nargs = func.arity
       then direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg eid
