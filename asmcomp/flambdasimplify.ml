@@ -15,6 +15,7 @@ open Ext_types
 open Lambda
 open Asttypes
 open Flambda
+open Misc
 
 let fvar id = Fvar(id,ExprId.create ())
 let foffset (lam, off_id) =
@@ -229,7 +230,10 @@ let new_subst_ids' ids env =
       let id', env = new_subst_id id env in
       id' :: ids, env) ids ([],env)
 
-let find_subst' id env = IdentMap.find id env.sb.sb_var
+let find_subst' id env =
+  try IdentMap.find id env.sb.sb_var with
+  | Not_found ->
+      fatal_error (Format.asprintf "find_subst': can't find %a@." Ident.print id)
 
 type offset_subst =
   { os_fv : offset OffsetMap.t;
@@ -776,7 +780,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
             Format.printf "no field %a in closure %a@ %a@."
               Offset.print env_var
               Offset.print env_fun_id
-              Printflambda.flambda expr;
+              Printflambda.flambda arg;
             assert false in
 
       let expr =
@@ -977,8 +981,8 @@ and ffuns_subst env ffuns off_sb =
       let label = Flambdagen.make_function_lbl fun_id in
       let closure_params = IdentSet.fold (fun id set -> IdentSet.add (find_subst' id env) set)
           ffun.closure_params IdentSet.empty in
-      let kept_params = IdentSet.map (fun id -> find_subst' id env) ffun.kept_params in
       let params, env = new_subst_ids' ffun.params env in
+      let kept_params = IdentSet.map (fun id -> find_subst' id env) ffun.kept_params in
       (* It is not a problem to share the substitution of parameter
          names between function: There should be no clash *)
       { ffun with
@@ -996,6 +1000,7 @@ and ffuns_subst env ffuns off_sb =
         ffuns.funs (IdentMap.empty,env,off_sb) in
     { ffuns with
       ident = FunId.create ((Compilenv.current_unit_name ()));
+      unit = Compilenv.current_unit ();
       funs }, env, off_sb
   else ffuns, env,off_sb
 
@@ -1008,7 +1013,7 @@ and closure env r ffuns fv approxs annot =
       let lam, r = loop env r lam in
       IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
   (* we use the previous closure for evaluating the functions *)
-  let off off_id = { off_unit = ffuns.unit; off_id } in
+  let off off_id = { off_unit = Compilenv.current_unit (); off_id } in
   let internal_closure =
     { ffunctions = ffuns;
       bound_var = IdentMap.fold (fun id (_,desc) map ->
@@ -1021,9 +1026,14 @@ and closure env r ffuns fv approxs annot =
           (value_closure { fun_id = (off id);
                            closure = internal_closure }) env)
       ffuns.funs (local_env env) in
-  let closure_env = IdentMap.fold
-      (fun id (_,desc) env -> add_approx id desc env) fv closure_env in
   let funs, r = IdentMap.fold (fun fid ffun (funs,r) ->
+      let closure_env = IdentMap.fold
+          (fun id (_,desc) env ->
+             if IdentSet.mem id ffun.closure_params
+             then begin
+               add_approx id desc env
+             end
+             else env) fv closure_env in
       let closure_env = List.fold_left (fun env id ->
           let approx = try IdentMap.find id approxs with Not_found -> value_unknown in
           add_approx id approx env) closure_env ffun.params in
@@ -1062,7 +1072,11 @@ and offset r flam off rel annot =
   let ret_approx, off = match r.approx.descr with
     | Value_unoffseted_closure closure ->
         let off = off_id off closure in
+        if not (IdentMap.mem off.off_id closure.ffunctions.funs)
+        then fatal_error (Format.asprintf "no function %a in the closure@ %a@."
+                            Offset.print off Printflambda.flambda flam);
         assert(IdentMap.mem off.off_id closure.ffunctions.funs);
+
         value_closure { fun_id = off; closure }, off
     | Value_closure { closure } ->
         let off = off_id off closure in
@@ -1080,7 +1094,13 @@ and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
   match fapprox.descr with
   | Value_closure { fun_id; closure } ->
       let clos = closure.ffunctions in
+
+      if not (fun_id.off_unit = clos.unit)
+      then Format.printf "not same unit %a %a@."
+          Symbol.print fun_id.off_unit
+          Symbol.print clos.unit;
       assert(fun_id.off_unit = clos.unit);
+
       let func =
         try IdentMap.find fun_id.off_id clos.funs with
         | Not_found ->
@@ -1234,6 +1254,33 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
 and inline env r clos lfunc fun_id func args dbg eid =
   let env = inlining_level_up env in
   let clos_id = Ident.create "inlined_closure" in
+
+  let body =
+    func.body
+    |> List.fold_right2 (fun id arg body ->
+        Flet(Strict, id, arg, body, ExprId.create ~name:"inline arg" ()))
+      func.params args
+    |> IdentSet.fold (fun id body ->
+        Flet(Strict, id,
+             Fenv_field ({ env = Fvar(clos_id, ExprId.create ());
+                           env_fun_id = fun_id;
+                           env_var = { off_unit = clos.unit;
+                                       off_id = id } },
+                         ExprId.create ()),
+             body, ExprId.create ()))
+      func.closure_params
+    |> IdentMap.fold (fun id _ body ->
+        Flet(Strict, id,
+             Foffset (Fvar(clos_id, ExprId.create ()),
+                      {fun_id with off_id = id},
+                      Some fun_id,
+                      ExprId.create ()),
+             body, ExprId.create ()))
+      clos.funs
+  in
+  loop_substitute env r (Flet(Strict, clos_id, lfunc, body, ExprId.create ()))
+
+(*
   let args' = List.map2 (fun id arg -> id, Ident.rename id, arg)
       func.params args in
   let fv' = IdentSet.fold (fun id l -> (id, Ident.rename id) :: l)
@@ -1280,6 +1327,7 @@ and inline env r clos lfunc fun_id func args dbg eid =
       closure_fun_subst
   in
   loop env r (Flet(Strict, clos_id, lfunc, body, ExprId.create ()))
+*)
 
 let simplify tree =
   let env = empty_env () in
