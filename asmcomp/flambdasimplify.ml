@@ -821,9 +821,9 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
         else Fenv_field ({ env = arg; env_fun_id; env_var }, annot) in
       check_var_and_constant_result env r expr approx
   | Flet(str, id, lam, body, annot) ->
-      let id, env = new_subst_id id env in
       let init_used_var = r.used_variables in
       let lam, r = loop env r lam in
+      let id, env = new_subst_id id env in
       let def_used_var = r.used_variables in
       let body_env = match str with
         | Variable -> env
@@ -1037,13 +1037,14 @@ and ffuns_subst env ffuns off_sb =
   else ffuns, env,off_sb
 
 and closure env r ffuns fv approxs annot =
+  let fv, r = IdentMap.fold (fun id lam (fv,r) ->
+      let lam, r = loop env r lam in
+      IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
+
   let fv, env, off_sb = subst_free_vars ffuns.unit fv env in
   let ffuns, env, off_sb = ffuns_subst env ffuns off_sb in
 
   let env = { env with current_functions = FunSet.add ffuns.ident env.current_functions } in
-  let fv, r = IdentMap.fold (fun id lam (fv,r) ->
-      let lam, r = loop env r lam in
-      IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
   (* we use the previous closure for evaluating the functions *)
   let off off_id = { off_unit = Compilenv.current_unit (); off_id } in
   let internal_closure =
