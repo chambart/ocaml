@@ -192,7 +192,7 @@ and close_functions (sb:Ident.t IdentMap.t)
       | Tupled ->
           let fun_var = Ident.rename id in
           let fun_off = { off_unit = unit; off_id = fun_var } in
-          let tupled_stub = tupled_function_call_stub id params fun_off in
+          let tupled_stub = tupled_function_call_stub id params closure_params fun_off in
           let map = IdentMap.add id tupled_stub map in
           IdentMap.add fun_var
             { label = make_function_lbl fun_var;
@@ -214,7 +214,7 @@ and close_functions (sb:Ident.t IdentMap.t)
               unit },
     clos_var, nid ())
 
-and tupled_function_call_stub id params fun_off =
+and tupled_function_call_stub id params closure_params fun_off =
   let tuple_param = Ident.create "tupled_stub_param" in
   let params' = List.map (fun p -> Ident.rename p) params in
   let call_params = List.map (fun p' -> Fvar(p',nid ())) params' in
@@ -231,7 +231,7 @@ and tupled_function_call_stub id params fun_off =
     stub = true;
     arity = 1;
     params = [tuple_param];
-    closure_params = IdentSet.empty;
+    closure_params;
     kept_params = IdentSet.empty;
     body;
     dbg = Debuginfo.none }
