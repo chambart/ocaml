@@ -148,7 +148,13 @@ open Import
 
 type sb = { sb_var : Ident.t IdentMap.t;
             sb_sym : Ident.t SymbolMap.t;
-            sb_exn : int IntMap.t; }
+            sb_exn : int IntMap.t;
+            back_var : Ident.t list IdentMap.t;
+            back_sym : symbol list IdentMap.t;
+            (* Used to handle substitution sequence: we cannot call
+               the substitution recursively because there can be name
+               clash *)
+          }
 
 type env =
   { env_approx : approx IdentMap.t;
@@ -169,7 +175,9 @@ type env =
 
 let empty_sb = { sb_var = IdentMap.empty;
                  sb_sym = SymbolMap.empty;
-                 sb_exn = IntMap.empty }
+                 sb_exn = IntMap.empty;
+                 back_var = IdentMap.empty;
+                 back_sym = IdentMap.empty }
 
 let empty_env () =
   { env_approx = IdentMap.empty;
@@ -198,8 +206,32 @@ type ret =
 (* Utility functions *)
 
 (* substitution utility functions *)
-let add_sb_var id id' env = { env with sb = { env.sb with sb_var = IdentMap.add id id' env.sb.sb_var } }
-let add_sb_sym sym id' env = { env with sb = { env.sb with sb_sym = SymbolMap.add sym id' env.sb.sb_sym } }
+
+let add_sb_sym' sym id' sb =
+  let back_sym =
+    let l = try IdentMap.find id' sb.back_sym with Not_found -> [] in
+    IdentMap.add id' (sym :: l) sb.back_sym in
+  { sb with sb_sym = SymbolMap.add sym id' sb.sb_sym;
+            back_sym }
+
+let rec add_sb_var' id id' sb =
+  let sb = { sb with sb_var = IdentMap.add id id' sb.sb_var } in
+  let sb =
+    try let pre_vars = IdentMap.find id sb.back_var in
+      List.fold_left (fun sb pre_id -> add_sb_var' pre_id id' sb) sb pre_vars
+    with Not_found -> sb in
+  let sb =
+    try let pre_sym = IdentMap.find id sb.back_sym in
+      List.fold_left (fun sb pre_sym -> add_sb_sym' pre_sym id' sb) sb pre_sym
+    with Not_found -> sb in
+  let back_var =
+    let l = try IdentMap.find id' sb.back_var with Not_found -> [] in
+    IdentMap.add id' (id :: l) sb.back_var in
+  { sb with back_var }
+
+
+let add_sb_var id id' env = { env with sb = add_sb_var' id id' env.sb }
+let add_sb_sym sym id' env = {env with sb = add_sb_sym' sym id' env.sb }
 let add_sb_exn i i' env = { env with sb = { env.sb with sb_exn = IntMap.add i i' env.sb.sb_exn } }
 
 let sb_exn i env = try IntMap.find i env.sb.sb_exn with Not_found -> i
@@ -1063,29 +1095,28 @@ and closure env r ffuns fv approxs annot =
   ret r (value_unoffseted_closure closure)
 
 and offset r flam off rel annot =
-  let off_id off closure =
+  let off_id closure off =
     try
       let off' = OffsetMap.find off closure.fun_subst_renaming in
       (* Format.printf "offset %a -> %a@." Offset.print off Offset.print off'; *)
       off'
-    with Not_found -> off in
-  let ret_approx, off = match r.approx.descr with
-    | Value_unoffseted_closure closure ->
-        let off = off_id off closure in
-        if not (IdentMap.mem off.off_id closure.ffunctions.funs)
-        then fatal_error (Format.asprintf "no function %a in the closure@ %a@."
-                            Offset.print off Printflambda.flambda flam);
-        assert(IdentMap.mem off.off_id closure.ffunctions.funs);
-
-        value_closure { fun_id = off; closure }, off
-    | Value_closure { closure } ->
-        let off = off_id off closure in
-        assert(IdentMap.mem off.off_id closure.ffunctions.funs);
-        value_closure { fun_id = off; closure }, off
-    | _ ->
-        assert false
-        (* value_unknown *)
+    with Not_found ->
+      off in
+  let off_id closure off =
+    let off = off_id closure off in
+    if not (IdentMap.mem off.off_id closure.ffunctions.funs)
+    then fatal_error (Format.asprintf "no function %a in the closure@ %a@."
+                        Offset.print off Printflambda.flambda flam);
+    off
   in
+  let closure = match r.approx.descr with
+    | Value_unoffseted_closure closure -> closure
+    | Value_closure { closure } -> closure
+    | _ -> assert false in
+  let off = off_id closure off in
+  let rel = Misc.may_map (off_id closure) rel in
+  let ret_approx = value_closure { fun_id = off; closure } in
+
   Foffset (flam, off, rel, annot), ret r ret_approx
 
 (* Apply a function to its parameters: if the function is known, we will go to the special cases:
