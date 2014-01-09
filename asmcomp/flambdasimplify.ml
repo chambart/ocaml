@@ -434,7 +434,7 @@ let prim_size prim args =
   | Psetfloatfield f -> 1
   | Pduprecord _ -> 10 + List.length args
   | Pccall p -> (if p.Primitive.prim_alloc then 10 else 4) + List.length args
-  | Praise -> 4
+  | Praise _ -> 4
   | Pstringlength -> 5
   | Pstringrefs | Pstringsets -> 6
   | Pmakearray kind -> 5 + List.length args
@@ -522,7 +522,7 @@ let lambda_smaller lam threshold =
 
 let no_effects_prim = function
     Psetglobal _ | Psetfield _ | Psetfloatfield _ | Pduprecord _ |
-    Pccall _ | Praise | Poffsetref _ | Pstringsetu | Pstringsets |
+    Pccall _ | Praise _ | Poffsetref _ | Pstringsetu | Pstringsets |
     Parraysetu _ | Parraysets _ | Pbigarrayset _
 
   | Psetglobalfield _

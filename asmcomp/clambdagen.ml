@@ -304,7 +304,7 @@ module Conv(P:Param2) = struct
 
     | Funreachable _ ->
       (* shoudl'nt be executable, maybe build something else *)
-      Uprim(Praise, [Uconst (Uconst_pointer 0, None)], Debuginfo.none)
+      Uprim(Praise Raise_regular, [Uconst (Uconst_pointer 0, None)], Debuginfo.none)
 
   and conv_switch env cases num_keys default =
     let num_keys =

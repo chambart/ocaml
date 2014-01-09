@@ -25,8 +25,8 @@ let rec add_debug_info ev f =
     begin match f with
       | Fapply(fn, args, direct, dinfo ,v) ->
         Fapply(fn, args, direct, Debuginfo.from_call ev, v)
-      | Fprim(Praise, args, dinfo, v) ->
-        Fprim(Praise, args, Debuginfo.from_call ev, v)
+      | Fprim(Praise k, args, dinfo, v) ->
+        Fprim(Praise k, args, Debuginfo.from_call ev, v)
       | Fsend(kind, f1, f2, args, dinfo, v) ->
         Fsend(kind, f1, f2, args, Debuginfo.from_call ev, v)
       | Fsequence(f1, f2, v) ->
@@ -88,8 +88,8 @@ let rec close sb = function
   | Lprim(Pdirapply loc,[funct;arg])
   | Lprim(Prevapply loc,[arg;funct]) ->
     close sb (Lapply(funct, [arg], loc))
-  | Lprim(Praise, [Levent(arg, ev)]) ->
-    Fprim(Praise, [close sb arg], Debuginfo.from_raise ev, nid ())
+  | Lprim(Praise k, [Levent(arg, ev)]) ->
+    Fprim(Praise k, [close sb arg], Debuginfo.from_raise ev, nid ())
   | Lprim(Pfield i, [Lprim(Pgetglobal id, [])])
     when id.Ident.name = Compilenv.current_unit_name () ->
     Fprim(Pgetglobalfield(id,i), [], Debuginfo.none,
