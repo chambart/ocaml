@@ -79,21 +79,23 @@ module Subst(P:Param) = struct
       let off =
         try
           let v = OffsetMap.find off !offset_subst_table in
+          (* Format.printf "found %a@." Offset.print off; *)
           v
         with
         | Not_found ->
-          (* Printf.printf "not found %s\n%!" (Ident.unique_name off); *)
+          (* Format.printf "not found %a@." Offset.print off; *)
           off in
       let env_fun_id =
         try
           let e = OffsetMap.find env_fun_id !fun_offset_subst_table in
-          (* Printf.printf "rename %s -> %s\n%!" *)
-          (*   (Ident.unique_name env_fun_id) *)
-          (*   (Ident.unique_name e); *)
+          (* Format.printf "rename env_fun_id %a -> %a@." *)
+          (*   Offset.print env_fun_id *)
+          (*   Offset.print e; *)
           e
         with
         | Not_found ->
-          (* Printf.printf "not found fun %s\n%!" (Ident.unique_name env_fun_id); *)
+          (* Format.printf "not found env_fun_id %a@." *)
+          (*   Offset.print env_fun_id; *)
           env_fun_id in
       Fenv_field ({ env = flam; env_var = off; env_fun_id }, annot)
 
@@ -173,9 +175,10 @@ module Subst(P:Param) = struct
     let fun_id_subst =
       IdentMap.fold (fun id _ map ->
         let id' = Ident.rename id in
-        (* Printf.printf "rename: %s => %s\n%!" (Ident.unique_name id) (Ident.unique_name id'); *)
         let off = { off_id = id; off_unit = ffuns.unit } in
         add_fun_offset off id';
+        (* Format.printf "rename fun: %a => %s@." *)
+        (*   Offset.print off (Ident.unique_name id'); *)
         add_var id id' map)
         ffuns.funs sb_fv in
     let aux_ffunction orig_id fun_id ffun =

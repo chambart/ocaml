@@ -186,6 +186,7 @@ module Conv(P:Param1) = struct
     then None
     else
       let export = Compilenv.approx_for_global id in
+      (* Format.printf "load approx for sym %a@." Ident.print id; *)
       try
         let id = SymbolMap.find sym export.ex_symbol_id in
         let descr = EidMap.find id export.ex_values in
@@ -194,9 +195,15 @@ module Conv(P:Param1) = struct
       | Not_found -> None
 
   let extern_id_descr ex =
+    (* let unit_id = Ident.create_persistent (ExportId.unit ex) in *)
+    (* Format.printf "load approx for ex %a %a@." *)
+    (*   ExportId.print ex Ident.print unit_id; *)
+    (* let export = Compilenv.approx_for_global unit_id in *)
     let export = Compilenv.approx_env () in
     try Some (EidMap.find ex export.ex_values)
-    with Not_found -> None
+    with Not_found ->
+      (* Format.printf "Not found@."; *)
+      None
 
   let get_descr approx =
     match approx with
@@ -388,13 +395,15 @@ module Conv(P:Param1) = struct
         | Some (Value_closure { closure = { bound_var } }) ->
           (try OffsetMap.find env_var bound_var with
            | Not_found ->
-             Format.printf "Wrong closure in env_field %a@."
-               Printflambda.flambda expr;
+             Format.printf "Wrong closure in env_field %a@.%a@."
+               Printflambda.flambda expr
+               Printflambda.flambda ulam;
              assert false)
         | Some _ -> assert false
         | None ->
-          Format.printf "Unknown closure in env_field %a@."
-            Printflambda.flambda expr;
+          Format.printf "Unknown closure in env_field %a@.%a@."
+            Printflambda.flambda expr
+            Printflambda.flambda ulam;
           assert false in
       Fenv_field({env = ulam;env_var;env_fun_id}, ()),
       approx

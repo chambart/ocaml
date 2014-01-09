@@ -421,6 +421,10 @@ and check_closure orig_env funct fv' =
         fatal_error (Printf.sprintf "Flambda.check: variable %s not in \
                                      the closure" (Ident.unique_name id)))
       func.closure_params;
+
+    (* let () = IdentSet.iter (fun id -> *)
+    (*     Format.printf "closure param %a @." Ident.print id) func.closure_params in *)
+
     let env = IdentSet.fold add_env func.closure_params env in
     let env = List.fold_right add_check_env func.params env in
     check env func.body) funct.funs

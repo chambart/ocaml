@@ -725,7 +725,7 @@ alldepend::
 ocamldoc: ocamlc ocamlyacc ocamllex otherlibraries
 	cd ocamldoc && $(MAKE) all
 
-ocamldoc.opt: ocamlc.opt ocamlyacc ocamllex
+ocamldoc.opt: ocamlopt ocamlyacc ocamllex otherlibrariesopt
 	cd ocamldoc && $(MAKE) opt.opt
 
 partialclean::

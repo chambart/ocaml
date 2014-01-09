@@ -96,9 +96,10 @@ let implementation ppf sourcefile outputprefix =
   in
   try comp (Pparse.parse_implementation ppf sourcefile)
   with x ->
-    Stypes.dump (Some (outputprefix ^ ".annot"));
-    remove_file objfile;
-    remove_file cmxfile;
+    (* Stypes.dump (Some (outputprefix ^ ".annot")); *)
+    (* remove_file objfile; *)
+    (* remove_file cmxfile; *)
+    ignore objfile;
     raise x
 
 let c_file name =

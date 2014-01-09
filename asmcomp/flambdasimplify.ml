@@ -247,8 +247,13 @@ let new_subst_exn i env =
 let new_subst_id id env =
   if env.substitute
   then
+    (* allows to prepare a substitution to know the final name *)
+    (* let id' = try IdentMap.find id env.sb.sb_var with Not_found -> Ident.rename id in *)
+
     let id' = Ident.rename id in
     let env = add_sb_var id id' env in
+    if id'.Ident.stamp = 1323 || id'.Ident.stamp = 1322
+    then Format.printf "%a -> %a@." Ident.print id Ident.print id';
     id', env
   else id, env
 
@@ -278,6 +283,7 @@ let new_subst_off id off_unit env off_sb =
   if env.substitute
   then
     let id' = Ident.rename id in
+    (* Format.printf "rename off: %a -> %a@." Ident.print id Ident.print id'; *)
     let env = add_sb_var id id' env in
     let off = { off_unit; off_id = id } in
     let off' = { off_unit = Compilenv.current_unit (); off_id = id' } in
@@ -286,10 +292,12 @@ let new_subst_off id off_unit env off_sb =
   else id, env, off_sb
 
 let new_subst_fv_off id off_unit env off_sb =
+  (* Format.printf "rename off fv %a@." Ident.print id; *)
   let id, env, os_fv = new_subst_off id off_unit env off_sb.os_fv in
   id, env, { off_sb with os_fv }
 
 let new_subst_fun_off id off_unit env off_sb =
+  (* Format.printf "rename off fun %a@." Ident.print id; *)
   let id, env, os_fun = new_subst_off id off_unit env off_sb.os_fun in
   id, env, { off_sb with os_fun }
 
@@ -593,7 +601,11 @@ let check_var_and_constant_result env r lam approx =
       lam
     | Some var ->
       if present var env
-      then Fvar(var, data lam)
+      then
+        begin
+          (* Format.printf "in env %a@." Ident.print var; *)
+          Fvar(var, data lam)
+        end
       else lam
   in
   let expr, r = check_constant_result r res approx in
@@ -603,6 +615,7 @@ let check_var_and_constant_result env r lam approx =
           if env.escaping
           then escape_var r var
           else tmp_escape_var r var in
+        (* Format.printf "use var %a@." Ident.print var; *)
         use_var r var
     | _ -> r
   in
@@ -721,6 +734,10 @@ let split_list n l =
 (* The main functions: iterate on the expression rewriting it and
    propagating up an approximation of the value *)
 
+(* let rec sb_var id env = *)
+(*   try sb_var (IdentMap.find id env.sb.sb_var) env with *)
+(*   | Not_found -> id *)
+
 let rec loop env r tree =
   loop_no_escape (escaping env) r tree
 
@@ -732,6 +749,9 @@ and loop_no_escape env r tree =
   f, ret r (really_import_approx r.approx)
 
 and loop_direct (env:env) r tree : 'a flambda * ret =
+  (* TODO: changer le nom de tree pour être sûr qu'il n'est pas utilisé: avec la substitution
+     il faut passer sur tout pour être sur de ne pas oublier de renomer une variable.
+     bon en fait non ici, mais dans les sous fonctions ? *)
   match tree with
   | Fsymbol (sym,annot) ->
       let id' = try Some (SymbolMap.find sym env.sb.sb_sym) with Not_found -> None in
@@ -743,6 +763,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let id, tree =
         try
           let id' = IdentMap.find id env.sb.sb_var in
+          (* Format.printf "subst: %a -> %a@." Ident.print id Ident.print id'; *)
           id', Fvar(id',annot) with
         | Not_found -> id, tree
       in
@@ -800,6 +821,11 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let arg, r = loop env r fenv_field.env in
       let closure, approx_fun_id = match r.approx.descr with
         | Value_closure { closure; fun_id } -> closure, fun_id
+        | Value_unknown ->
+            Format.printf "Value unknown: %a@.%a@."
+              Printflambda.flambda expr
+              Printflambda.flambda arg;
+            assert false
         | _ -> assert false in
       let env_var = fv_off_id fenv_field.env_var closure in
       let env_fun_id = fun_off_id fenv_field.env_fun_id closure in
@@ -822,14 +848,18 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       check_var_and_constant_result env r expr approx
   | Flet(str, id, lam, body, annot) ->
       let init_used_var = r.used_variables in
+      Format.printf "flet: %a -> %a@." Ident.print id Printflambda.flambda lam;
       let lam, r = loop env r lam in
+      (* Format.printf "Flet %a -> " Ident.print id; *)
       let id, env = new_subst_id id env in
+      (* Format.printf "%a@." Ident.print id; *)
       let def_used_var = r.used_variables in
       let body_env = match str with
         | Variable -> env
         | _ -> add_approx id r.approx env in
       let r_body = { r with used_variables = init_used_var } in
       let body, r = loop body_env r_body body in
+      (* Format.printf "used: %a %b@." Ident.print id (IdentSet.mem id r.used_variables); *)
       let expr, r =
         if IdentSet.mem id r.used_variables
         then
@@ -841,6 +871,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
         else Fsequence(lam, body, annot),
              { r with used_variables =
                         IdentSet.union def_used_var r.used_variables } in
+      Format.printf "flet_out: %a -> %a@." Ident.print id Printflambda.flambda lam;
       expr, exit_scope r id
   | Fletrec(defs, body, annot) ->
       let defs, env = new_subst_ids defs env in
@@ -1013,6 +1044,9 @@ and ffuns_subst env ffuns off_sb =
       let label = Flambdagen.make_function_lbl fun_id in
       let closure_params = IdentSet.fold (fun id set -> IdentSet.add (find_subst' id env) set)
           ffun.closure_params IdentSet.empty in
+      (* Format.printf "add closure params %a -> %a@." *)
+      (*   IdentSet.print ffun.closure_params *)
+      (*   IdentSet.print closure_params; *)
       let params, env = new_subst_ids' ffun.params env in
       let kept_params = IdentSet.map (fun id -> find_subst' id env) ffun.kept_params in
       (* It is not a problem to share the substitution of parameter
@@ -1047,6 +1081,7 @@ and closure env r ffuns fv approxs annot =
   let env = { env with current_functions = FunSet.add ffuns.ident env.current_functions } in
   (* we use the previous closure for evaluating the functions *)
   let off off_id = { off_unit = Compilenv.current_unit (); off_id } in
+  (* let off off_id = { off_unit = ffuns.unit; off_id } in *)
   let internal_closure =
     { ffunctions = ffuns;
       bound_var = IdentMap.fold (fun id (_,desc) map ->
@@ -1060,10 +1095,12 @@ and closure env r ffuns fv approxs annot =
                            closure = internal_closure }) env)
       ffuns.funs (local_env env) in
   let funs, r = IdentMap.fold (fun fid ffun (funs,r) ->
+      (* Format.printf "ffun %a@." Ident.print fid; *)
       let closure_env = IdentMap.fold
           (fun id (_,desc) env ->
              if IdentSet.mem id ffun.closure_params
              then begin
+               (* Format.printf "add closure param %a@." Ident.print id; *)
                add_approx id desc env
              end
              else env) fv closure_env in
@@ -1102,6 +1139,8 @@ and offset r flam off rel annot =
       (* Format.printf "offset %a -> %a@." Offset.print off Offset.print off'; *)
       off'
     with Not_found ->
+      (* Format.printf "no rename offset %a %i@." Offset.print off *)
+      (*   (OffsetMap.cardinal closure.fun_subst_renaming); *)
       off in
   let off_id closure off =
     let off = off_id closure off in
@@ -1113,7 +1152,9 @@ and offset r flam off rel annot =
   let closure = match r.approx.descr with
     | Value_unoffseted_closure closure -> closure
     | Value_closure { closure } -> closure
-    | _ -> assert false in
+    | _ ->
+        Format.printf "%a@.%a@." Offset.print off Printflambda.flambda flam;
+        assert false in
   let off = off_id closure off in
   let rel = Misc.may_map (off_id closure) rel in
   let ret_approx = value_closure { fun_id = off; closure } in
@@ -1154,7 +1195,11 @@ and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
         let r = merge_escape tmp_escape r in
         if nargs > 0 && nargs < func.arity
         then
+          (* !!! TEST ***)
+
           loop env r (partial_apply funct fun_id func args dbg eid)
+          (* Fapply (funct, args, None, dbg, eid), *)
+          (* ret r value_unknown *)
         else
           Fapply (funct, args, None, dbg, eid),
           ret r value_unknown
@@ -1237,8 +1282,13 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
    declaration and specialise it *)
 and duplicate_apply env r funct clos fun_id func fapprox closure_approx
     (args,approxs) dbg =
+  (* Format.printf "duplicate@."; *)
   let clos_id = Ident.create "dup_closure" in
   let make_fv { off_id = id } _ fv =
+    (* Format.printf "fv clos:%a fun:%a off:%a @." *)
+    (*   Ident.print clos_id Offset.print fun_id Offset.print *)
+    (*   { off_unit = clos.unit; *)
+    (*     off_id = id }; *)
     IdentMap.add id
       (Fenv_field ({ env = Fvar(clos_id, ExprId.create ());
                      env_fun_id = fun_id;
@@ -1247,12 +1297,17 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
                    ExprId.create ())) fv
   in
   let fv = OffsetMap.fold make_fv closure_approx.bound_var IdentMap.empty in
+  (* Format.printf "subst Fclosure(clos...)@."; *)
 
   let clos', substitution_context =
     (* Flambdasubst.substitute' IdentMap.empty env.substitution_context *)
     Flambdasubst.substitute' IdentMap.empty Flambdasubst.empty_context
       (Fclosure(clos, fv, ExprId.create ())) in
   let env = { env with substitution_context } in
+
+  (* let clos' = *)
+  (*   Flambdasubst.substitute IdentMap.empty *)
+  (*     (Fclosure(clos, fv, ExprId.create ())) in *)
 
   let env = add_approx clos_id fapprox env in
   let fid, clos', func', fv, eid = match clos' with
@@ -1287,12 +1342,19 @@ and inline env r clos lfunc fun_id func args dbg eid =
   let env = inlining_level_up env in
   let clos_id = Ident.create "inlined_closure" in
 
+  (* let fv', env = IdentSet.fold (fun id (l,env) -> *)
+  (*     let id' = Ident.rename id in *)
+  (*     let env = add_sb_var id id' env in *)
+  (*     (id, id') :: l, env) *)
+  (*     func.closure_params ([],env) in *)
+
   let body =
     func.body
     |> List.fold_right2 (fun id arg body ->
         Flet(Strict, id, arg, body, ExprId.create ~name:"inline arg" ()))
       func.params args
     |> IdentSet.fold (fun id body ->
+        (* Format.printf "inline closure param %a@." Ident.print id; *)
         Flet(Strict, id,
              Fenv_field ({ env = Fvar(clos_id, ExprId.create ());
                            env_fun_id = fun_id;
@@ -1364,6 +1426,7 @@ and inline env r clos lfunc fun_id func args dbg eid =
 let simplify tree =
   let env = empty_env () in
   let result, r = loop env (init_r ()) tree in
+  (* let result, r = loop_substitute env (init_r ()) tree in *)
   if not (IdentSet.is_empty r.used_variables)
   then Format.printf "remaining variables: %a@." IdentSet.print r.used_variables;
   assert(IdentSet.is_empty r.used_variables);
