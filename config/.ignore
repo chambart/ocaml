@@ -1,3 +1,5 @@
 m.h
 s.h
 Makefile
+config.sh
+ocamlcomp
