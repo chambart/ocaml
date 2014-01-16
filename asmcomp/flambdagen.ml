@@ -47,24 +47,40 @@ let nid = ExprId.create
 let foffset (lam, off_id, v) =
   Foffset(lam, { off_id; off_unit = Compilenv.current_unit ()}, None, v)
 
+let add_unit_name name =
+  let unit = Compilenv.current_unit_name () in
+  unit ^ "$" ^ name
+
+let reid id =
+  if id.Ident.stamp >= 1000 (* naze: trouver mieux *)
+  then
+    { id with Ident.name = add_unit_name id.Ident.name }
+  else id
+
+let id_create name =
+  Ident.create (add_unit_name name)
+
 let rec close sb = function
     Lvar id ->
+    let id = reid id in
     Fvar (subst sb id,
         nid ~name:(Printf.sprintf "var_%s" (Ident.unique_name id)) ())
   | Lconst cst -> close_const sb cst
   | Llet(str, id, lam, body) ->
+    let id = reid id in
     let str = match str with
       | Variable -> Variable
       | _ -> Strict in
     Flet(str, id, close_named id sb lam, close sb body, nid ~name:"let" ())
   | Lfunction(kind, params, body) as funct ->
-    let id = Ident.create "fun" in
+    let id = id_create "fun" in
     let id' = Ident.rename id in
     foffset(close_functions sb [id,id',funct],id', nid ~name:"offset" ())
   | Lapply(funct, args, loc) ->
     Fapply(close sb funct, close_list sb args, None, Debuginfo.none,
         nid ~name:"apply" ())
   | Lletrec(defs, body) ->
+    let defs = List.map (fun (id,lam) -> reid id, lam) defs in
     if List.for_all
         (function (id, Lfunction(_, _, _)) -> true | _ -> false)
         defs
@@ -120,8 +136,10 @@ let rec close sb = function
   | Lstaticraise (i, args) ->
     Fstaticfail (i, close_list sb args, nid ())
   | Lstaticcatch(body, (i, vars), handler) ->
+    let vars = List.map reid vars in
     Fcatch (i, vars, close sb body, close sb handler, nid ())
   | Ltrywith(body, id, handler) ->
+    let id = reid id in
     Ftrywith(close sb body, id, close sb handler, nid ())
   | Lifthenelse(arg, ifso, ifnot) ->
     Fifthenelse(close sb arg, close sb ifso, close sb ifnot,
@@ -132,8 +150,10 @@ let rec close sb = function
   | Lwhile(cond, body) ->
     Fwhile(close sb cond, close sb body, nid ())
   | Lfor(id, lo, hi, dir, body) ->
+    let id = reid id in
     Ffor(id, close sb lo, close sb hi, dir, close sb body, nid ())
   | Lassign(id, lam) ->
+    let id = reid id in
     Fassign(id, close sb lam, nid ())
   | Levent(lam, ev) ->
     add_debug_info ev (close sb lam)
@@ -147,6 +167,7 @@ and close_functions (sb:Ident.t IdentMap.t)
   let fv = List.fold_left
       (fun set (_,_,body) -> IdentSet.union (free_variables body) set)
       IdentSet.empty fun_defs in
+  let fv = IdentSet.map reid fv in
   let fun_ids = List.fold_left (fun set (id,_,_) -> IdentSet.add id set)
       IdentSet.empty fun_defs in
   let recursives = ref false in
@@ -174,6 +195,7 @@ and close_functions (sb:Ident.t IdentMap.t)
   let unit = Compilenv.current_unit () in
   let close_one map = function
     | (id, Lfunction(kind, params, body)) ->
+      let params = List.map reid params in
       let dbg = match body with
         | Levent (_,({lev_kind=Lev_function} as ev)) ->
           Debuginfo.from_call ev

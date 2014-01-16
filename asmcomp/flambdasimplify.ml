@@ -252,8 +252,8 @@ let new_subst_id id env =
 
     let id' = Ident.rename id in
     let env = add_sb_var id id' env in
-    if id'.Ident.stamp = 1323 || id'.Ident.stamp = 1322
-    then Format.printf "%a -> %a@." Ident.print id Ident.print id';
+    (* if id'.Ident.stamp = 1323 || id'.Ident.stamp = 1322 *)
+    (* then Format.printf "%a -> %a@." Ident.print id Ident.print id'; *)
     id', env
   else id, env
 
@@ -848,7 +848,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       check_var_and_constant_result env r expr approx
   | Flet(str, id, lam, body, annot) ->
       let init_used_var = r.used_variables in
-      Format.printf "flet: %a -> %a@." Ident.print id Printflambda.flambda lam;
+      (* Format.printf "flet: %a -> %a@." Ident.print id Printflambda.flambda lam; *)
       let lam, r = loop env r lam in
       (* Format.printf "Flet %a -> " Ident.print id; *)
       let id, env = new_subst_id id env in
@@ -871,7 +871,7 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
         else Fsequence(lam, body, annot),
              { r with used_variables =
                         IdentSet.union def_used_var r.used_variables } in
-      Format.printf "flet_out: %a -> %a@." Ident.print id Printflambda.flambda lam;
+      (* Format.printf "flet_out: %a -> %a@." Ident.print id Printflambda.flambda lam; *)
       expr, exit_scope r id
   | Fletrec(defs, body, annot) ->
       let defs, env = new_subst_ids defs env in
