@@ -22,6 +22,19 @@ let foffset (lam, off_id) =
   Foffset(lam, { off_id; off_unit = Compilenv.current_unit ()},
           None, ExprId.create ())
 
+let add_unit_name name =
+  let unit = Compilenv.current_unit_name () in
+  unit ^ "^" ^ name
+
+let reid id =
+  if id.Ident.stamp >= 1000 (* naze: trouver mieux *)
+  then
+    { id with Ident.name = add_unit_name id.Ident.name }
+  else id
+
+let id_create name =
+  Ident.create (add_unit_name name)
+
 type tag = int
 
 type descr =
@@ -1215,8 +1228,8 @@ and partial_apply funct fun_id func args dbg eid =
   let applied_args, remaining_args = Misc.map2_head
     (fun arg id' -> id', arg) args param_sb in
   let call_args = List.map (fun id' -> fvar id') param_sb in
-  let funct_id = Ident.create "partial_called_fun" in
-  let new_fun_id = Ident.create "partial_fun" in
+  let funct_id = id_create "partial_called_fun" in
+  let new_fun_id = id_create "partial_fun" in
   let expr = Fapply (funct, call_args, Some fun_id, dbg, ExprId.create ()) in
   let fclosure = make_function new_fun_id expr remaining_args in
   let offset = foffset (fclosure, new_fun_id) in
@@ -1283,7 +1296,7 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
 and duplicate_apply env r funct clos fun_id func fapprox closure_approx
     (args,approxs) dbg =
   (* Format.printf "duplicate@."; *)
-  let clos_id = Ident.create "dup_closure" in
+  let clos_id = id_create "dup_closure" in
   let make_fv { off_id = id } _ fv =
     (* Format.printf "fv clos:%a fun:%a off:%a @." *)
     (*   Ident.print clos_id Offset.print fun_id Offset.print *)
@@ -1340,7 +1353,7 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
 (* Duplicates the body of the called function *)
 and inline env r clos lfunc fun_id func args dbg eid =
   let env = inlining_level_up env in
-  let clos_id = Ident.create "inlined_closure" in
+  let clos_id = id_create "inlined_closure" in
 
   (* let fv', env = IdentSet.fold (fun id (l,env) -> *)
   (*     let id' = Ident.rename id in *)
