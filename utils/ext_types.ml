@@ -158,11 +158,11 @@ module Id(E:Empty) : Id = struct
   let compare (t1,_) (t2,_) = t1 - t2
   let hash (t,_) = t
   let name (_,name) =
-    if name == empty_string
+    if name = empty_string
     then None
     else Some name
   let to_string (t,name) =
-    if name == empty_string
+    if name = empty_string
     then string_of_int t
     else Printf.sprintf "%s_%i" name t
   let output fd t = output_string fd (to_string t)

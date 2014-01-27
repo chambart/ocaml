@@ -96,6 +96,10 @@ module Import = struct
   type t = approx
   open Flambdaexport
   let rec import_ex ex : t =
+
+    let unit_id = Ident.create_persistent (ExportId.unit ex) in
+    ignore(Compilenv.approx_for_global unit_id);
+
     let ex_info = Compilenv.approx_env () in
     try match EidMap.find ex ex_info.ex_values with
       | Value_int i -> value_int i
