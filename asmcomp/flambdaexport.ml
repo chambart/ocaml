@@ -78,11 +78,15 @@ let print_approx ppf export =
       if EidSet.mem id !printed
       then fprintf ppf "(%a: _)" ExportId.print id
       else
-        let descr = EidMap.find id values in
-        printed := EidSet.add id !printed;
-        fprintf ppf "(%a: %a)"
-          ExportId.print id
-          print_descr descr
+        (try
+           let descr = EidMap.find id values in
+           printed := EidSet.add id !printed;
+           fprintf ppf "(%a: %a)"
+             ExportId.print id
+             print_descr descr
+         with Not_found ->
+           fprintf ppf "(%a: Not available)"
+             ExportId.print id)
     | Value_symbol (id,sym) -> fprintf ppf "%a - %s" Ident.print id sym
   and print_descr ppf = function
     | Value_int i -> pp_print_int ppf i
@@ -122,6 +126,7 @@ let print_symbols ppf export =
   in
   EidMap.iter print_symbol export.ex_id_symbol
 
+
 let merge e1 e2 =
   let int_eq (i:int) j = i = j in
   { ex_values = EidMap.disjoint_union e1.ex_values e2.ex_values;
@@ -140,6 +145,21 @@ let merge e1 e2 =
 (* importing informations to build a pack: the global identifying the
    compilation unit of symbols is changed to be the pack one *)
 
+let rename_id_state = EidTbl.create 100
+
+let import_eid_for_pack units pack id =
+  try EidTbl.find rename_id_state id
+  with Not_found ->
+    let unit = ExportId.unit id in
+    let unit_id = Ident.create_persistent unit in
+    let id' =
+      if IdentSet.mem unit_id units
+      then
+        ExportId.create ?name:(ExportId.name id) pack.Ident.name
+      else id in
+    EidTbl.add rename_id_state id id';
+    id'
+
 let import_symbol_for_pack units pack ((global, lbl) as symbol) =
   if IdentSet.mem global units
   then (pack, lbl)
@@ -147,7 +167,8 @@ let import_symbol_for_pack units pack ((global, lbl) as symbol) =
 
 let import_approx_for_pack units pack = function
   | Value_symbol sym -> Value_symbol (import_symbol_for_pack units pack sym)
-  | approx -> approx
+  | Value_id eid -> Value_id (import_eid_for_pack units pack eid)
+  | Value_unknown -> Value_unknown
 
 let import_closure units pack closure =
   { closure with
@@ -184,19 +205,30 @@ let ex_functions_off ex_functions =
   let aux _ f map = IdentMap.fold (aux_fun f) f.funs map in
   FunMap.fold aux ex_functions OffsetMap.empty
 
+let import_eidmap_for_pack units pack f map =
+  EidMap.map_keys
+    (import_eid_for_pack units pack)
+    (EidMap.map f map)
+
 let import_for_pack ~pack_units ~pack exp =
   let import_sym = import_symbol_for_pack pack_units pack in
   let import_desr = import_descr_for_pack pack_units pack in
   let import_approx = import_approx_for_pack pack_units pack in
+  let import_eid = import_eid_for_pack pack_units pack in
+  let import_eidmap f map = import_eidmap_for_pack pack_units pack f map in
   let ex_functions =
     FunMap.map (import_ffunctions_for_pack pack_units pack)
       exp.ex_functions in
-  { ex_functions;
-    ex_functions_off = ex_functions_off ex_functions;
-    ex_globals = IdentMap.map import_approx exp.ex_globals;
-    ex_offset_fun = exp.ex_offset_fun;
-    ex_offset_fv = exp.ex_offset_fv;
-    ex_values = EidMap.map import_desr exp.ex_values;
-    ex_id_symbol = EidMap.map import_sym exp.ex_id_symbol;
-    ex_symbol_id = SymbolMap.map_keys import_sym exp.ex_symbol_id;
-    ex_constants = SymbolSet.map import_sym exp.ex_constants }
+  let res =
+    { ex_functions;
+      ex_functions_off = ex_functions_off ex_functions;
+      ex_globals = IdentMap.map import_approx exp.ex_globals;
+      ex_offset_fun = exp.ex_offset_fun;
+      ex_offset_fv = exp.ex_offset_fv;
+      ex_values = import_eidmap import_desr exp.ex_values;
+      ex_id_symbol = import_eidmap import_sym exp.ex_id_symbol;
+      ex_symbol_id = SymbolMap.map_keys import_sym
+          (SymbolMap.map import_eid exp.ex_symbol_id);
+      ex_constants = SymbolSet.map import_sym exp.ex_constants } in
+  EidTbl.clear rename_id_state;
+  res
