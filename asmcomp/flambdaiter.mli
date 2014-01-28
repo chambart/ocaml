@@ -21,6 +21,11 @@ val map :
   ('a Flambda.flambda -> 'a Flambda.flambda) ->
   'a Flambda.flambda -> 'a Flambda.flambda
 
+val map_toplevel :
+  ('a Flambda.flambda -> 'a Flambda.flambda) ->
+  'a Flambda.flambda -> 'a Flambda.flambda
+(** Like map, but does not apply f on functions body *)
+
 val map_data : ('a -> 'b) -> 'a Flambda.flambda -> 'b Flambda.flambda
 
 val free_variables : 'a Flambda.flambda -> Flambda.IdentSet.t

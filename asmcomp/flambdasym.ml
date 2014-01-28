@@ -35,7 +35,7 @@ open Flambdaexport
 let mark_closed not_constants expr =
   let closures = ref OffsetMap.empty in
   let aux expr = match expr with
-    | Fclosure(functs, fv, data) ->
+    | Fclosure(functs, fv, spec_arg, data) ->
       let closed =
         (* A function is considered to be closed if all the free variables can be converted
            to constant. i.e. if the whole closure will be compiled as a constant *)
@@ -44,7 +44,7 @@ let mark_closed not_constants expr =
       let add off_id _ map =
         OffsetMap.add {off_unit = functs.unit; off_id} functs map in
       closures := IdentMap.fold add functs.funs !closures;
-      Fclosure(functs, fv, data)
+      Fclosure(functs, fv, spec_arg, data)
     | e -> e
   in
   let expr = Flambdaiter.map aux expr in
@@ -227,6 +227,9 @@ module Conv(P:Param1) = struct
 
   let add_constant lam =
     let sym = to_symbol (Compilenv.new_const_symbol ()) in
+    (* Format.printf "add constant@ %a@ %a@." *)
+    (*   Symbol.print sym *)
+    (*   Printflambda.flambda lam; *)
     SymbolTbl.add infos.constants sym lam;
     sym
 
@@ -361,8 +364,9 @@ module Conv(P:Param1) = struct
        | _ -> Fletrec(not_consts, body, ())),
       approx
 
-    | Fclosure(funct, fv, _) ->
-      conv_closure env funct fv
+    | Fclosure(funct, fv, spec_arg, _) ->
+      let args_approx = IdentMap.map (fun id -> get_approx id env) spec_arg in
+      conv_closure env funct args_approx fv
 
     | Foffset(lam,id,rel, _) as expr ->
       let ulam, fun_approx = conv_approx env lam in
@@ -407,6 +411,26 @@ module Conv(P:Param1) = struct
           assert false in
       Fenv_field({env = ulam;env_var;env_fun_id}, ()),
       approx
+
+    (* TODO VERIFY: we should not specialise non kept recursive parameters *)
+
+    | Fapply (Foffset (Fclosure (ffuns, fv, spec_arg, _), off, (None as rel), _),
+              args, direc, dbg, _) ->
+        (match direc with
+         | None -> assert false
+         | Some direc -> assert (Offset.equal off direc));
+        let uargs, args_approx = conv_list_approx env args in
+        let func =
+          try IdentMap.find off.off_id ffuns.funs
+          with Not_found -> assert false in
+        assert(List.length uargs = List.length func.params);
+        let args_approx = List.fold_right2 IdentMap.add func.params
+            args_approx IdentMap.empty in
+        let uffuns, fun_approx = conv_closure env ffuns args_approx fv in
+        Fapply (Foffset (uffuns, off, rel, ()),
+                uargs, direc, dbg, ()),
+        Value_unknown
+    (* TODO: use approximation of functions *)
 
     | Fapply(funct, args, direct, dbg, _) ->
       let ufunct, fun_approx = conv_approx env funct in
@@ -527,7 +551,7 @@ module Conv(P:Param1) = struct
       Funreachable (),
       Value_unknown
 
-  and conv_closure env functs fv =
+  and conv_closure env functs param_approxs fv =
     let closed = functs.closed in
 
     let fv_ulam_approx = IdentMap.map (conv_approx env) fv in
@@ -545,8 +569,8 @@ module Conv(P:Param1) = struct
           IdentMap.fold (fun off_id (_,approx) map ->
               OffsetMap.add { off_id; off_unit = functs.unit } approx map)
             used_fv_approx OffsetMap.empty } in
-    let value_closure =
-      Value_id (new_descr (Value_unoffseted_closure value_closure')) in
+    let closure_ex_id = new_descr (Value_unoffseted_closure value_closure') in
+    let value_closure = Value_id closure_ex_id in
 
     (* add informations about free variables *)
     let env =
@@ -570,6 +594,14 @@ module Conv(P:Param1) = struct
             add_approx id (Value_id ex) env)
           functs.funs env
       in
+
+      (* add informations about kept parameters *)
+      let env =
+        IdentMap.fold (fun id approx env ->
+            if IdentSet.mem id func.kept_params
+            then add_approx id approx env
+            else env)
+          param_approxs env in
 
       (* Add to the substitution the value of the free variables *)
       let add_env_variable id lam env =
@@ -605,9 +637,13 @@ module Conv(P:Param1) = struct
     infos.ex_functions := FunMap.add ufunct.ident ufunct !(infos.ex_functions);
 
     let expr =
-      let expr = Fclosure (ufunct, used_fv, ()) in
+      (* TODO: fill spec_arg *)
+      let expr = Fclosure (ufunct, used_fv, IdentMap.empty, ()) in
       if ufunct.closed
-      then Fsymbol(add_constant expr, ())
+      then
+        let sym = add_constant expr in
+        add_symbol sym closure_ex_id;
+        Fsymbol(sym, ())
       else expr in
     expr, value_closure
 
@@ -625,7 +661,7 @@ module Conv(P:Param1) = struct
       Lbl sym
     | Fconst(_, ()) ->
       No_lbl
-    | Fclosure (clos,_,_) ->
+    | Fclosure (clos,_,_,_) ->
       if clos.closed
       then Const_closure
       else Not_const
@@ -761,6 +797,5 @@ let convert (type a) (expr:a Flambda.flambda) =
       ex_functions = C2.ex_functions;
       ex_functions_off = C2.ex_functions_off }
   in
-
   C2.expr, C2.constants, export
 

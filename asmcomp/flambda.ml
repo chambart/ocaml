@@ -115,7 +115,7 @@ type 'a flambda =
   | Fconst of const * 'a
   | Fapply of 'a flambda * 'a flambda list *
                 offset option * Debuginfo.t * 'a
-  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
+  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * Ident.t IdentMap.t * 'a
   | Foffset of 'a flambda * offset * offset option * 'a
     (* Foffset(closure, id, previous_offset) access to the function 'id' from the closure.
        If previous_offset is Some(off) this represent an offset
@@ -233,7 +233,7 @@ let bind_var id lam env =
         { env with closure_variables =
                      IdentMap.add id closure_var env.closure_variables }
     else env
-    | Fclosure (ffun,fv,_) ->
+    | Fclosure (ffun,fv,_,_) ->
       { env with closure_variables =
                    IdentMap.add id (ffun,fv) env.closure_variables }
     | Flet (_,_,_,lam,_) ->
@@ -294,7 +294,7 @@ let rec check env = function
     let env = List.fold_left (fun env (id,lam) -> bind_var id lam env) env defs in
     List.iter (fun (_,def) -> check env def) defs;
     check env body
-  | Fclosure(funct, fv,_) ->
+  | Fclosure(funct, fv, spec_arg, _) ->
     List.iter (fun (id, l) ->
         if IdentSet.mem id !(env.seen_env_var)
         then fatal_error (Printf.sprintf "Flambda.check: closure variable %s \
@@ -302,6 +302,12 @@ let rec check env = function
               (Ident.unique_name id))
         else env.seen_env_var := IdentSet.add id !(env.seen_env_var);
         check env l) (IdentMap.bindings fv);
+    IdentMap.iter (fun param id' ->
+        assert(IdentMap.exists (fun _ ffun -> List.mem param ffun.params) funct.funs);
+        if not (IdentSet.mem id' env.bound_variables)
+        then fatal_error (Format.asprintf "Flambda.check: unbound specialised variable %a"
+                            Ident.print id'))
+      spec_arg;
     check_closure env funct fv
   | Foffset(lam,{ off_unit; off_id = id },relative_offset, _) ->
     check env lam;
@@ -343,7 +349,7 @@ let rec check env = function
     then begin
       need_env_var env_fun_id.off_id env_var.off_id env;
       let closure = match env_lam with
-        | Fclosure (ffun,fv,_) -> Some (ffun,fv)
+        | Fclosure (ffun,fv,_,_) -> Some (ffun,fv)
         | Fvar(id,_) ->
           (try Some (IdentMap.find id env.closure_variables)
            with Not_found -> None)
@@ -465,7 +471,7 @@ let data = function
   | Fconst (cst,data) -> data
   | Flet(str, id, lam, body,data) -> data
   | Fletrec(defs, body,data) -> data
-  | Fclosure(funct, fv,data) -> data
+  | Fclosure(funct, fv, spec_arg, data) -> data
   | Foffset(lam,id,rel,data) -> data
   | Fenv_field(_,data) -> data
   | Fapply(funct, args, _, _,data) -> data
@@ -490,7 +496,7 @@ let string_desc = function
     Printf.sprintf "let %s"
       (Ident.unique_name id)
   | Fletrec(defs, body,data) -> "letrec"
-  | Fclosure(funct, fv,data) -> "closure"
+  | Fclosure(funct, fv, spec_arg, data) -> "closure"
   | Foffset(lam,id,rel,data) -> "offset"
   | Fenv_field(_,data) -> "env_field"
   | Fapply(funct, args, _, _,data) -> "apply"

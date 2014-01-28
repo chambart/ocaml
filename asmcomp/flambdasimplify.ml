@@ -68,7 +68,7 @@ let rec print_descr ppf = function
   | Value_constptr i -> Format.fprintf ppf "%ia" i
   | Value_block (tag,fields) ->
     let p ppf fields =
-      Array.iter (fun v -> Format.fprintf ppf "%a@ " print_approx v) fields in
+      Array.iter (fun v -> Format.fprintf ppf "%a@ " print_approx' v) fields in
     Format.fprintf ppf "[%i:@ @[<1>%a@]]" tag p fields
   | Value_unknown -> Format.fprintf ppf "?"
   | Value_bottom -> Format.fprintf ppf "bottom"
@@ -76,9 +76,11 @@ let rec print_descr ppf = function
   | Value_symbol sym -> Format.fprintf ppf "%a" Symbol.print sym
   | Value_closure { fun_id } ->
     Format.fprintf ppf "(fun:@ %a)" Offset.print fun_id
-  | _ -> Format.fprintf ppf "TODO"
+  | Value_unoffseted_closure { ffunctions = { funs } } ->
+    Format.fprintf ppf "(unoffseted:@ %a)"
+      (fun ppf -> IdentMap.iter (fun id _ -> Ident.print ppf id)) funs
 
-and print_approx ppf { descr } = print_descr ppf descr
+and print_approx' ppf { descr } = print_descr ppf descr
 
 let approx descr = { descr; var = None; symbol = None }
 
@@ -114,8 +116,18 @@ module Import = struct
                 bound_var;
                 fv_subst_renaming = OffsetMap.empty;
                 fun_subst_renaming = OffsetMap.empty } }
-      | _ -> value_unknown
-    with Not_found -> value_unknown
+      | Value_unoffseted_closure { closure_id; bound_var } ->
+        let bound_var = OffsetMap.map import_approx bound_var in
+        value_unoffseted_closure
+          { ffunctions = Compilenv.imported_closure closure_id;
+            bound_var;
+            fv_subst_renaming = OffsetMap.empty;
+            fun_subst_renaming = OffsetMap.empty }
+      | _ ->
+          value_unknown
+    with Not_found ->
+      (* Format.printf "id not found %a@." ExportId.print ex; *)
+      value_unknown
 
   and import_approx (ap:Flambdaexport.approx) : t =
     match ap with
@@ -132,11 +144,12 @@ module Import = struct
         (Compilenv.approx_for_global id).ex_symbol_id in
       try import_ex (SymbolMap.find sym symbol_id_map) with
       | Not_found ->
+        (* Format.printf "symbol not found@ %a@." Symbol.print sym; *)
         value_unknown
 
   let import_symbol sym =
     let r = import_symbol sym in
-    (* Format.printf "import %a:@[<1>@ %a@]@." Symbol.print sym print_descr r; *)
+    (* Format.printf "import %a:@[<1>@ %a@]@." Symbol.print sym print_approx' r; *)
     r
 
   let rec really_import = function
@@ -188,6 +201,7 @@ type env =
     substitution_context : Flambdasubst.context;
     sb : sb;
     substitute : bool;
+    inline_threshold : int;
   }
 
 let empty_sb = { sb_var = IdentMap.empty;
@@ -204,10 +218,13 @@ let empty_env () =
     inlining_level = 0;
     substitution_context = Flambdasubst.empty_context;
     sb = empty_sb;
-    substitute = false }
+    substitute = false;
+    inline_threshold = !Clflags.inline_threshold }
 
 let local_env env =
-  { env with env_approx = IdentMap.empty }
+  { env with
+    env_approx = IdentMap.empty;
+    sb = empty_sb }
 
 type ret =
   { approx : approx;
@@ -289,6 +306,10 @@ let find_subst' id env =
   | Not_found ->
       fatal_error (Format.asprintf "find_subst': can't find %a@." Ident.print id)
 
+let subst_var env id =
+  try IdentMap.find id env.sb.sb_var with
+  | Not_found -> id
+
 type offset_subst =
   { os_fv : offset OffsetMap.t;
     os_fun : offset OffsetMap.t }
@@ -346,6 +367,7 @@ let merge_escape set acc =
   { acc with escape_variables = IdentSet.union acc.escape_variables set }
 
 let use_var acc var =
+  (* Format.printf "use var %a@." Ident.print var; *)
   { acc with used_variables = IdentSet.add var acc.used_variables }
 
 let exit_scope acc var =
@@ -442,7 +464,7 @@ let make_function id lam params =
        recursives = false;
        closed = IdentSet.is_empty fv;
        unit },
-     fv', ExprId.create ())
+     fv', IdentMap.empty, ExprId.create ())
 
 (* Determine whether the estimated size of a flambda term is below
    some threshold *)
@@ -477,7 +499,7 @@ let prim_size prim args =
 
 (* Very raw approximation of switch cost *)
 
-let lambda_smaller lam threshold =
+let lambda_smaller' lam threshold =
   let size = ref 0 in
   let rec lambda_size lam =
     if !size > threshold then raise Exit;
@@ -495,7 +517,7 @@ let lambda_smaller lam threshold =
     | Fapply(fn, args, direct, _, _) ->
         let call_cost = match direct with None -> 6 | Some _ -> 4 in
         size := !size + call_cost; lambda_size fn; lambda_list_size args
-    | Fclosure(ffuns, fv, _) ->
+    | Fclosure(ffuns, fv, _, _) ->
         IdentMap.iter (fun _ -> lambda_size) fv;
         IdentMap.iter (fun _ ffun -> lambda_size ffun.body) ffuns.funs
     | Foffset(lam, _, _, _) ->
@@ -538,10 +560,14 @@ let lambda_smaller lam threshold =
     | Funreachable _ -> ()
   and lambda_list_size l = List.iter lambda_size l in
   try
-    lambda_size lam; !size <= threshold
+    lambda_size lam;
+    if !size <= threshold then Some !size
+    else None
   with Exit ->
-    false
+    None
 
+let lambda_smaller lam threshold =
+  lambda_smaller' lam threshold <> None
 
 (* Simple effectfull test, should be replace by call to Purity module *)
 
@@ -575,7 +601,7 @@ let rec no_effects = function
   | Fprim(p, args, _, _) ->
       no_effects_prim p &&
       List.for_all no_effects args
-  | Fclosure (_, fv, _) ->
+  | Fclosure (_, fv, _, _) ->
       IdentMap.for_all (fun id def -> no_effects def) fv
   | Foffset (lam,_ , _, _) ->
       no_effects lam
@@ -787,38 +813,34 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       check_var_and_constant_result env r tree (find_unknwon id env)
   | Fconst (cst,_) -> tree, ret r (const_approx cst)
 
-(*
+
+  (* TODO VERIFY: we should not specialise non kept recursive parameters *)
+
   (* The only form to allow specialising function to parameters: no escaping guaranteed.
      if the function was an escaping recursive function, the transformation wouldn't
      have been allowed. *)
-  | Fapply (Foffset (Fclosure (ffuns, fv, a_clo), off, (None as rel), a_off),
+  | Fapply (Foffset (Fclosure (ffuns, fv, spec_args, a_clo), off, (None as rel), a_off),
             args, direc, dbg, a_app) ->
+      (* Format.printf "known apply %a@." Offset.print off; *)
       (* suppose no strange effect in fv: eval args before closure *)
       let args, approxs, r = loop_list env r args in
       let r = start_escape_region r in
-
-      let func = IdentMap.find off.off_id ffuns.funs in
-      let used_params = Misc.combine_min approxs func.params in
-      let params_approx =
-        List.fold_left (fun map (approx, param_id) -> IdentMap.add param_id approx map)
-          IdentMap.empty used_params in
-
-      let clos, r = closure env r ffuns fv params_approx a_clo in
+      let clos, r = closure env r ffuns fv spec_args a_clo in
       let funct, ({ approx = fapprox } as r) = offset r clos off rel a_off in
       let tmp_escape, r = end_escape_region r in
-      apply env r tmp_escape (funct,fapprox) (args,approxs) dbg a_app
-*)
+      apply ~local:true env r tmp_escape (funct,fapprox) (args,approxs) dbg a_app
 
   | Fapply (funct, args, direc, dbg, annot) ->
       let r = start_escape_region r in
       let funct, ({ approx = fapprox } as r) = loop_no_escape (escaping ~b:false env) r funct in
       let tmp_escape, r = end_escape_region r in
       let args, approxs, r = loop_list env r args in
-      apply env r tmp_escape (funct,fapprox) (args,approxs) dbg annot
+      apply ~local:false env r tmp_escape (funct,fapprox) (args,approxs) dbg annot
 
-  | Fclosure (ffuns, fv, annot) ->
-      closure env r ffuns fv IdentMap.empty annot
+  | Fclosure (ffuns, fv, spec_args, annot) ->
+      closure env r ffuns fv spec_args annot
   | Foffset (flam, off, rel, annot) ->
+      (* Format.printf "foffset before@ %a@." Printflambda.flambda flam; *)
       let flam, r = loop env r flam in
       offset r flam off rel annot
   | Fenv_field (fenv_field, annot) as expr ->
@@ -839,9 +861,10 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       let closure, approx_fun_id = match r.approx.descr with
         | Value_closure { closure; fun_id } -> closure, fun_id
         | Value_unknown ->
-            Format.printf "Value unknown: %a@.%a@."
+            Format.printf "Value unknown: %a@.%a@.%a@."
               Printflambda.flambda expr
-              Printflambda.flambda arg;
+              Printflambda.flambda arg
+              Printflambda.flambda fenv_field.env;
             assert false
         | _ -> assert false in
       let env_var = fv_off_id fenv_field.env_var closure in
@@ -865,7 +888,8 @@ and loop_direct (env:env) r tree : 'a flambda * ret =
       check_var_and_constant_result env r expr approx
   | Flet(str, id, lam, body, annot) ->
       let init_used_var = r.used_variables in
-      (* Format.printf "flet: %a -> %a@." Ident.print id Printflambda.flambda lam; *)
+      (* Format.printf "flet: %a ->@ %a@." Ident.print id Printflambda.flambda lam; *)
+      (* Format.printf "body:@ %a@." Printflambda.flambda body; *)
       let lam, r = loop env r lam in
       (* Format.printf "Flet %a -> " Ident.print id; *)
       let id, env = new_subst_id id env in
@@ -1076,7 +1100,17 @@ and ffuns_subst env ffuns off_sb =
     in
     let funs, env, off_sb =
       IdentMap.fold (fun id ffun (funs, env, off_sb) ->
+
+          (* let closure_symbol = Compilenv.closure_symbol *)
+          (*     { off_unit = ffuns.unit; off_id = id } in *)
+
           let id, env, off_sb = new_subst_fun_off id ffuns.unit env off_sb in
+
+          (* let env = add_sb_sym closure_symbol id env in *)
+
+          (* Format.printf "subst fun name %a -> %a@." *)
+          (*   Symbol.print closure_symbol *)
+          (*   Ident.print id; *)
           let ffun, env = subst_ffunction id ffun env in
           let funs = IdentMap.add id ffun funs in
           funs, env, off_sb)
@@ -1087,13 +1121,33 @@ and ffuns_subst env ffuns off_sb =
       funs }, env, off_sb
   else ffuns, env,off_sb
 
-and closure env r ffuns fv approxs annot =
+and closure env r ffuns fv spec_args annot =
+  (* IdentMap.iter (fun key id -> *)
+  (*     Format.printf "clos %a with %a -> %a@." *)
+  (*       Ident.print key *)
+  (*       Ident.print id *)
+  (*       Ident.print (subst_var env id)) spec_args; *)
+  let spec_args = IdentMap.map (subst_var env) spec_args in
+  let approxs = IdentMap.map (fun id -> find_unknwon id env) spec_args in
+
   let fv, r = IdentMap.fold (fun id lam (fv,r) ->
       let lam, r = loop env r lam in
       IdentMap.add id (lam, r.approx) fv, r) fv (IdentMap.empty, r) in
 
+  let env = local_env env in
+
+  let prev_closure_symbols = IdentMap.fold (fun id _ map ->
+      let sym = Compilenv.closure_symbol { off_unit = ffuns.unit; off_id = id } in
+      SymbolMap.add sym id map) ffuns.funs SymbolMap.empty in
+
+  (* Format.printf "funid %a ->" FunId.print ffuns.ident; *)
   let fv, env, off_sb = subst_free_vars ffuns.unit fv env in
   let ffuns, env, off_sb = ffuns_subst env ffuns off_sb in
+  (* Format.printf "%a@." FunId.print ffuns.ident; *)
+
+  let spec_args = IdentMap.map_keys (subst_var env) spec_args in
+  let approxs = IdentMap.map_keys (subst_var env) approxs in
+  let prev_closure_symbols = SymbolMap.map (subst_var env) prev_closure_symbols in
 
   let env = { env with current_functions = FunSet.add ffuns.ident env.current_functions } in
   (* we use the previous closure for evaluating the functions *)
@@ -1110,8 +1164,8 @@ and closure env r ffuns fv approxs annot =
       (fun id _ env -> add_approx id
           (value_closure { fun_id = (off id);
                            closure = internal_closure }) env)
-      ffuns.funs (local_env env) in
-  let funs, r = IdentMap.fold (fun fid ffun (funs,r) ->
+      ffuns.funs env in
+  let funs, used_params, r = IdentMap.fold (fun fid ffun (funs,used_params,r) ->
       (* Format.printf "ffun %a@." Ident.print fid; *)
       let closure_env = IdentMap.fold
           (fun id (_,desc) env ->
@@ -1122,9 +1176,32 @@ and closure env r ffuns fv approxs annot =
              end
              else env) fv closure_env in
       let closure_env = List.fold_left (fun env id ->
-          let approx = try IdentMap.find id approxs with Not_found -> value_unknown in
+          let approx = try IdentMap.find id approxs
+            with Not_found ->
+              (* Format.printf "approx not found %a@." Ident.print id; *)
+              value_unknown in
           add_approx id approx env) closure_env ffun.params in
-      let body, r = loop closure_env r ffun.body in
+
+      (***** TODO: find something better
+             Warning if multiply recursive function ******)
+      (* Format.printf "body:@ %a@." Printflambda.flambda ffun.body; *)
+      let body = Flambdaiter.map_toplevel (function
+          | Fsymbol (sym,_) when SymbolMap.mem sym prev_closure_symbols ->
+              (* Format.printf "rec replace here! %a@." Symbol.print sym; *)
+              Fvar(SymbolMap.find sym prev_closure_symbols,ExprId.create ())
+          | e -> e) ffun.body in
+      (* Format.printf "after:@ %a@." Printflambda.flambda body; *)
+      (* We replace recursive calls using the function symbol
+         This is done before substitution because we could have something like:
+           List.iter (List.iter some_fun) l
+         And we need to distinguish the inner iter from the outer one
+      *)
+
+      let body, r = loop closure_env r body in
+      let used_params = List.fold_left (fun acc id ->
+          if IdentSet.mem id r.used_variables
+          then IdentSet.add id acc
+          else acc) used_params ffun.params in
       let kept_params =
         if (IdentMap.cardinal ffuns.funs = 1) &&
            (* multiply recursive functions are not handled yet *)
@@ -1141,12 +1218,20 @@ and closure env r ffuns fv approxs annot =
       let r = List.fold_left exit_scope r ffun.params in
       let r = IdentSet.fold (fun id r -> exit_scope r id)
           ffun.closure_params r in
-      IdentMap.add fid { ffun with body; kept_params } funs, r)
-      ffuns.funs (IdentMap.empty, r) in
+      IdentMap.add fid { ffun with body; kept_params } funs, used_params, r)
+      ffuns.funs (IdentMap.empty, IdentSet.empty, r) in
+
+  let spec_args = IdentMap.filter
+      (fun id _ -> IdentSet.mem id used_params)
+      spec_args in
+
+  let r = IdentMap.fold (fun id' v acc ->
+      (* Format.printf "use %a (for %a)@." Ident.print v Ident.print id'; *)
+      use_var acc v) spec_args r in
   let ffuns = { ffuns with funs } in
   let closure = { internal_closure with ffunctions = ffuns } in
   let r = IdentMap.fold (fun id _ r -> exit_scope r id) ffuns.funs r in
-  Fclosure (ffuns, IdentMap.map fst fv, annot),
+  Fclosure (ffuns, IdentMap.map fst fv, spec_args, annot),
   ret r (value_unoffseted_closure closure)
 
 and offset r flam off rel annot =
@@ -1179,8 +1264,11 @@ and offset r flam off rel annot =
   Foffset (flam, off, rel, annot), ret r ret_approx
 
 (* Apply a function to its parameters: if the function is known, we will go to the special cases:
-   direct apply of parial apply *)
-and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
+   direct apply of parial apply
+   local: if local is true, the application is of the shape: apply (offset (closure ...)).
+          i.e. it should not duplicate the function
+ *)
+and apply env r ~local tmp_escape (funct,fapprox) (args,approxs) dbg eid =
   match fapprox.descr with
   | Value_closure { fun_id; closure } ->
       let clos = closure.ffunctions in
@@ -1199,13 +1287,13 @@ and apply env r tmp_escape (funct,fapprox) (args,approxs) dbg eid =
       in
       let nargs = List.length args in
       if nargs = func.arity
-      then direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg eid
+      then direct_apply env r ~local clos funct fun_id func fapprox closure (args,approxs) dbg eid
       else
       if nargs > func.arity
       then
         let h_args, q_args = split_list func.arity args in
         let h_approxs, q_approxs = split_list func.arity approxs in
-        let expr, r = direct_apply env r clos funct fun_id func fapprox closure (h_args,h_approxs)
+        let expr, r = direct_apply env r ~local clos funct fun_id func fapprox closure (h_args,h_approxs)
             dbg (ExprId.create ()) in
         loop env r (Fapply(expr, q_args, None, dbg, eid))
       else
@@ -1242,7 +1330,7 @@ and partial_apply funct fun_id func args dbg eid =
       applied_args offset in
   Flet(Strict, funct_id, funct, with_args, ExprId.create ())
 
-and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg eid =
+and direct_apply env r ~local clos funct fun_id func fapprox closure (args,approxs) dbg eid =
   let r =
     List.fold_left2 (fun r approx id ->
         match approx.var with
@@ -1269,10 +1357,13 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
          ret r value_unknown
          (* do not use approximation: there can be renamed offsets *)
   else
-    if false (* Recursive function specialisation temporarily disabled *)
-    (* clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
+    (* if false (\* Recursive function specialisation temporarily disabled *\) *)
+    (* let () = Format.printf "current functions: %a@ %a@." *)
+    (*     FunId.print clos.ident *)
+    (*     FunSet.print env.current_functions in *)
+    if clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
        not (IdentSet.is_empty func.kept_params)
-       && OffsetMap.is_empty closure.bound_var (* closed *) *)
+       && OffsetMap.is_empty closure.bound_var (* closed *)
     then begin
       let f id approx acc =
         match approx.descr with
@@ -1283,7 +1374,7 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
             then IdentMap.add id approx acc
             else acc in
       let worth = List.fold_right2 f func.params approxs IdentMap.empty in
-      if not (IdentMap.is_empty worth)
+      if not (IdentMap.is_empty worth) && not local
       then
         duplicate_apply env r funct clos fun_id func fapprox closure
           (args,approxs) dbg
@@ -1299,6 +1390,7 @@ and direct_apply env r clos funct fun_id func fapprox closure (args,approxs) dbg
    declaration and specialise it *)
 and duplicate_apply env r funct clos fun_id func fapprox closure_approx
     (args,approxs) dbg =
+  let env = inlining_level_up env in
   (* Format.printf "duplicate@."; *)
   let clos_id = id_create "dup_closure" in
   let make_fv { off_id = id } _ fv =
@@ -1314,45 +1406,47 @@ and duplicate_apply env r funct clos fun_id func fapprox closure_approx
                    ExprId.create ())) fv
   in
   let fv = OffsetMap.fold make_fv closure_approx.bound_var IdentMap.empty in
-  (* Format.printf "subst Fclosure(clos...)@."; *)
-
-  let clos', substitution_context =
-    (* Flambdasubst.substitute' IdentMap.empty env.substitution_context *)
-    Flambdasubst.substitute' IdentMap.empty Flambdasubst.empty_context
-      (Fclosure(clos, fv, ExprId.create ())) in
-  let env = { env with substitution_context } in
-
-  (* let clos' = *)
-  (*   Flambdasubst.substitute IdentMap.empty *)
-  (*     (Fclosure(clos, fv, ExprId.create ())) in *)
 
   let env = add_approx clos_id fapprox env in
-  let fid, clos', func', fv, eid = match clos' with
-    | Fclosure (clos', fv, eid) ->
-        assert(IdentMap.cardinal clos'.funs = 1);
-        let fid, func' = IdentMap.choose clos'.funs in
-        fid, clos', func', fv, eid
-    | _ -> assert false in
 
-  let kept_approx =
-    let f id approx acc =
-      match approx.descr with
-      | Value_unknown
-      | Value_bottom -> acc
-      | _ ->
-          if IdentSet.mem id func'.kept_params
-          then IdentMap.add id approx acc
-          else acc in
-    List.fold_right2 f func'.params approxs IdentMap.empty in
+  (* TODO: remove specialisation from here and factorise with the other case *)
 
-  let clos_expr, r = closure env r clos' fv kept_approx eid in
+  let (spec_args, args, env_func) =
+    let f (id,arg) approx (spec_args,args,env_func) =
+      let new_id = Ident.rename id in
+      (* Format.printf "rename %a -> %a@." Ident.print id Ident.print new_id; *)
+      let args = (new_id, arg) :: args in
+      let env_func = add_approx new_id approx env_func in
+      let spec_args =
+        match approx.descr with
+        | Value_unknown
+        | Value_bottom -> spec_args
+        | _ ->
+            if IdentSet.mem id func.kept_params
+            then IdentMap.add id new_id spec_args
+            else spec_args in
+      spec_args, args, env_func
+    in
+    let params = List.combine func.params args in
+    List.fold_right2 f params approxs (IdentMap.empty,[],env) in
+
+  let args_exprs = List.map (fun (id,_) -> Fvar(id,ExprId.create ())) args in
+
+  let clos_expr = (Fclosure(clos, fv, spec_args, ExprId.create ())) in
+
   let r = exit_scope r clos_id in
-  let fun_id' = { off_id = fid; off_unit = clos'.unit } in
-  let expr = Foffset(clos_expr, fun_id',
+  let expr = Foffset(clos_expr, fun_id,
                      None, ExprId.create ()) in
-  let expr = Fapply (expr, args, Some fun_id', dbg, ExprId.create ()) in
+  let expr = Fapply (expr, args_exprs, Some fun_id, dbg, ExprId.create ()) in
+  let expr = List.fold_left
+      (fun expr (id,arg) ->
+         (* Format.printf "flet %a -> %a@." Ident.print id Printflambda.flambda arg; *)
+         Flet(Strict, id, arg, expr, ExprId.create ()))
+      expr args in
   let expr = Flet(Strict, clos_id, funct, expr, ExprId.create ()) in
-  expr, r
+  let r = List.fold_left (fun r (id,_) -> exit_scope r id) r args in
+  loop_substitute env r expr
+  (* expr, r *)
 
 (* Duplicates the body of the called function *)
 and inline env r clos lfunc fun_id func args dbg eid =

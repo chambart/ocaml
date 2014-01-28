@@ -234,7 +234,7 @@ and close_functions (sb:Ident.t IdentMap.t)
   Fclosure ({ ident; funs = functions; recursives = !recursives;
               closed = false;
               unit },
-    clos_var, nid ())
+    clos_var, IdentMap.empty, nid ())
 
 and tupled_function_call_stub id params closure_params fun_off =
   let tuple_param = Ident.create "tupled_stub_param" in

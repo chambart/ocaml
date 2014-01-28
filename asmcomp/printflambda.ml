@@ -40,7 +40,7 @@ let rec lam ppf = function
   | Fenv_field({env;env_fun_id;env_var},_) ->
     fprintf ppf "@[<2>(env@ %a@ %a@ %a)@]"
       Offset.print env_var Offset.print env_fun_id lam env
-  | Fclosure(clos,fv,_) ->
+  | Fclosure(clos,fv,spec_arg,_) ->
     let idents ppf =
       List.iter (fprintf ppf "@ %a" Ident.print) in
     let one_fun ppf f =
@@ -51,7 +51,16 @@ let rec lam ppf = function
     let lams ppf =
       IdentMap.iter (fun id v -> fprintf ppf "@ %a = %a"
           Ident.print id lam v) in
-    fprintf ppf "@[<2>(closure%a %a)@]" funs clos.funs lams fv
+    let spec ppf spec_args =
+      if not (IdentMap.is_empty spec_args)
+      then begin
+        fprintf ppf "@ with";
+        IdentMap.iter (fun id id' -> fprintf ppf "@ %a <- %a"
+                          Ident.print id Ident.print id')
+          spec_args
+      end
+    in
+    fprintf ppf "@[<2>(closure%a %a%a)@]" funs clos.funs lams fv spec spec_arg
   | Flet(str, id, arg, body,_) ->
     let rec letbody ul = match ul with
       | Flet(str, id, arg, body,_) ->

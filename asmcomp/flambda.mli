@@ -87,7 +87,7 @@ type 'a flambda =
       Direct call informations being [Some offset] means that
       only one function can be called here, and offset is its identifer *)
 
-  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * 'a
+  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * Ident.t IdentMap.t * 'a
   (** functions description * bound variables
       It is an unoffseted closure: multiple function can be
       present in a closure, to use the closure, we must tell

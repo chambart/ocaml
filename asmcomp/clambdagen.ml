@@ -21,7 +21,7 @@ open Flambda
 let list_closures expr constants =
   let closures = ref OffsetMap.empty in
   let aux expr = match expr with
-    | Fclosure(functs, fv, data) ->
+    | Fclosure(functs, fv, _, data) ->
       let add off_id _ map =
         OffsetMap.add {off_unit = functs.unit; off_id} functs map in
       closures := IdentMap.fold add functs.funs !closures;
@@ -75,7 +75,7 @@ module Offsets(P:Param1) = struct
   let fv_offset_table = ref OffsetMap.empty
 
   let rec iter = function
-    | Fclosure(funct, fv, _) ->
+    | Fclosure(funct, fv, _, _) ->
       iter_closure funct fv
     | _ -> ()
 
@@ -210,7 +210,7 @@ module Conv(P:Param2) = struct
       let udefs = List.map (fun (id,def) -> id, conv env def) defs in
       Uletrec(udefs, conv env body)
 
-    | Fclosure(funct, fv, _) ->
+    | Fclosure(funct, fv, _, _) ->
       conv_closure env ~expected_symbol funct fv
 
     | Foffset(lam,id,rel, _) ->

@@ -148,7 +148,7 @@ module NotConstants(P:Param) = struct
       (* adds 'id in NC => curr in NC' *)
       add_depend curr (Var id)
 
-    | Fclosure (funcs,fv,_) ->
+    | Fclosure (funcs,fv,spec,_) ->
       (* adds 'funcs in NC => curr in NC' *)
       add_depend curr (Closure funcs.ident);
       (* a closure is constant if its free variables are constants. *)
