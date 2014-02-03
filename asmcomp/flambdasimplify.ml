@@ -1340,51 +1340,58 @@ and direct_apply env r ~local clos funct fun_id func fapprox closure (args,appro
   let max_level = 3 in
   (* if env.inlining_level > max_level then
      Format.printf "current level: %i in %a@." env.inlining_level Offset.print fun_id; *)
-  if func.stub ||
-     (not clos.recursives && lambda_smaller func.body
-        ((!Clflags.inline_threshold + List.length func.params) * 2)
-      && env.inlining_level <= max_level)
-  then
-    (* try inlining if the function is not too far above the threshold *)
-    let body, r_inline = inline env r clos funct fun_id func args dbg eid in
-    if func.stub ||
-       (lambda_smaller body
-          (!Clflags.inline_threshold + List.length func.params))
-    then
-      (* if the definitive size is small enought: keep it *)
-      body, r_inline
-    else Fapply (funct, args, Some fun_id, dbg, eid),
-         ret r value_unknown
-         (* do not use approximation: there can be renamed offsets *)
-  else
-    (* if false (\* Recursive function specialisation temporarily disabled *\) *)
-    (* let () = Format.printf "current functions: %a@ %a@." *)
-    (*     FunId.print clos.ident *)
-    (*     FunSet.print env.current_functions in *)
-    if clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
-       not (IdentSet.is_empty func.kept_params)
-       && OffsetMap.is_empty closure.bound_var (* closed *)
-    then begin
-      let f id approx acc =
-        match approx.descr with
-        | Value_unknown
-        | Value_bottom -> acc
-        | _ ->
-            if IdentSet.mem id func.kept_params
-            then IdentMap.add id approx acc
-            else acc in
-      let worth = List.fold_right2 f func.params approxs IdentMap.empty in
-      if not (IdentMap.is_empty worth) && not local
+  let fun_size = lambda_smaller' func.body
+      ((env.inline_threshold + List.length func.params) * 2) in
+  match fun_size with
+  | None ->
+      Fapply (funct, args, Some fun_id, dbg, eid),
+      ret r value_unknown
+  | Some fun_size ->
+      let env = { env with inline_threshold = env.inline_threshold - fun_size } in
+      if func.stub || (not clos.recursives && env.inlining_level <= max_level)
       then
-        duplicate_apply env r funct clos fun_id func fapprox closure
-          (args,approxs) dbg
+        (* try inlining if the function is not too far above the threshold *)
+        let body, r_inline = inline env r clos funct fun_id func args dbg eid in
+        if func.stub ||
+           (lambda_smaller body
+              (env.inline_threshold + List.length func.params))
+        then
+          (* if the definitive size is small enought: keep it *)
+          body, r_inline
+        else Fapply (funct, args, Some fun_id, dbg, eid),
+             ret r value_unknown
+             (* do not use approximation: there can be renamed offsets.
+             A better solution would be to use the generic approximation
+                of the function *)
+      else
+        (* if false (\* Recursive function specialisation temporarily disabled *\) *)
+        (* let () = Format.printf "current functions: %a@ %a@." *)
+        (*     FunId.print clos.ident *)
+        (*     FunSet.print env.current_functions in *)
+      if clos.recursives && not (FunSet.mem clos.ident env.current_functions) &&
+         not (IdentSet.is_empty func.kept_params)
+         && OffsetMap.is_empty closure.bound_var (* closed *)
+      then begin
+        let f id approx acc =
+          match approx.descr with
+          | Value_unknown
+          | Value_bottom -> acc
+          | _ ->
+              if IdentSet.mem id func.kept_params
+              then IdentMap.add id approx acc
+              else acc in
+        let worth = List.fold_right2 f func.params approxs IdentMap.empty in
+        if not (IdentMap.is_empty worth) && not local
+        then
+          duplicate_apply env r funct clos fun_id func fapprox closure
+            (args,approxs) dbg
+        else
+          Fapply (funct, args, Some fun_id, dbg, eid),
+          ret r value_unknown
+      end
       else
         Fapply (funct, args, Some fun_id, dbg, eid),
         ret r value_unknown
-    end
-    else
-      Fapply (funct, args, Some fun_id, dbg, eid),
-      ret r value_unknown
 
 (* Inlining for recursive functions: duplicates the function
    declaration and specialise it *)
