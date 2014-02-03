@@ -202,6 +202,7 @@ type env =
     sb : sb;
     substitute : bool;
     inline_threshold : int;
+    closure_depth : int;
   }
 
 let empty_sb = { sb_var = IdentMap.empty;
@@ -219,7 +220,8 @@ let empty_env () =
     substitution_context = Flambdasubst.empty_context;
     sb = empty_sb;
     substitute = false;
-    inline_threshold = !Clflags.inline_threshold }
+    inline_threshold = !Clflags.inline_threshold;
+    closure_depth = 0}
 
 let local_env env =
   { env with
@@ -1122,6 +1124,7 @@ and ffuns_subst env ffuns off_sb =
   else ffuns, env,off_sb
 
 and closure env r ffuns fv spec_args annot =
+  let env = { env with closure_depth = env.closure_depth + 1 } in
   (* IdentMap.iter (fun key id -> *)
   (*     Format.printf "clos %a with %a -> %a@." *)
   (*       Ident.print key *)
@@ -1330,6 +1333,15 @@ and partial_apply funct fun_id func args dbg eid =
       applied_args offset in
   Flet(Strict, funct_id, funct, with_args, ExprId.create ())
 
+and functor_like env clos approxs =
+  let b =
+    env.closure_depth = 0 &&
+    List.for_all (function { descr = Value_unknown } -> false | _ -> true) approxs &&
+    not clos.recursives in
+  (* if b then *)
+  (*   Format.printf "functor_like %s@." ((snd (IdentMap.choose clos.funs)).label:>string); *)
+  b
+
 and direct_apply env r ~local clos funct fun_id func fapprox closure (args,approxs) dbg eid =
   let r =
     List.fold_left2 (fun r approx id ->
@@ -1340,19 +1352,23 @@ and direct_apply env r ~local clos funct fun_id func fapprox closure (args,appro
   let max_level = 3 in
   (* if env.inlining_level > max_level then
      Format.printf "current level: %i in %a@." env.inlining_level Offset.print fun_id; *)
-  let fun_size = lambda_smaller' func.body
-      ((env.inline_threshold + List.length func.params) * 2) in
+  let fun_size =
+    if func.stub || functor_like env clos approxs
+    then Some 0
+    else lambda_smaller' func.body
+        ((env.inline_threshold + List.length func.params) * 2) in
   match fun_size with
   | None ->
       Fapply (funct, args, Some fun_id, dbg, eid),
       ret r value_unknown
   | Some fun_size ->
       let env = { env with inline_threshold = env.inline_threshold - fun_size } in
-      if func.stub || (not clos.recursives && env.inlining_level <= max_level)
+      if func.stub || functor_like env clos approxs ||
+         (not clos.recursives && env.inlining_level <= max_level)
       then
         (* try inlining if the function is not too far above the threshold *)
         let body, r_inline = inline env r clos funct fun_id func args dbg eid in
-        if func.stub ||
+        if func.stub || functor_like env clos approxs ||
            (lambda_smaller body
               (env.inline_threshold + List.length func.params))
         then
