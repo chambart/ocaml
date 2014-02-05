@@ -151,6 +151,24 @@ let test e b =
   | Foo, false -> 2
   | _, _ -> 3
 
+(* Bug in Lambda.same *)
+let g x = match x with
+  | true -> "a"
+  | false -> "a"
+
+let f x = match x with
+  | true -> (); "a"
+  | false -> "a"
+
+let () =
+  let s1 = f true in
+  let s2 = f false in
+  let s3 = g true in
+  let s4 = g false in
+  s1.[0] <- 'p';
+  s3.[0] <- 'p';
+  assert(s2 = s4)
+
 
 let () =
   let r = test Foo false in
