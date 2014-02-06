@@ -10,11 +10,8 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Misc
 open Ext_types
 open Flambda
-
-(* Well formedness checking *)
 
 type 'a env = {
   current_unit : symbol;
@@ -29,7 +26,7 @@ type 'a env = {
   caught_static_exceptions : IntSet.t;
 }
 
-let fatal_error_f fmt = Printf.kprintf fatal_error fmt
+let fatal_error_f fmt = Printf.kprintf Misc.fatal_error fmt
 
 (* the code inside a closure can't access variable bound outside of the closure *)
 let closure_env env =
@@ -113,15 +110,15 @@ let rec check env = function
       | Some rel_offset ->
         need_function rel_offset env;
         if not (offset.off_unit = rel_offset.off_unit)
-        then fatal_error "Flambda.check relative offset from a different\
-                          compilation unit"
+        then Misc.fatal_error "Flambda.check relative offset from a different\
+                               compilation unit"
     end;
     need_function offset env;
     check env lam
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
     if not (Symbol.equal env_fun_id.off_unit env_var.off_unit)
-    then fatal_error "Flambda.check closure variable and function comes\
-                      from a different compilation units";
+    then Misc.fatal_error "Flambda.check closure variable and function comes\
+                           from a different compilation units";
     need_closure_var env_var env;
     check env env_lam
   | Fapply(funct, args, _, _,_) ->
