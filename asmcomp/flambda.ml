@@ -43,23 +43,6 @@ module FunMap = ExtMap(FunId)
 module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)
 
-module Idt = struct
-  include Ident
-  let equal = Ident.same
-end
-
-module IdentSet =
-struct
-  include Lambda.IdentSet
-  let of_list l = match l with
-    | [] -> empty
-    | [t] -> singleton t
-    | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
-  let map f s = of_list (List.map f (elements s))
-end
-module IdentMap = ExtMap(Idt)
-module IdentTbl = ExtHashtbl(Idt)
-
 type offset = {
   off_id : Ident.t;
   off_unit : symbol;
@@ -68,16 +51,16 @@ type offset = {
 module Offset = struct
   type t = offset
   let compare x y =
-    let c = Idt.compare x.off_id y.off_id in
+    let c = Ident.compare x.off_id y.off_id in
     if c <> 0
     then c
     else Symbol.compare x.off_unit y.off_unit
   let output oc x =
     Printf.fprintf oc "%s.%a" x.off_unit.sym_label
-      Idt.output x.off_id
+      Ident.output x.off_id
   let print ppf x =
     Format.fprintf ppf "%s.%a" x.off_unit.sym_label
-      Idt.print x.off_id
+      Ident.print x.off_id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
 end
@@ -102,7 +85,7 @@ type 'a flambda =
   | Fconst of const * 'a
   | Fapply of 'a flambda * 'a flambda list *
                 offset option * Debuginfo.t * 'a
-  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * Ident.t IdentMap.t * 'a
+  | Fclosure of 'a ffunctions * 'a flambda Ident.Map.t * Ident.t Ident.Map.t * 'a
   | Foffset of 'a flambda * offset * offset option * 'a
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
@@ -138,14 +121,14 @@ and 'a ffunction = {
   stub   : bool;
   arity  : int;
   params : Ident.t list;
-  closure_params : IdentSet.t;
+  closure_params : Ident.Set.t;
   body   : 'a flambda;
   dbg    : Debuginfo.t;
 }
 
 and 'a ffunctions = {
   ident  : FunId.t;
-  funs   : 'a ffunction IdentMap.t;
+  funs   : 'a ffunction Ident.Map.t;
   unit   : symbol;
   closed : bool;
   recursives : bool;

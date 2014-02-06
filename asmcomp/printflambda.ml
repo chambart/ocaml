@@ -43,15 +43,15 @@ let rec lam ppf = function
       fprintf ppf "(fun@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
         (f.label:>string) f.arity idents f.params lam f.body in
     let funs ppf =
-      IdentMap.iter (fun _ v -> fprintf ppf "@ %a" one_fun v) in
+      Ident.Map.iter (fun _ v -> fprintf ppf "@ %a" one_fun v) in
     let lams ppf =
-      IdentMap.iter (fun id v -> fprintf ppf "@ %a = %a"
+      Ident.Map.iter (fun id v -> fprintf ppf "@ %a = %a"
           Ident.print id lam v) in
     let spec ppf spec_args =
-      if not (IdentMap.is_empty spec_args)
+      if not (Ident.Map.is_empty spec_args)
       then begin
         fprintf ppf "@ with";
-        IdentMap.iter (fun id id' -> fprintf ppf "@ %a <- %a"
+        Ident.Map.iter (fun id id' -> fprintf ppf "@ %a <- %a"
                           Ident.print id Ident.print id')
           spec_args
       end

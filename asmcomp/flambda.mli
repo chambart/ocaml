@@ -44,7 +44,6 @@ type offset = {
 
 module Offset : PrintableHashOrdered with type t = offset
 module Symbol : PrintableHashOrdered with type t = symbol
-module Idt : PrintableHashOrdered with type t = Ident.t
 
 module ExprId : Id
 module FunId : UnitId
@@ -60,14 +59,6 @@ module ExprTbl : ExtHashtbl with module M := ExprId
 module FunSet : ExtSet with module M := FunId
 module FunMap : ExtMap with module M := FunId
 module FunTbl : ExtHashtbl with module M := FunId
-
-module IdentSet : sig
-  include Set.S with type t = Lambda.IdentSet.t and type elt = Ident.t
-  val of_list : Ident.t list -> t
-  val map : (Ident.t -> Ident.t) -> t -> t
-end
-module IdentMap : ExtMap with module M := Idt
-module IdentTbl : ExtHashtbl with module M := Idt
 
 module OffsetSet : ExtSet with module M := Offset
 module OffsetMap : ExtMap with module M := Offset
@@ -88,7 +79,7 @@ type 'a flambda =
       Direct call informations being [Some offset] means that
       only one function can be called here, and offset is its identifer *)
 
-  | Fclosure of 'a ffunctions * 'a flambda IdentMap.t * Ident.t IdentMap.t * 'a
+  | Fclosure of 'a ffunctions * 'a flambda Ident.Map.t * Ident.t Ident.Map.t * 'a
   (** functions description * bound variables * specialised variables.
       It is an unoffseted closure: multiple function can be
       present in a closure, to use the closure, we must tell
@@ -149,14 +140,14 @@ and 'a ffunction = {
   stub : bool; (** If true, the function should be unconditionnaly inlined. *)
   arity : int;
   params : Ident.t list; (** internal identifiers of parameters. *)
-  closure_params : IdentSet.t; (** free variables used in the function *)
+  closure_params : Ident.Set.t; (** free variables used in the function *)
   body : 'a flambda;
   dbg : Debuginfo.t;
 }
 
 and 'a ffunctions = {
   ident : FunId.t;
-  funs : 'a ffunction IdentMap.t;
+  funs : 'a ffunction Ident.Map.t;
   (** The ident key correspond to off_id of offset type *)
   unit : symbol;
   (** The compilation unit containing the closure *)

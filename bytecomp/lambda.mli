@@ -206,10 +206,9 @@ val name_lambda: lambda -> (Ident.t -> lambda) -> lambda
 val name_lambda_list: lambda list -> (lambda list -> lambda) -> lambda
 
 val iter: (lambda -> unit) -> lambda -> unit
-module IdentSet: Set.S with type elt = Ident.t
-val free_variables: lambda -> IdentSet.t
-val free_methods: lambda -> IdentSet.t
 
+val free_variables: lambda -> Ident.Set.t
+val free_methods: lambda -> Ident.Set.t
 val transl_path: Path.t -> lambda
 val make_sequence: ('a -> lambda) -> 'a list -> lambda
 
