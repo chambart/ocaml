@@ -44,15 +44,7 @@ module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)
 
 module Idt = struct
-  type t = Ident.t
-  let compare x y =
-    let c = compare x.Ident.stamp y.Ident.stamp in
-    if c = 0
-    then compare x.Ident.name y.Ident.name
-    else c
-  let output oc id = output_string oc (Ident.unique_name id)
-  let print = Ident.print
-  let hash i = (Char.code i.Ident.name.[0]) lxor i.Ident.stamp
+  include Ident
   let equal = Ident.same
 end
 
