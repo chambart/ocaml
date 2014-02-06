@@ -67,6 +67,8 @@ module OffsetTbl : ExtHashtbl with module M := Offset
 type function_label = private string
 val make_function_label : string -> function_label
 
+type let_kind = Strict | Variable (** See Lambda.let_kind *)
+
 (* A data is attached to each node. It is often used to uniquely
    identify an expression *)
 type 'a flambda =
@@ -101,7 +103,7 @@ type 'a flambda =
   | Fenv_field of 'a fenv_field * 'a
   (** Access a variable inside an offseted closure *)
 
-  | Flet of Lambda.let_kind * Ident.t * 'a flambda * 'a flambda * 'a
+  | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   (** let_kind must be Variable or Strict *)
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a

@@ -10,8 +10,6 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Asttypes
-open Lambda
 open Ext_types
 
 type symbol = { sym_unit : Ident.t; sym_label : string }
@@ -79,6 +77,8 @@ end
 
 include M
 
+type let_kind = Strict | Variable
+
 type 'a flambda =
   | Fsymbol of symbol * 'a
   | Fvar of Ident.t * 'a
@@ -90,7 +90,7 @@ type 'a flambda =
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
-  | Fprim of primitive * 'a flambda list * Debuginfo.t * 'a
+  | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
   | Fswitch of 'a flambda * 'a flambda_switch * 'a
   | Fstaticfail of int * 'a flambda list * 'a
   | Fcatch of int * Ident.t list * 'a flambda * 'a flambda * 'a
@@ -98,13 +98,13 @@ type 'a flambda =
   | Fifthenelse of 'a flambda * 'a flambda * 'a flambda * 'a
   | Fsequence of 'a flambda * 'a flambda * 'a
   | Fwhile of 'a flambda * 'a flambda * 'a
-  | Ffor of Ident.t * 'a flambda * 'a flambda * direction_flag * 'a flambda * 'a
+  | Ffor of Ident.t * 'a flambda * 'a flambda * Asttypes.direction_flag * 'a flambda * 'a
   | Fassign of Ident.t * 'a flambda * 'a
-  | Fsend of meth_kind * 'a flambda * 'a flambda * 'a flambda list * Debuginfo.t * 'a
+  | Fsend of Lambda.meth_kind * 'a flambda * 'a flambda * 'a flambda list * Debuginfo.t * 'a
   | Funreachable of 'a
 
 and const =
-  | Fconst_base of constant
+  | Fconst_base of Asttypes.constant
   | Fconst_pointer of int
   | Fconst_float_array of string list
   | Fconst_immstring of string
@@ -146,6 +146,7 @@ let can_be_merged f1 f2 = match f1,f2 with
   | Fvar (id1, _), Fvar (id2, _) ->
     Ident.equal id1 id2
   | Fconst (c1, _), Fconst (c2, _) -> begin
+      let open Asttypes in
       match c1, c2 with
       | Fconst_base (Const_string _), _ ->
         false (* string constants can't be merged: they are mutable *)

@@ -11,7 +11,6 @@
 (***********************************************************************)
 
 open Misc
-open Lambda
 open Ext_types
 open Flambda
 
@@ -90,10 +89,6 @@ let rec check env = function
   | Fvar (id,_) -> check_var id env
   | Fconst (cst,_) -> ()
   | Flet(str, id, lam, body,_) ->
-    begin match str with
-      | Variable | Strict -> ()
-      | _ -> fatal_error "Flambda.check: let kind is not Variable or strict"
-    end;
     check env lam;
     let env = bind_var id env in
     check env body
