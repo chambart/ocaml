@@ -10,9 +10,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Flambda
-
-val check : current_unit:symbol -> 'a flambda -> unit
+val check : current_unit:Flambda.symbol -> 'a Flambda.flambda -> unit
 (**
    Well formedness checking
    Ensures that:

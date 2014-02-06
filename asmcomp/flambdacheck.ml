@@ -28,7 +28,6 @@ type 'a env = {
 
 let fatal_error_f fmt = Printf.kprintf Misc.fatal_error fmt
 
-(* the code inside a closure can't access variable bound outside of the closure *)
 let closure_env env =
   { env with
     bound_variables = Ident.Set.empty;
@@ -103,6 +102,8 @@ let rec check env = function
             (Ident.unique_name id');
         check_var id' env)
       spec_arg;
+    (* The code inside a closure can't access variable bound outside of the closure,
+       closure_env removes it *)
     check_closure (closure_env env) funct fv
   | Foffset(lam, offset,relative_offset, _) ->
     begin match relative_offset with
