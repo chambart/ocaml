@@ -91,7 +91,7 @@ typing/envaux.cmi : typing/subst.cmi typing/path.cmi typing/env.cmi
 typing/env.cmi : utils/warnings.cmi typing/types.cmi typing/subst.cmi \
     typing/path.cmi parsing/longident.cmi parsing/location.cmi \
     typing/ident.cmi utils/consistbl.cmi parsing/asttypes.cmi
-typing/ident.cmi :
+typing/ident.cmi : utils/ext_types.cmi
 typing/includeclass.cmi : typing/types.cmi typing/env.cmi typing/ctype.cmi
 typing/includecore.cmi : typing/types.cmi typing/typedtree.cmi \
     typing/ident.cmi typing/env.cmi
@@ -187,8 +187,8 @@ typing/env.cmx : utils/warnings.cmx typing/types.cmx utils/tbl.cmx \
     typing/datarepr.cmx utils/consistbl.cmx utils/config.cmx \
     typing/cmi_format.cmx utils/clflags.cmx typing/btype.cmx \
     parsing/asttypes.cmi typing/env.cmi
-typing/ident.cmo : typing/ident.cmi
-typing/ident.cmx : typing/ident.cmi
+typing/ident.cmo : utils/ext_types.cmi typing/ident.cmi
+typing/ident.cmx : utils/ext_types.cmx typing/ident.cmi
 typing/includeclass.cmo : typing/types.cmi typing/printtyp.cmi \
     typing/ctype.cmi typing/includeclass.cmi
 typing/includeclass.cmx : typing/types.cmx typing/printtyp.cmx \
@@ -585,7 +585,8 @@ asmcomp/debuginfo.cmi : parsing/location.cmi bytecomp/lambda.cmi
 asmcomp/emitaux.cmi : asmcomp/debuginfo.cmi
 asmcomp/emit.cmi : asmcomp/linearize.cmi asmcomp/cmm.cmi
 asmcomp/flambdaalias.cmi : typing/ident.cmi asmcomp/flambda.cmi
-asmcomp/flambdacheck.cmi : asmcomp/flambda.cmi
+asmcomp/flambdacheck.cmi : typing/ident.cmi asmcomp/flambda.cmi
+asmcomp/flambdaiter.cmi : asmcomp/flambda.cmi
 asmcomp/flambda.cmi : bytecomp/lambda.cmi typing/ident.cmi \
     utils/ext_types.cmi asmcomp/debuginfo.cmi parsing/asttypes.cmi
 asmcomp/interf.cmi : asmcomp/mach.cmi
@@ -738,12 +739,16 @@ asmcomp/flambdaalias.cmo : utils/misc.cmi bytecomp/lambda.cmi \
 asmcomp/flambdaalias.cmx : utils/misc.cmx bytecomp/lambda.cmx \
     typing/ident.cmx asmcomp/flambda.cmx utils/ext_types.cmx \
     asmcomp/compilenv.cmx parsing/asttypes.cmi asmcomp/flambdaalias.cmi
-asmcomp/flambdacheck.cmo : utils/misc.cmi bytecomp/lambda.cmi \
-    typing/ident.cmi asmcomp/flambda.cmi utils/ext_types.cmi \
+asmcomp/flambdacheck.cmo : utils/misc.cmi typing/ident.cmi \
+    asmcomp/flambdaiter.cmi asmcomp/flambda.cmi utils/ext_types.cmi \
     asmcomp/flambdacheck.cmi
-asmcomp/flambdacheck.cmx : utils/misc.cmx bytecomp/lambda.cmx \
-    typing/ident.cmx asmcomp/flambda.cmx utils/ext_types.cmx \
+asmcomp/flambdacheck.cmx : utils/misc.cmx typing/ident.cmx \
+    asmcomp/flambdaiter.cmx asmcomp/flambda.cmx utils/ext_types.cmx \
     asmcomp/flambdacheck.cmi
+asmcomp/flambdaiter.cmo : typing/ident.cmi asmcomp/flambda.cmi \
+    asmcomp/flambdaiter.cmi
+asmcomp/flambdaiter.cmx : typing/ident.cmx asmcomp/flambda.cmx \
+    asmcomp/flambdaiter.cmi
 asmcomp/flambda.cmo : bytecomp/lambda.cmi typing/ident.cmi \
     utils/ext_types.cmi asmcomp/debuginfo.cmi parsing/asttypes.cmi \
     asmcomp/flambda.cmi

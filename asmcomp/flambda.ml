@@ -163,9 +163,9 @@ and 'a ffunctions = {
 }
 
 and 'a funct = {
-  of_closure: 'a flambda;
-  of_fun: function_within_closure;
-  of_relative_to: function_within_closure option;
+  fu_closure: 'a flambda;
+  fu_fun: function_within_closure;
+  fu_relative_to: function_within_closure option;
 }
 
 and 'a variable_in_closure = {

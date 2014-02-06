@@ -106,8 +106,8 @@ let rec check env = function
     (* The code inside a closure can't access variable bound outside of the closure,
        closure_env removes it *)
     check_closure (closure_env env) cl_fun fv
-  | Ffunction({of_closure = lam; of_fun = offset;
-               of_relative_to = relative_offset}, _) ->
+  | Ffunction({fu_closure = lam; fu_fun = offset;
+               fu_relative_to = relative_offset}, _) ->
     begin match relative_offset with
       | None -> ()
       | Some rel_offset ->
@@ -215,3 +215,62 @@ let check ~current_unit flam =
   if not (ClosureFunctionSet.is_empty diff)
   then fatal_error_f "Flambda.check: function %s is needed but not provided"
       (ClosureFunctionSet.to_string diff)
+
+type every_used_identifier_is_bound =
+  | Every_used_identifier_is_bound
+  | Some_used_unbound_variable of Ident.t
+
+exception Unbound_variable of Ident.t
+
+let every_used_identifier_is_bound flam =
+  let test var env =
+    if not (Ident.Set.mem var env)
+    then raise (Unbound_variable var) in
+  let check env = function
+    | Fassign(id,_,_)
+    | Fvar(id,_) -> test id env
+    | Fclosure({cl_specialised_arg},_) ->
+      Ident.Map.iter (fun _ id -> test id env) cl_specialised_arg
+    | _ -> ()
+  in
+  let rec dispach env = function
+    | Flet(_,id,def,body,_) ->
+      loop env def;
+      loop (Ident.Set.add id env) body
+    | Fletrec(defs,body,_) ->
+      let env =
+        List.fold_left (fun env (id,_) -> Ident.Set.add id env) env defs in
+      List.iter (fun (_,def) -> loop env def) defs;
+      loop env body
+    | Fclosure ({cl_fun;cl_free_var},_) ->
+      Ident.Map.iter (fun _ v -> loop env v) cl_free_var;
+      let env =
+        if cl_fun.recursives
+        then Ident.Map.fold (fun id _ env -> Ident.Set.add id env) cl_fun.funs env
+        else env in
+      Ident.Map.iter (fun _ { params; closure_params; body } ->
+          let env = List.fold_right Ident.Set.add params env in
+          let env = Ident.Set.union closure_params env in
+          loop env body)
+        cl_fun.funs
+    | Ffor (id, lo, hi, _, body, _) ->
+      loop env lo; loop env hi;
+      loop (Ident.Set.add id env) body
+    | Fcatch (i, vars, body, handler,_) ->
+      loop env body;
+      let env = List.fold_right Ident.Set.add vars env in
+      loop env handler
+    | Ftrywith(body, id, handler,_) ->
+      loop env body;
+      loop (Ident.Set.add id env) handler
+    | exp -> loop env exp
+  and loop env exp =
+    check env exp;
+    Flambdaiter.apply_on_subexpressions (dispach env) exp
+  in
+  let env = Ident.Set.empty in
+  try
+    loop env flam;
+    Every_used_identifier_is_bound
+  with Unbound_variable var ->
+    Some_used_unbound_variable var
