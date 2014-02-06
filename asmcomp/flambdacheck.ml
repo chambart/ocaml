@@ -19,10 +19,10 @@ type 'a env = {
   seen_variables : Ident.Set.t ref;
   seen_fun_label : StringSet.t ref;
   seen_static_catch : IntSet.t ref;
-  need_closure_var : OffsetSet.t ref;
-  seen_closure_var : OffsetSet.t ref;
-  need_function : OffsetSet.t ref;
-  seen_function : OffsetSet.t ref;
+  need_closure_var : ClosureVariableSet.t ref;
+  seen_closure_var : ClosureVariableSet.t ref;
+  need_function : ClosureFunctionSet.t ref;
+  seen_function : ClosureFunctionSet.t ref;
   caught_static_exceptions : IntSet.t;
 }
 
@@ -53,19 +53,19 @@ let check_var id env =
 (* We can't easilly check here that a variable or a function are effectively
    available if they come from a different compilation unit *)
 let need_closure_var var_offset env =
-  if Symbol.equal var_offset.off_unit env.current_unit
-  then env.need_closure_var := OffsetSet.add var_offset !(env.need_closure_var)
+  if Symbol.equal (Closure_variable.compilation_unit var_offset) env.current_unit
+  then env.need_closure_var := ClosureVariableSet.add var_offset !(env.need_closure_var)
 
 let seen_closure_var var_offset env =
-  env.seen_closure_var := OffsetSet.add var_offset !(env.seen_closure_var)
+  env.seen_closure_var := ClosureVariableSet.add var_offset !(env.seen_closure_var)
 
 let need_function offset env =
-  if Symbol.equal offset.off_unit env.current_unit
+  if Symbol.equal (Closure_function.compilation_unit offset) env.current_unit
   then
-    env.need_function := OffsetSet.add offset !(env.need_function)
+    env.need_function := ClosureFunctionSet.add offset !(env.need_function)
 
 let seen_function offset env =
-  env.seen_function := OffsetSet.add offset !(env.seen_function)
+  env.seen_function := ClosureFunctionSet.add offset !(env.seen_function)
 
 let add_check_static_catch n env =
   if IntSet.mem n !(env.seen_static_catch)
@@ -110,14 +110,18 @@ let rec check env = function
       | None -> ()
       | Some rel_offset ->
         need_function rel_offset env;
-        if not (offset.off_unit = rel_offset.off_unit)
+        if not (Symbol.equal
+                  (Closure_function.compilation_unit offset)
+                  (Closure_function.compilation_unit rel_offset))
         then Misc.fatal_error "Flambda.check relative offset from a different\
                                compilation unit"
     end;
     need_function offset env;
     check env lam
   | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
-    if not (Symbol.equal env_fun_id.off_unit env_var.off_unit)
+    if not (Symbol.equal
+              (Closure_function.compilation_unit env_fun_id)
+              (Closure_variable.compilation_unit env_var))
     then Misc.fatal_error "Flambda.check closure variable and function comes\
                            from a different compilation units";
     need_closure_var env_var env;
@@ -168,7 +172,7 @@ let rec check env = function
 
 and check_closure env funct fv =
   Ident.Map.iter (fun id _ ->
-      seen_closure_var { off_unit = funct.unit; off_id = id } env;
+      seen_closure_var (Closure_variable.create funct.unit id) env;
       record_var env id) fv;
   let env =
     if funct.recursives
@@ -177,7 +181,7 @@ and check_closure env funct fv =
           env)
   in
   Ident.Map.iter (fun fun_id func ->
-      seen_function { off_unit = funct.unit; off_id = fun_id } env;
+      seen_function (Closure_function.create funct.unit fun_id) env;
       record_fun_label (func.label:>string) env;
       let env = Ident.Set.fold (fun id env ->
           if not (Ident.Map.mem id fv)
@@ -188,23 +192,23 @@ and check_closure env funct fv =
       check env func.body)
     funct.funs
 
-let empty_diff str need seen =
-  let diff = OffsetSet.diff need seen in
-  if not (OffsetSet.is_empty diff)
-  then fatal_error_f "Flambda.check: %s %s is needed but not provided" str
-      (OffsetSet.to_string diff)
-
 let check ~current_unit flam =
   let env = { current_unit;
               bound_variables = Ident.Set.empty;
               seen_variables = ref Ident.Set.empty;
               seen_fun_label = ref StringSet.empty;
               seen_static_catch = ref IntSet.empty;
-              need_closure_var = ref OffsetSet.empty;
-              seen_closure_var = ref OffsetSet.empty;
-              need_function = ref OffsetSet.empty;
-              seen_function = ref OffsetSet.empty;
+              need_closure_var = ref ClosureVariableSet.empty;
+              seen_closure_var = ref ClosureVariableSet.empty;
+              need_function = ref ClosureFunctionSet.empty;
+              seen_function = ref ClosureFunctionSet.empty;
               caught_static_exceptions = IntSet.empty } in
   check env flam;
-  empty_diff "closure variable" !(env.need_closure_var) !(env.seen_closure_var);
-  empty_diff "function" !(env.need_function) !(env.seen_function)
+  let diff = ClosureVariableSet.diff !(env.need_closure_var) !(env.seen_closure_var) in
+  if not (ClosureVariableSet.is_empty diff)
+  then fatal_error_f "Flambda.check: closure variable %s is needed but not provided"
+      (ClosureVariableSet.to_string diff);
+  let diff = ClosureFunctionSet.diff !(env.need_function) !(env.seen_function) in
+  if not (ClosureFunctionSet.is_empty diff)
+  then fatal_error_f "Flambda.check: function %s is needed but not provided"
+      (ClosureFunctionSet.to_string diff)

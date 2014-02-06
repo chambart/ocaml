@@ -41,31 +41,45 @@ module FunMap = ExtMap(FunId)
 module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)
 
-type offset = {
-  off_id : Ident.t;
-  off_unit : symbol;
+type closure_element = {
+  ce_id : Ident.t;
+  ce_unit : symbol;
 }
 
-module Offset = struct
-  type t = offset
+type function_within_closure = closure_element
+type variable_within_closure = closure_element
+
+module Closure_element = struct
+  type t = closure_element
   let compare x y =
-    let c = Ident.compare x.off_id y.off_id in
+    let c = Ident.compare x.ce_id y.ce_id in
     if c <> 0
     then c
-    else Symbol.compare x.off_unit y.off_unit
+    else Symbol.compare x.ce_unit y.ce_unit
   let output oc x =
-    Printf.fprintf oc "%s.%a" x.off_unit.sym_label
-      Ident.output x.off_id
+    Printf.fprintf oc "%s.%a" x.ce_unit.sym_label
+      Ident.output x.ce_id
   let print ppf x =
-    Format.fprintf ppf "%s.%a" x.off_unit.sym_label
-      Ident.print x.off_id
+    Format.fprintf ppf "%s.%a" x.ce_unit.sym_label
+      Ident.print x.ce_id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
+
+  let create ~compilation_unit ce_id = { ce_unit = compilation_unit; ce_id }
+  let compilation_unit { ce_unit } = ce_unit
 end
 
-module OffsetMap = ExtMap(Offset)
-module OffsetSet = ExtSet(Offset)
-module OffsetTbl = ExtHashtbl(Offset)
+module Closure_function = Closure_element
+module Closure_variable = Closure_element
+
+module ClosureFunctionMap = ExtMap(Closure_function)
+module ClosureFunctionSet = ExtSet(Closure_function)
+module ClosureFunctionTbl = ExtHashtbl(Closure_function)
+
+module ClosureVariableMap = ExtMap(Closure_variable)
+module ClosureVariableSet = ExtSet(Closure_variable)
+module ClosureVariableTbl = ExtHashtbl(Closure_variable)
+
 
 module M : sig
   type function_label = private string
@@ -84,9 +98,9 @@ type 'a flambda =
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
   | Fapply of 'a flambda * 'a flambda list *
-                offset option * Debuginfo.t * 'a
+                function_within_closure option * Debuginfo.t * 'a
   | Fclosure of 'a ffunctions * 'a flambda Ident.Map.t * Ident.t Ident.Map.t * 'a
-  | Foffset of 'a flambda * offset * offset option * 'a
+  | Foffset of 'a flambda * function_within_closure * function_within_closure option * 'a
   | Fenv_field of 'a fenv_field * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
@@ -136,8 +150,8 @@ and 'a ffunctions = {
 
 and 'a fenv_field = {
   env : 'a flambda;
-  env_fun_id : offset;
-  env_var : offset;
+  env_fun_id : function_within_closure;
+  env_var : variable_within_closure;
 }
 
 let can_be_merged f1 f2 = match f1,f2 with

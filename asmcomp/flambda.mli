@@ -33,16 +33,20 @@ type symbol = { sym_unit : Ident.t; sym_label : string }
     The label must be globaly unique: two compilation units linked in the
     same program must not share labels *)
 
-type offset = {
-  off_id : Ident.t;
-  off_unit : symbol;
-}
-(** An offset refer to a variable or a function inside a
-    closure.
-    [off_id] is the name of the variable.
-    [off_unit] is the compilation unit of the closure *)
+type function_within_closure
+type variable_within_closure
 
-module Offset : PrintableHashOrdered with type t = offset
+module Closure_function : sig
+  include PrintableHashOrdered with type t = function_within_closure
+  val create : compilation_unit:symbol -> Ident.t -> t
+  val compilation_unit : t -> symbol
+end
+module Closure_variable : sig
+  include PrintableHashOrdered with type t = variable_within_closure
+  val create : compilation_unit:symbol -> Ident.t -> t
+  val compilation_unit : t -> symbol
+end
+
 module Symbol : PrintableHashOrdered with type t = symbol
 
 module ExprId : Id
@@ -60,9 +64,14 @@ module FunSet : ExtSet with module M := FunId
 module FunMap : ExtMap with module M := FunId
 module FunTbl : ExtHashtbl with module M := FunId
 
-module OffsetSet : ExtSet with module M := Offset
-module OffsetMap : ExtMap with module M := Offset
-module OffsetTbl : ExtHashtbl with module M := Offset
+module ClosureFunctionSet : ExtSet with module M := Closure_function
+module ClosureFunctionMap : ExtMap with module M := Closure_function
+module ClosureFunctionTbl : ExtHashtbl with module M := Closure_function
+
+module ClosureVariableSet : ExtSet with module M := Closure_variable
+module ClosureVariableMap : ExtMap with module M := Closure_variable
+module ClosureVariableTbl : ExtHashtbl with module M := Closure_variable
+
 
 type function_label = private string
 val make_function_label : string -> function_label
@@ -76,7 +85,8 @@ type 'a flambda =
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
 
-  | Fapply of 'a flambda * 'a flambda list * offset option * Debuginfo.t * 'a
+  | Fapply of 'a flambda * 'a flambda list *
+              function_within_closure option * Debuginfo.t * 'a
   (** closure * parameters * direct call informations
       Direct call informations being [Some offset] means that
       only one function can be called here, and offset is its identifer *)
@@ -90,7 +100,8 @@ type 'a flambda =
       If an internal variable rely on the value of an external one, it
       must appear in the specialised variables map. *)
 
-  | Foffset of 'a flambda * offset * offset option * 'a
+  | Foffset of 'a flambda * function_within_closure *
+               function_within_closure option * 'a
   (** Transform an unoffseted closure into an offseted one by choosing
       the referenced function (offset).
 
@@ -159,8 +170,8 @@ and 'a ffunctions = {
 
 and 'a fenv_field = {
   env : 'a flambda; (** the closure *)
-  env_fun_id : offset; (** the offset applied to the closure *)
-  env_var : offset; (** the accessed variable *)
+  env_fun_id : function_within_closure; (** the offset applied to the closure *)
+  env_var : variable_within_closure; (** the accessed variable *)
 }
 
 (* utility functions *)
