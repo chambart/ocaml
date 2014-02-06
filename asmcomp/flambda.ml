@@ -14,15 +14,18 @@ open Asttypes
 open Lambda
 open Ext_types
 
-type symbol = Ident.t * string (* module * label *)
+type symbol = { sym_unit : Ident.t; sym_label : string }
 
 module Symbol = struct
   type t = symbol
-  let compare (_,s1) (_,s2) = String.compare s1 s2
-  let output c (_,s) = output_string c s
-  let hash (_,(i:string)) = Hashtbl.hash i
-  let equal (_,(i:string)) (_,j) = i = j
-  let print ppf (id,s) = Format.fprintf ppf "%a - %s" Ident.print id s
+  let compare s1 s2 = String.compare s1.sym_label s2.sym_label
+  (** Labels are unique, so comparing them is sufficient. It also could
+      uncover bugs to consider same labels from different modules equal *)
+  let output c s = output_string c s.sym_label
+  let hash s = Hashtbl.hash s.sym_label
+  let equal s1 s2 = s1.sym_label = s2.sym_label
+  let print ppf s =
+    Format.fprintf ppf "%a - %s" Ident.print s.sym_unit s.sym_label
 end
 
 module SymbolSet = ExtSet(Symbol)
@@ -78,12 +81,10 @@ module Offset = struct
     then c
     else Symbol.compare x.off_unit y.off_unit
   let output oc x =
-    Printf.fprintf oc "%s.%a"
-      (snd x.off_unit)
+    Printf.fprintf oc "%s.%a" x.off_unit.sym_label
       Idt.output x.off_id
   let print ppf x =
-    Format.fprintf ppf "%s.%a"
-      (snd x.off_unit)
+    Format.fprintf ppf "%s.%a" x.off_unit.sym_label
       Idt.print x.off_id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
@@ -204,7 +205,7 @@ let data = function
   | Funreachable data -> data
 
 let string_desc = function
-  | Fsymbol ((_,symbol),_) -> Printf.sprintf "%%%s" symbol
+  | Fsymbol ({sym_label},_) -> Printf.sprintf "%%%s" sym_label
   | Fvar (id,data) -> Ident.unique_name id
   | Fconst (cst,data) -> "const"
   | Flet(str, id, lam, body,data) ->

@@ -26,10 +26,12 @@
 
 open Ext_types
 
-type symbol = Ident.t * string
+type symbol = { sym_unit : Ident.t; sym_label : string }
 (** A symbol is an identifier of an external constant or top level module.
-    the [Ident.t] refer to the compilation unit containing the value.
-    the [string] is the linking name of the variable *)
+    [sym_unit] is the compilation unit containing the value.
+    [sym_lablel] is the linking name of the variable.
+    The label must be globaly unique: two compilation units linked in the
+    same program must not share labels *)
 
 type offset = {
   off_id : Ident.t;
