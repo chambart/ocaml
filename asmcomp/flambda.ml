@@ -147,9 +147,13 @@ let can_be_merged f1 f2 = match f1,f2 with
     Ident.equal id1 id2
   | Fconst (c1, _), Fconst (c2, _) -> begin
       match c1, c2 with
-      | Fconst_base (Const_string c1), Fconst_base (Const_string c2) ->
-        false
-      | _, _ -> c1 = c2
+      | Fconst_base (Const_string _), _ ->
+        false (* string constants can't be merged: they are mutable *)
+      | Fconst_base (Const_int _ | Const_char _ | Const_float _ |
+                     Const_int32 _ | Const_int64 _ | Const_nativeint _), _
+      | Fconst_pointer _, _
+      | Fconst_float_array _, _
+      | Fconst_immstring _, _ -> c1 = c2
     end
   | _ -> false
 
