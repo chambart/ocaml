@@ -127,13 +127,12 @@ and const =
   | Fconst_float_array of string list
   | Fconst_immstring of string
 
-and 'a flambda_switch = {
-  fs_numconsts : Ext_types.IntSet.t;
-  fs_consts : (int * 'a flambda) list;
-  fs_numblocks : Ext_types.IntSet.t;
-  fs_blocks : (int * 'a flambda) list;
-  fs_failaction : 'a flambda option;
-}
+and 'a flambda_switch =
+  { fs_numconsts: IntSet.t; (** integer cases *)
+    fs_consts: (int * 'a flambda) list; (** Integer cases *)
+    fs_numblocks: IntSet.t; (** Number of tag block cases *)
+    fs_blocks: (int * 'a flambda) list; (** Tag block cases *)
+    fs_failaction : 'a flambda option } (** Action to take if none matched *)
 
 and 'a ffunction = {
   label : function_label; (** an unique name used for linking *)
