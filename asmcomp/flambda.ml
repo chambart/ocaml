@@ -140,8 +140,7 @@ and 'a fenv_field = {
   env_var : offset;
 }
 
-(* Used for switch generation *)
-let same f1 f2 = match f1,f2 with
+let can_be_merged f1 f2 = match f1,f2 with
   | Fsymbol (sym1, _), Fsymbol (sym2, _) ->
     Symbol.equal sym1 sym2
   | Fvar (id1, _), Fvar (id2, _) ->

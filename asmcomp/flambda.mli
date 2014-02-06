@@ -163,9 +163,9 @@ and 'a fenv_field = {
 
 (* utility functions *)
 
-val same : 'a flambda -> 'a flambda -> bool
-(** [same f1 f2] is true if it can prove that f1 and f2 are
-    semanticaly equal *)
+val can_be_merged : 'a flambda -> 'a flambda -> bool
+(** If [can_be_merged f1 f2] is true, it is safe to merge switch
+    branches containing [f1] and [f2] *)
 
 val data : 'a flambda -> 'a
 (** [data flam] retrieve the data associated with the top-level node
