@@ -157,26 +157,26 @@ let same f1 f2 = match f1,f2 with
 (* utility functions *)
 
 let data = function
-  | Fsymbol (_,data) -> data
-  | Fvar (id,data) -> data
-  | Fconst (cst,data) -> data
-  | Flet(str, id, lam, body,data) -> data
-  | Fletrec(defs, body,data) -> data
-  | Fclosure(funct, fv, spec_arg, data) -> data
-  | Foffset(lam,id,rel,data) -> data
-  | Fenv_field(_,data) -> data
-  | Fapply(funct, args, _, _,data) -> data
-  | Fswitch(arg, sw,data) -> data
-  | Fsend(kind, met, obj, args, _,data) -> data
-  | Fprim(_, args, _,data) -> data
-  | Fstaticfail (i, args,data) -> data
-  | Fcatch (i, vars, body, handler,data) -> data
-  | Ftrywith(body, id, handler,data) -> data
-  | Fifthenelse(arg, ifso, ifnot,data) -> data
-  | Fsequence(lam1, lam2,data) -> data
-  | Fwhile(cond, body,data) -> data
-  | Ffor(id, lo, hi, dir, body,data) -> data
-  | Fassign(id, lam,data) -> data
+  | Fsymbol (_,data)
+  | Fvar (_,data)
+  | Fconst (_,data)
+  | Flet(_,_,_,_,data)
+  | Fletrec(_,_,data)
+  | Fclosure(_,_,_, data)
+  | Foffset(_,_,_,data)
+  | Fenv_field(_,data)
+  | Fapply(_,_,_,_,data)
+  | Fswitch(_,_,data)
+  | Fsend(_,_,_,_,_,data)
+  | Fprim(_,_,_,data)
+  | Fstaticfail (_,_,data)
+  | Fcatch (_,_,_,_,data)
+  | Ftrywith(_,_,_,data)
+  | Fifthenelse(_,_,_,data)
+  | Fsequence(_,_,data)
+  | Fwhile(_,_,data)
+  | Ffor(_,_,_,_,_,data)
+  | Fassign(_,_,data)
   | Funreachable data -> data
 
 let string_desc = function
