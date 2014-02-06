@@ -78,44 +78,24 @@ val make_function_label : string -> function_label
 
 type let_kind = Strict | Variable (** See Lambda.let_kind *)
 
+type call_kind =
+  | Indirect
+  | Direct of function_within_closure
+
 (* A data is attached to each node. It is often used to uniquely
    identify an expression *)
 type 'a flambda =
     Fsymbol of symbol * 'a (** an external constant value *)
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
-
-  | Fapply of 'a flambda * 'a flambda list *
-              function_within_closure option * Debuginfo.t * 'a
-  (** closure * parameters * direct call informations
-      Direct call informations being [Some offset] means that
-      only one function can be called here, and offset is its identifer *)
-
-  | Fclosure of 'a ffunctions * 'a flambda Ident.Map.t * Ident.t Ident.Map.t * 'a
-  (** functions description * bound variables * specialised variables.
-      It is an unoffseted closure: multiple function can be
-      present in a closure, to use the closure, we must tell
-      which function it refers to by using Foffset.
-
-      If an internal variable rely on the value of an external one, it
-      must appear in the specialised variables map. *)
-
-  | Foffset of 'a flambda * function_within_closure *
-               function_within_closure option * 'a
-  (** Transform an unoffseted closure into an offseted one by choosing
-      the referenced function (offset).
-
-      Foffset(closure, id, previous_offset) access to the function 'id'
-      from the closure. If previous_offset is Some(off) this represent
-      an offset to an already offseted function: this is a relative offset.
-      It can appear when inlining multiply recursive functions
-  *)
-
-  | Fenv_field of 'a fenv_field * 'a
-  (** Access a variable inside an offseted closure *)
-
+  | Fapply of 'a apply * 'a
+  | Fclosure of 'a closure * 'a
+  (** This represents an unspecified closure: multiple function can be
+      present in a closure, to call a function in the closure, we must
+      first select a function using Ffunction. *)
+  | Ffunction of 'a funct * 'a
+  | Fvariable_in_closure of 'a variable_in_closure * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
-  (** let_kind must be Variable or Strict *)
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
   | Fswitch of 'a flambda * 'a flambda_switch * 'a
@@ -147,6 +127,17 @@ and 'a flambda_switch =
     fs_blocks: (int * 'a flambda) list; (** Tag block cases *)
     fs_failaction : 'a flambda option } (** Action to take if none matched *)
 
+and 'a apply =
+  { ap_function: 'a flambda;
+    ap_arg: 'a flambda list;
+    ap_kind: call_kind;
+    ap_dbg: Debuginfo.t }
+
+and 'a closure =
+  { cl_fun : 'a ffunctions;
+    cl_free_var : 'a flambda Ident.Map.t;
+    cl_specialised_arg : Ident.t Ident.Map.t }
+
 and 'a ffunction = {
   label : function_label; (** an unique name used for linking *)
   stub : bool; (** If true, the function should be unconditionnaly inlined. *)
@@ -168,10 +159,18 @@ and 'a ffunctions = {
   (** true if any of the function inside the closure is recursive *)
 }
 
-and 'a fenv_field = {
-  env : 'a flambda; (** the closure *)
-  env_fun_id : function_within_closure; (** the offset applied to the closure *)
-  env_var : variable_within_closure; (** the accessed variable *)
+and 'a funct = {
+  of_closure: 'a flambda;
+  of_fun: function_within_closure;
+  of_relative_to: function_within_closure option;
+  (** Keeps track of the original function When specifying an already
+      specified function. *)
+}
+
+and 'a variable_in_closure = {
+  vc_closure : 'a flambda; (** A selected closure *)
+  vc_fun : function_within_closure;
+  vc_var : variable_within_closure;
 }
 
 (* utility functions *)

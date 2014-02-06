@@ -23,24 +23,24 @@ let rec lam ppf = function
     Ident.print ppf id
   | Fconst (cst,_) ->
     const ppf cst
-  | Fapply(lfun, largs, direct_name, _,_) ->
+  | Fapply({ap_function; ap_arg; ap_kind},_) ->
     let lams ppf largs =
       List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
-    let direct = match direct_name with | None -> "" | Some _ -> "*" in
-    fprintf ppf "@[<2>(apply%s@ %a%a)@]" direct lam lfun lams largs
-  | Foffset(l,off,None,_) ->
-    fprintf ppf "@[<2>(offset@ %a@ %a)@]" Closure_function.print off lam l
-  | Foffset(l,off,Some rel,_) ->
-    fprintf ppf "@[<2>(relative_offset@ %a - %a@ %a)@]"
-      Closure_function.print off Closure_function.print rel lam l
-  | Fenv_field({env;env_fun_id;env_var},_) ->
-    fprintf ppf "@[<2>(env@ %a@ %a@ %a)@]"
-      Closure_variable.print env_var Closure_function.print env_fun_id lam env
-  | Fclosure(clos,fv,spec_arg,_) ->
+    let direct = match ap_kind with Indirect -> "" | Direct _ -> "*" in
+    fprintf ppf "@[<2>(apply%s@ %a%a)@]" direct lam ap_function lams ap_arg
+  | Ffunction({of_closure;of_fun;of_relative_to = None},_) ->
+    fprintf ppf "@[<2>(function@ %a@ %a)@]" Closure_function.print of_fun lam of_closure
+  | Ffunction({of_closure;of_fun;of_relative_to = Some rel},_) ->
+    fprintf ppf "@[<2>(function_relative@ %a - %a@ %a)@]"
+      Closure_function.print of_fun Closure_function.print rel lam of_closure
+  | Fvariable_in_closure({vc_closure;vc_fun;vc_var},_) ->
+    fprintf ppf "@[<2>(var@ %a@ %a@ %a)@]"
+      Closure_variable.print vc_var Closure_function.print vc_fun lam vc_closure
+  | Fclosure({cl_fun;cl_free_var;cl_specialised_arg},_) ->
     let idents ppf =
       List.iter (fprintf ppf "@ %a" Ident.print) in
     let one_fun ppf f =
-      fprintf ppf "(fun@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
+      fprintf ppf "(closure@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
         (f.label:>string) f.arity idents f.params lam f.body in
     let funs ppf =
       Ident.Map.iter (fun _ v -> fprintf ppf "@ %a" one_fun v) in
@@ -56,7 +56,8 @@ let rec lam ppf = function
           spec_args
       end
     in
-    fprintf ppf "@[<2>(closure%a %a%a)@]" funs clos.funs lams fv spec spec_arg
+    fprintf ppf "@[<2>(closure%a %a%a)@]" funs cl_fun.funs lams
+      cl_free_var spec cl_specialised_arg
   | Flet(str, id, arg, body,_) ->
     let rec letbody ul = match ul with
       | Flet(str, id, arg, body,_) ->

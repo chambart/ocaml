@@ -92,20 +92,22 @@ let rec check env = function
     let env = List.fold_left (fun env (id,lam) -> bind_var id env) env defs in
     List.iter (fun (_,def) -> check env def) defs;
     check env body
-  | Fclosure(funct, fv, spec_arg, _) ->
+  | Fclosure({cl_fun;cl_free_var = fv;
+              cl_specialised_arg = spec_arg}, _) ->
     Ident.Map.iter (fun _ lam -> check env lam) fv;
     Ident.Map.iter (fun param id' ->
         (* a specialised parameter must be a parameter of a function
            in the closure *)
-        if not (Ident.Map.exists (fun _ ffun -> List.mem param ffun.params) funct.funs)
+        if not (Ident.Map.exists (fun _ ffun -> List.mem param ffun.params) cl_fun.funs)
         then fatal_error_f "Flambda.check: %s is not a function argument"
             (Ident.unique_name id');
         check_var id' env)
       spec_arg;
     (* The code inside a closure can't access variable bound outside of the closure,
        closure_env removes it *)
-    check_closure (closure_env env) funct fv
-  | Foffset(lam, offset,relative_offset, _) ->
+    check_closure (closure_env env) cl_fun fv
+  | Ffunction({of_closure = lam; of_fun = offset;
+               of_relative_to = relative_offset}, _) ->
     begin match relative_offset with
       | None -> ()
       | Some rel_offset ->
@@ -118,7 +120,8 @@ let rec check env = function
     end;
     need_function offset env;
     check env lam
-  | Fenv_field({ env = env_lam; env_fun_id; env_var },_) ->
+  | Fvariable_in_closure({ vc_closure = env_lam; vc_fun = env_fun_id;
+                           vc_var = env_var },_) ->
     if not (Symbol.equal
               (Closure_function.compilation_unit env_fun_id)
               (Closure_variable.compilation_unit env_var))
@@ -126,7 +129,7 @@ let rec check env = function
                            from a different compilation units";
     need_closure_var env_var env;
     check env env_lam
-  | Fapply(funct, args, _, _,_) ->
+  | Fapply({ap_function = funct; ap_arg = args},_) ->
     check env funct;
     List.iter (check env) args
   | Fswitch(arg, sw,_) ->

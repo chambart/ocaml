@@ -93,15 +93,18 @@ include M
 
 type let_kind = Strict | Variable
 
+type call_kind =
+  | Indirect
+  | Direct of function_within_closure
+
 type 'a flambda =
   | Fsymbol of symbol * 'a
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
-  | Fapply of 'a flambda * 'a flambda list *
-                function_within_closure option * Debuginfo.t * 'a
-  | Fclosure of 'a ffunctions * 'a flambda Ident.Map.t * Ident.t Ident.Map.t * 'a
-  | Foffset of 'a flambda * function_within_closure * function_within_closure option * 'a
-  | Fenv_field of 'a fenv_field * 'a
+  | Fapply of 'a apply * 'a
+  | Fclosure of 'a closure * 'a
+  | Ffunction of 'a funct * 'a
+  | Fvariable_in_closure of 'a variable_in_closure * 'a
   | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
   | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
@@ -130,6 +133,17 @@ and 'a flambda_switch =
     fs_blocks: (int * 'a flambda) list;
     fs_failaction : 'a flambda option }
 
+and 'a apply =
+  { ap_function: 'a flambda;
+    ap_arg: 'a flambda list;
+    ap_kind: call_kind;
+    ap_dbg: Debuginfo.t }
+
+and 'a closure =
+  { cl_fun : 'a ffunctions;
+    cl_free_var : 'a flambda Ident.Map.t;
+    cl_specialised_arg : Ident.t Ident.Map.t }
+
 and 'a ffunction = {
   label  : function_label;
   stub   : bool;
@@ -148,10 +162,16 @@ and 'a ffunctions = {
   recursives : bool;
 }
 
-and 'a fenv_field = {
-  env : 'a flambda;
-  env_fun_id : function_within_closure;
-  env_var : variable_within_closure;
+and 'a funct = {
+  of_closure: 'a flambda;
+  of_fun: function_within_closure;
+  of_relative_to: function_within_closure option;
+}
+
+and 'a variable_in_closure = {
+  vc_closure : 'a flambda;
+  vc_fun : function_within_closure;
+  vc_var : variable_within_closure;
 }
 
 let can_be_merged f1 f2 = match f1,f2 with
@@ -180,10 +200,10 @@ let data_at_toplevel_node = function
   | Fconst (_,data)
   | Flet(_,_,_,_,data)
   | Fletrec(_,_,data)
-  | Fclosure(_,_,_, data)
-  | Foffset(_,_,_,data)
-  | Fenv_field(_,data)
-  | Fapply(_,_,_,_,data)
+  | Fclosure(_,data)
+  | Ffunction(_,data)
+  | Fvariable_in_closure(_,data)
+  | Fapply(_,data)
   | Fswitch(_,_,data)
   | Fsend(_,_,_,_,_,data)
   | Fprim(_,_,_,data)
@@ -205,10 +225,10 @@ let description_of_toplevel_node = function
     Printf.sprintf "let %s"
       (Ident.unique_name id)
   | Fletrec(defs, body,data) -> "letrec"
-  | Fclosure(funct, fv, spec_arg, data) -> "closure"
-  | Foffset(lam,id,rel,data) -> "offset"
-  | Fenv_field(_,data) -> "env_field"
-  | Fapply(funct, args, _, _,data) -> "apply"
+  | Fclosure(_,data) -> "closure"
+  | Ffunction(_,data) -> "function"
+  | Fvariable_in_closure(_,data) -> "variable_in_closure"
+  | Fapply(_,data) -> "apply"
   | Fswitch(arg, sw,data) -> "switch"
   | Fsend(kind, met, obj, args, _,data) -> "send"
   | Fprim(_, args, _,data) -> "prim"
