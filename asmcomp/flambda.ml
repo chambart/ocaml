@@ -160,7 +160,7 @@ let can_be_merged f1 f2 = match f1,f2 with
 
 (* utility functions *)
 
-let data = function
+let data_at_toplevel_node = function
   | Fsymbol (_,data)
   | Fvar (_,data)
   | Fconst (_,data)
@@ -183,7 +183,7 @@ let data = function
   | Fassign(_,_,data)
   | Funreachable data -> data
 
-let string_desc = function
+let description_of_toplevel_node = function
   | Fsymbol ({sym_label},_) -> Printf.sprintf "%%%s" sym_label
   | Fvar (id,data) -> Ident.unique_name id
   | Fconst (cst,data) -> "const"
