@@ -28,9 +28,33 @@ module Symbol = struct
     Format.fprintf ppf "%a - %s" Ident.print s.sym_unit s.sym_label
 end
 
+type variable = { var_unit : symbol; var_var : Ident.t }
+
+module Variable = struct
+  type t = variable
+  let compare v1 v2 =
+    let c = Ident.compare v1.var_var v2.var_var in
+    if c = 0
+    then Symbol.compare v1.var_unit v2.var_unit
+    else c
+  let output c v = Ident.output c v.var_var
+  let hash v = Ident.hash v.var_var
+  let equal v1 v2 =
+    Ident.equal v1.var_var v2.var_var &&
+    Symbol.equal v1.var_unit v2.var_unit
+  let print ppf v = Ident.print ppf v.var_var
+  let create ~compilation_unit id =
+    { var_unit = compilation_unit; var_var = id }
+  let compilation_unit var = var.var_unit
+end
+
 module SymbolSet = ExtSet(Symbol)
 module SymbolMap = ExtMap(Symbol)
 module SymbolTbl = ExtHashtbl(Symbol)
+
+module VarSet = ExtSet(Variable)
+module VarMap = ExtMap(Variable)
+module VarTbl = ExtHashtbl(Variable)
 
 module ExprId : Id = Id(struct end)
 module ExprMap = ExtMap(ExprId)

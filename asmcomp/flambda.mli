@@ -26,6 +26,8 @@
 
 open Ext_types
 
+type variable
+
 type linkage_name
 
 type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
@@ -40,6 +42,12 @@ type function_within_closure
 type variable_within_closure
 
 type function_label
+
+module Variable : sig
+  include PrintableHashOrdered with type t = variable
+  val create : compilation_unit:symbol -> Ident.t -> t
+  val compilation_unit : t -> symbol
+end
 
 module Closure_function : sig
   include PrintableHashOrdered with type t = function_within_closure
@@ -61,6 +69,10 @@ end
 
 module ExprId : Id
 module FunId : UnitId
+
+module VarSet : ExtSet with module M := Variable
+module VarMap : ExtMap with module M := Variable
+module VarTbl : ExtHashtbl with module M := Variable
 
 module SymbolSet : ExtSet with module M := Symbol
 module SymbolMap : ExtMap with module M := Symbol
