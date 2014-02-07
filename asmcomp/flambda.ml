@@ -55,9 +55,9 @@ module Closure_element = struct
   type t = closure_element
   let compare x y =
     let c = Ident.compare x.ce_id y.ce_id in
-    if c <> 0
-    then c
-    else Symbol.compare x.ce_unit y.ce_unit
+    if c = 0
+    then Symbol.compare x.ce_unit y.ce_unit
+    else c
   let output oc x =
     Printf.fprintf oc "%s.%a" x.ce_unit.sym_label
       Ident.output x.ce_id
