@@ -20,23 +20,15 @@ val check : current_unit:Flambda.symbol -> 'a Flambda.flambda -> unit
     * Staticfail are correctly enclosed inside a catch
  *)
 
-type every_used_identifier_is_bound =
-  | Every_used_identifier_is_bound
-  | Some_used_unbound_variable of Ident.t
+type 'a counter_example =
+  | No_counter_example
+  | Counter_example of 'a
 
 val every_used_identifier_is_bound :
-  'a Flambda.flambda -> every_used_identifier_is_bound
-
-type no_identifier_bound_multiple_times =
-  | No_identifier_bound_multiple_times
-  | Some_identifier_bound_multiple_times of Ident.t
+  'a Flambda.flambda -> Ident.t counter_example
 
 val no_identifier_bound_multiple_times :
-  'a Flambda.flambda -> no_identifier_bound_multiple_times
-
-type no_assign_on_variable_of_kind_strict =
-  | No_assign_on_variable_of_kind_strict
-  | Some_assign_on_variable_of_kind_strict of Ident.t
+  'a Flambda.flambda -> Ident.t counter_example
 
 val no_assign_on_variable_of_kind_strict :
-  'a Flambda.flambda -> no_assign_on_variable_of_kind_strict
+  'a Flambda.flambda -> Ident.t counter_example

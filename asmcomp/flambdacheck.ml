@@ -216,16 +216,16 @@ let check ~current_unit flam =
   then fatal_error_f "Flambda.check: function %s is needed but not provided"
       (ClosureFunctionSet.to_string diff)
 
-type every_used_identifier_is_bound =
-  | Every_used_identifier_is_bound
-  | Some_used_unbound_variable of Ident.t
+type 'a counter_example =
+  | No_counter_example
+  | Counter_example of 'a
 
-exception Unbound_variable of Ident.t
+exception Counter_example_exn of Ident.t
 
 let every_used_identifier_is_bound flam =
   let test var env =
     if not (Ident.Set.mem var env)
-    then raise (Unbound_variable var) in
+    then raise (Counter_example_exn var) in
   let check env = function
     | Fassign(id,_,_)
     | Fvar(id,_) -> test id env
@@ -272,21 +272,15 @@ let every_used_identifier_is_bound flam =
   let env = Ident.Set.empty in
   try
     loop env flam;
-    Every_used_identifier_is_bound
-  with Unbound_variable var ->
-    Some_used_unbound_variable var
-
-type no_identifier_bound_multiple_times =
-  | No_identifier_bound_multiple_times
-  | Some_identifier_bound_multiple_times of Ident.t
-
-exception Bound_multiple_times of Ident.t
+    No_counter_example
+  with Counter_example_exn var ->
+    Counter_example var
 
 let no_identifier_bound_multiple_times flam =
   let bound = ref Ident.Set.empty in
   let add_and_check id =
     if Ident.Set.mem id !bound
-    then raise (Bound_multiple_times id)
+    then raise (Counter_example_exn id)
     else bound := Ident.Set.add id !bound
   in
   let f = function
@@ -308,20 +302,14 @@ let no_identifier_bound_multiple_times flam =
   in
   try
     Flambdaiter.iter f flam;
-    No_identifier_bound_multiple_times
-  with Bound_multiple_times var ->
-    Some_identifier_bound_multiple_times var
-
-type no_assign_on_variable_of_kind_strict =
-  | No_assign_on_variable_of_kind_strict
-  | Some_assign_on_variable_of_kind_strict of Ident.t
-
-exception Assing_on_kind_strict of Ident.t
+    No_counter_example
+  with Counter_example_exn var ->
+    Counter_example var
 
 let no_assign_on_variable_of_kind_strict flam =
   let test var env =
     if not (Ident.Set.mem var env)
-    then raise (Assing_on_kind_strict var) in
+    then raise (Counter_example_exn var) in
   let check env = function
     | Fassign(id,_,_) -> test id env
     | _ -> ()
@@ -342,6 +330,6 @@ let no_assign_on_variable_of_kind_strict flam =
   let env = Ident.Set.empty in
   try
     loop env flam;
-    No_assign_on_variable_of_kind_strict
-  with Assing_on_kind_strict var ->
-    Some_assign_on_variable_of_kind_strict var
+    No_counter_example
+  with Counter_example_exn var ->
+    Counter_example var
