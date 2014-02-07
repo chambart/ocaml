@@ -12,7 +12,9 @@
 
 open Ext_types
 
-type symbol = { sym_unit : Ident.t; sym_label : string }
+type linkage_name = string
+
+type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
 
 module Symbol = struct
   type t = symbol

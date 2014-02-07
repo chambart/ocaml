@@ -26,7 +26,9 @@
 
 open Ext_types
 
-type symbol = { sym_unit : Ident.t; sym_label : string }
+type linkage_name
+
+type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
 (** A symbol is an identifier of an external constant or top level module.
     [sym_unit] is the compilation unit containing the value.
     [sym_lablel] is the linking name of the variable.
