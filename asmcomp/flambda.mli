@@ -146,10 +146,15 @@ and 'a closure =
 
 and 'a ffunction = {
   label : function_label; (** an unique name used for linking *)
-  stub : bool; (** If true, the function should be unconditionnaly inlined. *)
+  stub : bool;
+  (** A stub function is a generated function used to prepare
+      arguments or return value to allow indirect calls to function
+      with a special call convention. For instance indirect calls to
+      tuplified function must go through a stub. Stubs will be
+      unconditionnaly inlined. *)
   arity : int;
   params : Ident.t list; (** internal identifiers of parameters. *)
-  closure_params : Ident.Set.t; (** free variables used in the function *)
+  free_variables : Ident.Set.t;
   body : 'a flambda;
   dbg : Debuginfo.t;
 }
@@ -158,11 +163,9 @@ and 'a ffunctions = {
   ident : FunId.t;
   funs : 'a ffunction Ident.Map.t;
   (** The ident key correspond to off_id of offset type *)
-  unit : symbol;
-  (** The compilation unit containing the closure *)
+  compilation_unit : symbol;
   closed : bool;
-  recursives : bool;
-  (** true if any of the function inside the closure is recursive *)
+  contains_recursive_function : bool;
 }
 
 and 'a funct = {

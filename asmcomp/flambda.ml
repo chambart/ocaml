@@ -147,7 +147,7 @@ and 'a ffunction = {
   stub   : bool;
   arity  : int;
   params : Ident.t list;
-  closure_params : Ident.Set.t;
+  free_variables : Ident.Set.t;
   body   : 'a flambda;
   dbg    : Debuginfo.t;
 }
@@ -155,9 +155,9 @@ and 'a ffunction = {
 and 'a ffunctions = {
   ident  : FunId.t;
   funs   : 'a ffunction Ident.Map.t;
-  unit   : symbol;
+  compilation_unit : symbol;
   closed : bool;
-  recursives : bool;
+  contains_recursive_function : bool;
 }
 
 and 'a funct = {

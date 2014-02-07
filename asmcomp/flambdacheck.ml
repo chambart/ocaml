@@ -45,12 +45,12 @@ let every_used_identifier_is_bound flam =
       Ident.Map.iter (fun _ v -> loop env v) cl_free_var;
       let env = Ident.Set.empty in
       let env =
-        if cl_fun.recursives
+        if cl_fun.contains_recursive_function
         then Ident.Map.fold (fun id _ env -> Ident.Set.add id env) cl_fun.funs env
         else env in
-      Ident.Map.iter (fun _ { params; closure_params; body } ->
+      Ident.Map.iter (fun _ { params; free_variables; body } ->
           let env = List.fold_right Ident.Set.add params env in
-          let env = Ident.Set.union closure_params env in
+          let env = Ident.Set.union free_variables env in
           loop env body)
         cl_fun.funs
     | Ffor (id, lo, hi, _, body, _) ->
@@ -143,7 +143,7 @@ let declared_variable_within_closure flam =
   in
   let f = function
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      let compilation_unit = cl_fun.unit in
+      let compilation_unit = cl_fun.compilation_unit in
       Ident.Map.iter (fun id _ ->
           let var = Closure_variable.create ~compilation_unit id in
           add_and_check var) cl_free_var
@@ -162,9 +162,9 @@ exception Counter_example_sym of symbol
 let every_declared_closure_is_from_current_compilation_unit
     ~current_compilation_unit flam =
   let f = function
-    | Fclosure ({cl_fun = { unit }},_) ->
-      if not (Symbol.equal unit current_compilation_unit)
-      then raise (Counter_example_sym unit)
+    | Fclosure ({cl_fun = { compilation_unit }},_) ->
+      if not (Symbol.equal compilation_unit current_compilation_unit)
+      then raise (Counter_example_sym compilation_unit)
     | _ -> ()
   in
   try
@@ -183,9 +183,9 @@ let declared_function_within_closure flam =
   in
   let f = function
     | Fclosure ({cl_fun},_) ->
-      let compilation_unit = cl_fun.unit in
       Ident.Map.iter (fun id _ ->
-          let var = Closure_function.create ~compilation_unit id in
+          let var = Closure_function.create
+              ~compilation_unit:cl_fun.compilation_unit id in
           add_and_check var) cl_fun.funs
     | _ -> ()
   in
