@@ -38,6 +38,8 @@ type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
     The label must be globaly unique: two compilation units linked
     in the same program must not share labels *)
 
+type compilation_unit
+
 type function_within_closure
 type variable_within_closure
 
@@ -45,22 +47,23 @@ type function_label
 
 module Variable : sig
   include PrintableHashOrdered with type t = variable
-  val create : compilation_unit:symbol -> Ident.t -> t
-  val compilation_unit : t -> symbol
+  val create : compilation_unit:compilation_unit -> Ident.t -> t
+  val compilation_unit : t -> compilation_unit
 end
 
 module Closure_function : sig
   include PrintableHashOrdered with type t = function_within_closure
-  val create : compilation_unit:symbol -> Ident.t -> t
-  val compilation_unit : t -> symbol
+  val create : variable -> t
+  val compilation_unit : t -> compilation_unit
 end
 module Closure_variable : sig
   include PrintableHashOrdered with type t = variable_within_closure
-  val create : compilation_unit:symbol -> Ident.t -> t
-  val compilation_unit : t -> symbol
+  val create : variable -> t
+  val compilation_unit : t -> compilation_unit
 end
 
 module Symbol : PrintableHashOrdered with type t = symbol
+module Compilation_unit : PrintableHashOrdered with type t = compilation_unit
 
 module Function_label : sig
   include PrintableHashOrdered with type t = function_label
@@ -104,7 +107,7 @@ type call_kind =
    identify an expression *)
 type 'a flambda =
     Fsymbol of symbol * 'a
-  | Fvar of Ident.t * 'a
+  | Fvar of variable * 'a
   | Fconst of const * 'a
   | Fapply of 'a apply * 'a
   | Fclosure of 'a closure * 'a
@@ -113,19 +116,19 @@ type 'a flambda =
       first select a function using Ffunction. *)
   | Ffunction of 'a funct * 'a
   | Fvariable_in_closure of 'a variable_in_closure * 'a
-  | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
-  | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
+  | Flet of let_kind * variable * 'a flambda * 'a flambda * 'a
+  | Fletrec of (variable * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
   | Fswitch of 'a flambda * 'a flambda_switch * 'a
   | Fstaticfail of int * 'a flambda list * 'a
-  | Fcatch of int * Ident.t list * 'a flambda * 'a flambda * 'a
-  | Ftrywith of 'a flambda * Ident.t * 'a flambda * 'a
+  | Fcatch of int * variable list * 'a flambda * 'a flambda * 'a
+  | Ftrywith of 'a flambda * variable * 'a flambda * 'a
   | Fifthenelse of 'a flambda * 'a flambda * 'a flambda * 'a
   | Fsequence of 'a flambda * 'a flambda * 'a
   | Fwhile of 'a flambda * 'a flambda * 'a
-  | Ffor of Ident.t * 'a flambda * 'a flambda * Asttypes.direction_flag *
+  | Ffor of variable * 'a flambda * 'a flambda * Asttypes.direction_flag *
             'a flambda * 'a
-  | Fassign of Ident.t * 'a flambda * 'a
+  | Fassign of variable * 'a flambda * 'a
   | Fsend of Lambda.meth_kind * 'a flambda * 'a flambda * 'a flambda list *
              Debuginfo.t * 'a
   | Funreachable of 'a
@@ -153,8 +156,8 @@ and 'a apply =
 
 and 'a closure =
   { cl_fun : 'a ffunctions;
-    cl_free_var : 'a flambda Ident.Map.t;
-    cl_specialised_arg : Ident.t Ident.Map.t }
+    cl_free_var : 'a flambda VarMap.t;
+    cl_specialised_arg : variable VarMap.t }
 
 and 'a ffunction = {
   label : function_label; (** an unique name used for linking *)
@@ -165,17 +168,17 @@ and 'a ffunction = {
       tuplified function must go through a stub. Stubs will be
       unconditionnaly inlined. *)
   arity : int;
-  params : Ident.t list; (** internal identifiers of parameters. *)
-  free_variables : Ident.Set.t;
+  params : variable list; (** internal identifiers of parameters. *)
+  free_variables : VarSet.t;
   body : 'a flambda;
   dbg : Debuginfo.t;
 }
 
 and 'a ffunctions = {
   ident : FunId.t;
-  funs : 'a ffunction Ident.Map.t;
+  funs : 'a ffunction VarMap.t;
   (** The ident key correspond to off_id of offset type *)
-  compilation_unit : symbol;
+  compilation_unit : compilation_unit;
   closed : bool;
   contains_recursive_function : bool;
 }

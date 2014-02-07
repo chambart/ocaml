@@ -41,8 +41,8 @@ let apply_on_subexpressions f = function
   | Fapply ({ap_function;ap_arg},_) ->
     List.iter f (ap_function::ap_arg)
   | Fclosure ({cl_fun;cl_free_var},_) ->
-    Ident.Map.iter (fun _ v -> f v) cl_free_var;
-    Ident.Map.iter (fun _ ffun -> f ffun.body) cl_fun.funs
+    VarMap.iter (fun _ v -> f v) cl_free_var;
+    VarMap.iter (fun _ ffun -> f ffun.body) cl_fun.funs
   | Fletrec (defs, body,_) ->
     List.iter (fun (_,l) -> f l) defs;
     f body
@@ -88,8 +88,8 @@ let iter f t =
       iter_list (f1::fl)
 
     | Fclosure ({cl_fun = funcs; cl_free_var = fv},_) ->
-      Ident.Map.iter (fun _ v -> aux v) fv;
-      Ident.Map.iter (fun _ ffun -> aux ffun.body) funcs.funs
+      VarMap.iter (fun _ v -> aux v) fv;
+      VarMap.iter (fun _ ffun -> aux ffun.body) funcs.funs
 
     | Fletrec (defs, body,_) ->
       List.iter (fun (_,l) -> aux l) defs;

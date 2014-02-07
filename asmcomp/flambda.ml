@@ -16,6 +16,8 @@ type linkage_name = string
 
 type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
 
+type compilation_unit = symbol
+
 module Symbol = struct
   type t = symbol
   let compare s1 s2 = String.compare s1.sym_label s2.sym_label
@@ -27,6 +29,8 @@ module Symbol = struct
   let print ppf s =
     Format.fprintf ppf "%a - %s" Ident.print s.sym_unit s.sym_label
 end
+
+module Compilation_unit = Symbol
 
 type variable = { var_unit : symbol; var_var : Ident.t }
 
@@ -46,6 +50,7 @@ module Variable = struct
   let create ~compilation_unit id =
     { var_unit = compilation_unit; var_var = id }
   let compilation_unit var = var.var_unit
+  let to_string var = Format.asprintf "%a" print var
 end
 
 module SymbolSet = ExtSet(Symbol)
@@ -91,7 +96,7 @@ module Closure_element = struct
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
 
-  let create ~compilation_unit ce_id = { ce_unit = compilation_unit; ce_id }
+  let create var = { ce_unit = var.var_unit; ce_id = var.var_var }
   let compilation_unit { ce_unit } = ce_unit
 end
 
@@ -121,24 +126,24 @@ type call_kind =
 
 type 'a flambda =
   | Fsymbol of symbol * 'a
-  | Fvar of Ident.t * 'a
+  | Fvar of variable * 'a
   | Fconst of const * 'a
   | Fapply of 'a apply * 'a
   | Fclosure of 'a closure * 'a
   | Ffunction of 'a funct * 'a
   | Fvariable_in_closure of 'a variable_in_closure * 'a
-  | Flet of let_kind * Ident.t * 'a flambda * 'a flambda * 'a
-  | Fletrec of (Ident.t * 'a flambda) list * 'a flambda * 'a
+  | Flet of let_kind * variable * 'a flambda * 'a flambda * 'a
+  | Fletrec of (variable * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
   | Fswitch of 'a flambda * 'a flambda_switch * 'a
   | Fstaticfail of int * 'a flambda list * 'a
-  | Fcatch of int * Ident.t list * 'a flambda * 'a flambda * 'a
-  | Ftrywith of 'a flambda * Ident.t * 'a flambda * 'a
+  | Fcatch of int * variable list * 'a flambda * 'a flambda * 'a
+  | Ftrywith of 'a flambda * variable * 'a flambda * 'a
   | Fifthenelse of 'a flambda * 'a flambda * 'a flambda * 'a
   | Fsequence of 'a flambda * 'a flambda * 'a
   | Fwhile of 'a flambda * 'a flambda * 'a
-  | Ffor of Ident.t * 'a flambda * 'a flambda * Asttypes.direction_flag * 'a flambda * 'a
-  | Fassign of Ident.t * 'a flambda * 'a
+  | Ffor of variable * 'a flambda * 'a flambda * Asttypes.direction_flag * 'a flambda * 'a
+  | Fassign of variable * 'a flambda * 'a
   | Fsend of Lambda.meth_kind * 'a flambda * 'a flambda * 'a flambda list * Debuginfo.t * 'a
   | Funreachable of 'a
 
@@ -163,22 +168,22 @@ and 'a apply =
 
 and 'a closure =
   { cl_fun : 'a ffunctions;
-    cl_free_var : 'a flambda Ident.Map.t;
-    cl_specialised_arg : Ident.t Ident.Map.t }
+    cl_free_var : 'a flambda VarMap.t;
+    cl_specialised_arg : variable VarMap.t }
 
 and 'a ffunction = {
   label  : function_label;
   stub   : bool;
   arity  : int;
-  params : Ident.t list;
-  free_variables : Ident.Set.t;
+  params : variable list;
+  free_variables : VarSet.t;
   body   : 'a flambda;
   dbg    : Debuginfo.t;
 }
 
 and 'a ffunctions = {
   ident  : FunId.t;
-  funs   : 'a ffunction Ident.Map.t;
+  funs   : 'a ffunction VarMap.t;
   compilation_unit : symbol;
   closed : bool;
   contains_recursive_function : bool;
@@ -200,7 +205,7 @@ let can_be_merged f1 f2 = match f1,f2 with
   | Fsymbol (sym1, _), Fsymbol (sym2, _) ->
     Symbol.equal sym1 sym2
   | Fvar (id1, _), Fvar (id2, _) ->
-    Ident.equal id1 id2
+    Variable.equal id1 id2
   | Fconst (c1, _), Fconst (c2, _) -> begin
       let open Asttypes in
       match c1, c2 with
@@ -241,11 +246,11 @@ let data_at_toplevel_node = function
 
 let description_of_toplevel_node = function
   | Fsymbol ({sym_label},_) -> Printf.sprintf "%%%s" sym_label
-  | Fvar (id,data) -> Ident.unique_name id
+  | Fvar (id,data) -> Variable.to_string id
   | Fconst (cst,data) -> "const"
   | Flet(str, id, lam, body,data) ->
     Printf.sprintf "let %s"
-      (Ident.unique_name id)
+      (Variable.to_string id)
   | Fletrec(defs, body,data) -> "letrec"
   | Fclosure(_,data) -> "closure"
   | Ffunction(_,data) -> "function"
