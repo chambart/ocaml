@@ -209,3 +209,29 @@ let rec iter f = function
     Empty -> ()
   | Node(l, k, r, _) ->
       iter f l; f k.ident k.data; iter f r
+
+let compare x y =
+  let c = compare x.stamp y.stamp in
+  if c = 0
+  then compare x.name y.name
+  else
+    if c = 0
+    then compare x.flags y.flags
+    else c
+
+let output oc id = output_string oc (unique_name id)
+let hash i = (Char.code i.name.[0]) lxor i.stamp
+
+module Id = struct
+  type t' = t
+  type t = t'
+  let compare = compare
+  let equal = same
+  let hash = hash
+  let output = output
+  let print = print
+end
+
+module Set = Ext_types.ExtSet(Id)
+module Map = Ext_types.ExtMap(Id)
+module Tbl = Ext_types.ExtHashtbl(Id)

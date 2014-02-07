@@ -30,6 +30,9 @@ val same: t -> t -> bool
            non-persistent and have been created by the same call to
            [new], or if they are both persistent and have the same
            name. *)
+val compare: t -> t -> int
+        (* [compare x y] is 0 if [same x y] is true. *)
+val hash: t -> int
 val hide: t -> t
         (* Return an identifier with same name as the given identifier,
            but stamp different from any stamp returned by new.
@@ -46,6 +49,7 @@ val set_current_time: int -> unit
 val reinit: unit -> unit
 
 val print: Format.formatter -> t -> unit
+val output : out_channel -> t -> unit
 
 type 'a tbl
         (* Association tables from identifiers to type 'a. *)
@@ -59,3 +63,7 @@ val fold_name: (t -> 'a -> 'b -> 'b) -> 'a tbl -> 'b -> 'b
 val fold_all: (t -> 'a -> 'b -> 'b) -> 'a tbl -> 'b -> 'b
 val iter: (t -> 'a -> unit) -> 'a tbl -> unit
 
+module Id : Ext_types.PrintableHashOrdered with type t = t
+module Set : Ext_types.ExtSet with module M := Id
+module Map : Ext_types.ExtMap with module M := Id
+module Tbl : Ext_types.ExtHashtbl with module M := Id
