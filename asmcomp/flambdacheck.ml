@@ -311,3 +311,37 @@ let no_identifier_bound_multiple_times flam =
     No_identifier_bound_multiple_times
   with Bound_multiple_times var ->
     Some_identifier_bound_multiple_times var
+
+type no_assign_on_variable_of_kind_strict =
+  | No_assign_on_variable_of_kind_strict
+  | Some_assign_on_variable_of_kind_strict of Ident.t
+
+exception Assing_on_kind_strict of Ident.t
+
+let no_assign_on_variable_of_kind_strict flam =
+  let test var env =
+    if not (Ident.Set.mem var env)
+    then raise (Assing_on_kind_strict var) in
+  let check env = function
+    | Fassign(id,_,_) -> test id env
+    | _ -> ()
+  in
+  let rec dispach env = function
+    | Flet(Variable,id,def,body,_) ->
+      loop env def;
+      loop (Ident.Set.add id env) body
+    | Fclosure ({cl_fun;cl_free_var},_) ->
+      Ident.Map.iter (fun _ v -> loop env v) cl_free_var;
+      let env = Ident.Set.empty in
+      Ident.Map.iter (fun _ { body } -> loop env body) cl_fun.funs
+    | exp -> loop env exp
+  and loop env exp =
+    check env exp;
+    Flambdaiter.apply_on_subexpressions (dispach env) exp
+  in
+  let env = Ident.Set.empty in
+  try
+    loop env flam;
+    No_assign_on_variable_of_kind_strict
+  with Assing_on_kind_strict var ->
+    Some_assign_on_variable_of_kind_strict var

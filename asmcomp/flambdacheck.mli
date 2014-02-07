@@ -33,3 +33,10 @@ type no_identifier_bound_multiple_times =
 
 val no_identifier_bound_multiple_times :
   'a Flambda.flambda -> no_identifier_bound_multiple_times
+
+type no_assign_on_variable_of_kind_strict =
+  | No_assign_on_variable_of_kind_strict
+  | Some_assign_on_variable_of_kind_strict of Ident.t
+
+val no_assign_on_variable_of_kind_strict :
+  'a Flambda.flambda -> no_assign_on_variable_of_kind_strict
