@@ -13,219 +13,18 @@
 open Ext_types
 open Flambda
 
-type 'a env = {
-  current_unit : symbol;
-  bound_variables : Ident.Set.t;
-  seen_variables : Ident.Set.t ref;
-  seen_fun_label : StringSet.t ref;
-  seen_static_catch : IntSet.t ref;
-  need_closure_var : ClosureVariableSet.t ref;
-  seen_closure_var : ClosureVariableSet.t ref;
-  need_function : ClosureFunctionSet.t ref;
-  seen_function : ClosureFunctionSet.t ref;
-  caught_static_exceptions : IntSet.t;
-}
-
 let fatal_error_f fmt = Printf.kprintf Misc.fatal_error fmt
-
-let closure_env env =
-  { env with
-    bound_variables = Ident.Set.empty;
-    caught_static_exceptions = IntSet.empty }
-
-let record_var env id =
-  if Ident.Set.mem id !(env.seen_variables)
-  then fatal_error_f "Flambda.check: variable %s bound multiple times"
-      (Ident.unique_name id);
-  env.seen_variables := Ident.Set.add id !(env.seen_variables)
-
-let add_var id env =
-  { env with bound_variables = Ident.Set.add id env.bound_variables }
-
-let bind_var id env =
-  record_var env id;
-  add_var id env
-
-let check_var id env =
-  if not (Ident.Set.mem id env.bound_variables)
-  then fatal_error_f "Flambda.check: unbound variable %s" (Ident.unique_name id)
-
-(* We can't easilly check here that a variable or a function are effectively
-   available if they come from a different compilation unit *)
-let need_closure_var var_offset env =
-  if Symbol.equal (Closure_variable.compilation_unit var_offset) env.current_unit
-  then env.need_closure_var := ClosureVariableSet.add var_offset !(env.need_closure_var)
-
-let seen_closure_var var_offset env =
-  env.seen_closure_var := ClosureVariableSet.add var_offset !(env.seen_closure_var)
-
-let need_function offset env =
-  if Symbol.equal (Closure_function.compilation_unit offset) env.current_unit
-  then
-    env.need_function := ClosureFunctionSet.add offset !(env.need_function)
-
-let seen_function offset env =
-  env.seen_function := ClosureFunctionSet.add offset !(env.seen_function)
-
-let add_check_static_catch n env =
-  if IntSet.mem n !(env.seen_static_catch)
-  then fatal_error_f  "Flambda.check: static exception %i caught \
-                       at multiple places" n;
-  env.seen_static_catch := IntSet.add n !(env.seen_static_catch);
-  { env with
-    caught_static_exceptions = IntSet.add n env.caught_static_exceptions }
-
-let record_fun_label lbl env =
-  if StringSet.mem lbl !(env.seen_fun_label)
-  then fatal_error_f "Flambda.check: function %s appear multiple times" lbl;
-  env.seen_fun_label := StringSet.add lbl !(env.seen_fun_label)
-
-let rec check env = function
-  | Fsymbol _ -> ()
-  | Fvar (id,_) -> check_var id env
-  | Fconst (cst,_) -> ()
-  | Flet(str, id, lam, body,_) ->
-    check env lam;
-    let env = bind_var id env in
-    check env body
-  | Fletrec(defs, body,_) ->
-    let env = List.fold_left (fun env (id,lam) -> bind_var id env) env defs in
-    List.iter (fun (_,def) -> check env def) defs;
-    check env body
-  | Fclosure({cl_fun;cl_free_var = fv;
-              cl_specialised_arg = spec_arg}, _) ->
-    Ident.Map.iter (fun _ lam -> check env lam) fv;
-    Ident.Map.iter (fun param id' ->
-        (* a specialised parameter must be a parameter of a function
-           in the closure *)
-        if not (Ident.Map.exists (fun _ ffun -> List.mem param ffun.params) cl_fun.funs)
-        then fatal_error_f "Flambda.check: %s is not a function argument"
-            (Ident.unique_name id');
-        check_var id' env)
-      spec_arg;
-    (* The code inside a closure can't access variable bound outside of the closure,
-       closure_env removes it *)
-    check_closure (closure_env env) cl_fun fv
-  | Ffunction({fu_closure = lam; fu_fun = offset;
-               fu_relative_to = relative_offset}, _) ->
-    begin match relative_offset with
-      | None -> ()
-      | Some rel_offset ->
-        need_function rel_offset env;
-        if not (Symbol.equal
-                  (Closure_function.compilation_unit offset)
-                  (Closure_function.compilation_unit rel_offset))
-        then Misc.fatal_error "Flambda.check relative offset from a different\
-                               compilation unit"
-    end;
-    need_function offset env;
-    check env lam
-  | Fvariable_in_closure({ vc_closure = env_lam; vc_fun = env_fun_id;
-                           vc_var = env_var },_) ->
-    if not (Symbol.equal
-              (Closure_function.compilation_unit env_fun_id)
-              (Closure_variable.compilation_unit env_var))
-    then Misc.fatal_error "Flambda.check closure variable and function comes\
-                           from a different compilation units";
-    need_closure_var env_var env;
-    check env env_lam
-  | Fapply({ap_function = funct; ap_arg = args},_) ->
-    check env funct;
-    List.iter (check env) args
-  | Fswitch(arg, sw,_) ->
-    check env arg;
-    List.iter (fun (_,l) -> check env l) sw.fs_consts;
-    List.iter (fun (_,l) -> check env l) sw.fs_blocks
-  | Fsend(kind, met, obj, args, _,_) ->
-    check env met;
-    check env obj;
-    List.iter (check env) args
-  | Fprim(_, args, _,_) ->
-    List.iter (check env) args
-  | Fstaticfail (i, args,_) ->
-    if not (IntSet.mem i env.caught_static_exceptions)
-    then fatal_error_f "Flambda.check: uncaught static exception %i" i;
-    List.iter (check env) args
-  | Fcatch (i, vars, body, handler,_) ->
-    let env' = add_check_static_catch i env in
-    check env' body;
-    let env = List.fold_right bind_var vars env in
-    check env handler
-  | Ftrywith(body, id, handler,_) ->
-    check env body;
-    let env = bind_var id env in
-    check env handler
-  | Fifthenelse(arg, ifso, ifnot,_) ->
-    check env arg;
-    check env ifso;
-    check env ifnot
-  | Fsequence(lam1, lam2,_) ->
-    check env lam1;
-    check env lam2
-  | Fwhile(cond, body,_) ->
-    check env cond;
-    check env body
-  | Ffor(id, lo, hi, dir, body,_) ->
-    check env lo; check env hi;
-    let env = bind_var id env in
-    check env body
-  | Fassign(id, lam,_) ->
-    check env lam
-  | Funreachable _ -> ()
-
-and check_closure env funct fv =
-  Ident.Map.iter (fun id _ ->
-      seen_closure_var (Closure_variable.create funct.unit id) env;
-      record_var env id) fv;
-  let env =
-    if funct.recursives
-    then Ident.Map.fold (fun id _ env -> bind_var id env) funct.funs env
-    else (Ident.Map.iter (fun id _ -> record_var env id) funct.funs;
-          env)
-  in
-  Ident.Map.iter (fun fun_id func ->
-      seen_function (Closure_function.create funct.unit fun_id) env;
-      record_fun_label (func.label:>string) env;
-      let env = Ident.Set.fold (fun id env ->
-          if not (Ident.Map.mem id fv)
-          then fatal_error_f "Flambda.check: variable %s not in \
-                              the closure" (Ident.unique_name id);
-          add_var id env) func.closure_params env in
-      let env = List.fold_right bind_var func.params env in
-      check env func.body)
-    funct.funs
-
-let check ~current_unit flam =
-  let env = { current_unit;
-              bound_variables = Ident.Set.empty;
-              seen_variables = ref Ident.Set.empty;
-              seen_fun_label = ref StringSet.empty;
-              seen_static_catch = ref IntSet.empty;
-              need_closure_var = ref ClosureVariableSet.empty;
-              seen_closure_var = ref ClosureVariableSet.empty;
-              need_function = ref ClosureFunctionSet.empty;
-              seen_function = ref ClosureFunctionSet.empty;
-              caught_static_exceptions = IntSet.empty } in
-  check env flam;
-  let diff = ClosureVariableSet.diff !(env.need_closure_var) !(env.seen_closure_var) in
-  if not (ClosureVariableSet.is_empty diff)
-  then fatal_error_f "Flambda.check: closure variable %s is needed but not provided"
-      (ClosureVariableSet.to_string diff);
-  let diff = ClosureFunctionSet.diff !(env.need_function) !(env.seen_function) in
-  if not (ClosureFunctionSet.is_empty diff)
-  then fatal_error_f "Flambda.check: function %s is needed but not provided"
-      (ClosureFunctionSet.to_string diff)
 
 type 'a counter_example =
   | No_counter_example
   | Counter_example of 'a
 
-exception Counter_example_exn of Ident.t
+exception Counter_example_id of Ident.t
 
 let every_used_identifier_is_bound flam =
   let test var env =
     if not (Ident.Set.mem var env)
-    then raise (Counter_example_exn var) in
+    then raise (Counter_example_id var) in
   let check env = function
     | Fassign(id,_,_)
     | Fvar(id,_) -> test id env
@@ -273,14 +72,14 @@ let every_used_identifier_is_bound flam =
   try
     loop env flam;
     No_counter_example
-  with Counter_example_exn var ->
+  with Counter_example_id var ->
     Counter_example var
 
 let no_identifier_bound_multiple_times flam =
   let bound = ref Ident.Set.empty in
   let add_and_check id =
     if Ident.Set.mem id !bound
-    then raise (Counter_example_exn id)
+    then raise (Counter_example_id id)
     else bound := Ident.Set.add id !bound
   in
   let f = function
@@ -303,13 +102,13 @@ let no_identifier_bound_multiple_times flam =
   try
     Flambdaiter.iter f flam;
     No_counter_example
-  with Counter_example_exn var ->
+  with Counter_example_id var ->
     Counter_example var
 
 let no_assign_on_variable_of_kind_strict flam =
   let test var env =
     if not (Ident.Set.mem var env)
-    then raise (Counter_example_exn var) in
+    then raise (Counter_example_id var) in
   let check env = function
     | Fassign(id,_,_) -> test id env
     | _ -> ()
@@ -331,5 +130,217 @@ let no_assign_on_variable_of_kind_strict flam =
   try
     loop env flam;
     No_counter_example
-  with Counter_example_exn var ->
+  with Counter_example_id var ->
     Counter_example var
+
+let declared_variable_within_closure flam =
+  let bound = ref ClosureVariableSet.empty in
+  let bound_multiple_times = ref None in
+  let add_and_check var =
+    if ClosureVariableSet.mem var !bound
+    then bound_multiple_times := Some var;
+    bound := ClosureVariableSet.add var !bound
+  in
+  let f = function
+    | Fclosure ({cl_fun;cl_free_var},_) ->
+      let compilation_unit = cl_fun.unit in
+      Ident.Map.iter (fun id _ ->
+          let var = Closure_variable.create ~compilation_unit id in
+          add_and_check var) cl_free_var
+    | _ -> ()
+  in
+  Flambdaiter.iter f flam;
+  !bound, !bound_multiple_times
+
+let no_variable_within_closure_is_bound_multiple_times flam =
+  match declared_variable_within_closure flam with
+  | _, Some var -> Counter_example var
+  | _, None -> No_counter_example
+
+exception Counter_example_sym of symbol
+
+let every_declared_closure_is_from_current_compilation_unit
+    ~current_compilation_unit flam =
+  let f = function
+    | Fclosure ({cl_fun = { unit }},_) ->
+      if not (Symbol.equal unit current_compilation_unit)
+      then raise (Counter_example_sym unit)
+    | _ -> ()
+  in
+  try
+    Flambdaiter.iter f flam;
+    No_counter_example
+  with Counter_example_sym sym ->
+    Counter_example sym
+
+let declared_function_within_closure flam =
+  let bound = ref ClosureFunctionSet.empty in
+  let bound_multiple_times = ref None in
+  let add_and_check var =
+    if ClosureFunctionSet.mem var !bound
+    then bound_multiple_times := Some var;
+    bound := ClosureFunctionSet.add var !bound
+  in
+  let f = function
+    | Fclosure ({cl_fun},_) ->
+      let compilation_unit = cl_fun.unit in
+      Ident.Map.iter (fun id _ ->
+          let var = Closure_function.create ~compilation_unit id in
+          add_and_check var) cl_fun.funs
+    | _ -> ()
+  in
+  Flambdaiter.iter f flam;
+  !bound, !bound_multiple_times
+
+let no_function_within_closure_is_bound_multiple_times flam =
+  match declared_function_within_closure flam with
+  | _, Some var -> Counter_example var
+  | _, None -> No_counter_example
+
+let used_function_within_closure flam =
+  let used = ref ClosureFunctionSet.empty in
+  let f = function
+    | Ffunction ({fu_fun;fu_relative_to},_) ->
+      used := ClosureFunctionSet.add fu_fun !used;
+      (match fu_relative_to with
+       | None -> ()
+       | Some rel ->
+         used := ClosureFunctionSet.add fu_fun !used)
+    | Fvariable_in_closure ({vc_fun},_) ->
+      used := ClosureFunctionSet.add vc_fun !used
+    | _ -> ()
+  in
+  Flambdaiter.iter f flam;
+  !used
+
+let used_variable_within_closure flam =
+  let used = ref ClosureVariableSet.empty in
+  let f = function
+    | Fvariable_in_closure ({vc_var},_) ->
+      used := ClosureVariableSet.add vc_var !used
+    | _ -> ()
+  in
+  Flambdaiter.iter f flam;
+  !used
+
+let every_used_function_from_current_compilation_unit_is_declared
+    ~current_compilation_unit flam =
+  let declared, _ = declared_function_within_closure flam in
+  let used = used_function_within_closure flam in
+  let used_from_current_unit =
+    ClosureFunctionSet.filter (fun func ->
+        Symbol.equal
+          (Closure_function.compilation_unit func)
+          current_compilation_unit)
+      used in
+  let counter_examples =
+    ClosureFunctionSet.diff used_from_current_unit declared in
+  if ClosureFunctionSet.is_empty counter_examples
+  then No_counter_example
+  else Counter_example counter_examples
+
+let every_used_variable_in_closure_from_current_compilation_unit_is_declared
+    ~current_compilation_unit flam =
+  let declared, _ = declared_variable_within_closure flam in
+  let used = used_variable_within_closure flam in
+  let used_from_current_unit =
+    ClosureVariableSet.filter (fun var ->
+        Symbol.equal
+          (Closure_variable.compilation_unit var)
+          current_compilation_unit)
+      used in
+  let counter_examples =
+    ClosureVariableSet.diff used_from_current_unit declared in
+  if ClosureVariableSet.is_empty counter_examples
+  then No_counter_example
+  else Counter_example counter_examples
+
+exception Counter_example_int of int
+
+let every_static_exception_is_caught flam =
+  let check env = function
+    | Fstaticfail(exn,_,_) ->
+      if not (IntSet.mem exn env)
+      then raise (Counter_example_int exn)
+    | _ -> ()
+  in
+  let rec dispach env = function
+    | Fcatch (i, _, body, handler,_) ->
+      loop env handler;
+      let env = IntSet.add i env in
+      loop env body
+    | exp -> loop env exp
+  and loop env exp =
+    check env exp;
+    Flambdaiter.apply_on_subexpressions (dispach env) exp
+  in
+  let env = IntSet.empty in
+  try
+    loop env flam;
+    No_counter_example
+  with Counter_example_int var ->
+    Counter_example var
+
+let every_static_exception_is_caught_at_a_single_position flam =
+  let caught = ref IntSet.empty in
+  let f = function
+    | Fcatch (i, _, body, handler,_) ->
+      if IntSet.mem i !caught
+      then raise (Counter_example_int i);
+      caught := IntSet.add i !caught
+    | _ -> ()
+  in
+  try
+    Flambdaiter.iter f flam;
+    No_counter_example
+  with Counter_example_int var ->
+    Counter_example var
+
+let test result fmt printer =
+  match result with
+  | No_counter_example -> ()
+  | Counter_example ce ->
+    Misc.fatal_error (Format.asprintf fmt printer ce)
+
+let check ~current_compilation_unit flam =
+  test (every_used_identifier_is_bound flam)
+    "Unbound identifier %a" Ident.print;
+
+  test (no_identifier_bound_multiple_times flam)
+    "identifier bound multiple times %a" Ident.print;
+
+  test (no_assign_on_variable_of_kind_strict flam)
+    "variable %a of kind strict is assigned" Ident.print;
+
+  test (no_variable_within_closure_is_bound_multiple_times flam)
+    "variable within closure %a bound multiple times"
+    Closure_variable.print;
+
+  test (no_function_within_closure_is_bound_multiple_times flam)
+    "function within closure %a bound multiple times"
+    Closure_function.print;
+
+  test (every_declared_closure_is_from_current_compilation_unit
+         ~current_compilation_unit flam)
+    "function declare using unit %a which is not the current one"
+    Symbol.print;
+
+  test (every_used_function_from_current_compilation_unit_is_declared
+         ~current_compilation_unit flam)
+    "functions %a from the current compilation unit are used but \
+     not declared"
+    ClosureFunctionSet.print;
+
+  test (every_used_variable_in_closure_from_current_compilation_unit_is_declared
+          ~current_compilation_unit flam)
+    "variables %a from the current compilation unit are used but \
+      not declared"
+    ClosureVariableSet.print;
+
+  test (every_static_exception_is_caught flam)
+    "static exception %a can't be caught"
+    Format.pp_print_int;
+
+  test (every_static_exception_is_caught_at_a_single_position flam)
+    "multiple catch point for exception %a"
+    Format.pp_print_int

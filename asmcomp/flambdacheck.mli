@@ -10,15 +10,8 @@
 (*                                                                     *)
 (***********************************************************************)
 
-val check : current_unit:Flambda.symbol -> 'a Flambda.flambda -> unit
-(**
-   Well formedness checking
-   Ensures that:
-    * No identifier is bound multiple times
-    * every used identifier is bound
-    * At most one place can catch a static exception
-    * Staticfail are correctly enclosed inside a catch
- *)
+val check : current_compilation_unit:Flambda.symbol -> 'a Flambda.flambda -> unit
+(** Run all tests, raises Fatal_error if a test fails *)
 
 type 'a counter_example =
   | No_counter_example
@@ -32,3 +25,27 @@ val no_identifier_bound_multiple_times :
 
 val no_assign_on_variable_of_kind_strict :
   'a Flambda.flambda -> Ident.t counter_example
+
+val no_variable_within_closure_is_bound_multiple_times :
+  'a Flambda.flambda -> Flambda.variable_within_closure counter_example
+
+val no_function_within_closure_is_bound_multiple_times :
+  'a Flambda.flambda -> Flambda.function_within_closure counter_example
+
+val every_declared_closure_is_from_current_compilation_unit :
+  current_compilation_unit:Flambda.symbol -> 'a Flambda.flambda ->
+  Flambda.symbol counter_example
+
+val every_used_function_from_current_compilation_unit_is_declared :
+  current_compilation_unit:Flambda.symbol -> 'a Flambda.flambda ->
+  Flambda.ClosureFunctionSet.t counter_example
+
+val every_used_variable_in_closure_from_current_compilation_unit_is_declared :
+  current_compilation_unit:Flambda.symbol -> 'a Flambda.flambda ->
+  Flambda.ClosureVariableSet.t counter_example
+
+val every_static_exception_is_caught :
+  'a Flambda.flambda -> int counter_example
+
+val every_static_exception_is_caught_at_a_single_position :
+  'a Flambda.flambda -> int counter_example
