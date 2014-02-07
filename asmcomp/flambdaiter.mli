@@ -12,3 +12,5 @@
 
 val apply_on_subexpressions : ('a Flambda.flambda -> unit) ->
   'a Flambda.flambda -> unit
+
+val iter : ('a Flambda.flambda -> unit) -> 'a Flambda.flambda -> unit

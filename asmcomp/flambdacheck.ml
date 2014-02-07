@@ -274,3 +274,39 @@ let every_used_identifier_is_bound flam =
     Every_used_identifier_is_bound
   with Unbound_variable var ->
     Some_used_unbound_variable var
+
+type no_identifier_bound_multiple_times =
+  | No_identifier_bound_multiple_times
+  | Some_identifier_bound_multiple_times of Ident.t
+
+exception Bound_multiple_times of Ident.t
+
+let no_identifier_bound_multiple_times flam =
+  let bound = ref Ident.Set.empty in
+  let add_and_check id =
+    if Ident.Set.mem id !bound
+    then raise (Bound_multiple_times id)
+    else bound := Ident.Set.add id !bound
+  in
+  let f = function
+    | Flet(_,id,_,_,_) ->
+      add_and_check id
+    | Fletrec(defs,_,_) ->
+      List.iter (fun (id,_) -> add_and_check id) defs
+    | Fclosure ({cl_fun;cl_free_var},_) ->
+      Ident.Map.iter (fun id _ -> add_and_check id) cl_free_var;
+      Ident.Map.iter (fun _ { params } -> List.iter add_and_check params)
+        cl_fun.funs
+    | Ffor (id,_,_,_,_,_) ->
+      add_and_check id
+    | Fcatch (_,vars,_,_,_) ->
+      List.iter add_and_check vars
+    | Ftrywith(_, id,_,_) ->
+      add_and_check id
+    | _ -> ()
+  in
+  try
+    Flambdaiter.iter f flam;
+    No_identifier_bound_multiple_times
+  with Bound_multiple_times var ->
+    Some_identifier_bound_multiple_times var

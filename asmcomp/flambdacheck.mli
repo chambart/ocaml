@@ -26,3 +26,10 @@ type every_used_identifier_is_bound =
 
 val every_used_identifier_is_bound :
   'a Flambda.flambda -> every_used_identifier_is_bound
+
+type no_identifier_bound_multiple_times =
+  | No_identifier_bound_multiple_times
+  | Some_identifier_bound_multiple_times of Ident.t
+
+val no_identifier_bound_multiple_times :
+  'a Flambda.flambda -> no_identifier_bound_multiple_times
