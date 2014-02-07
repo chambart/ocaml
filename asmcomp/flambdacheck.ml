@@ -244,6 +244,7 @@ let every_used_identifier_is_bound flam =
       loop env body
     | Fclosure ({cl_fun;cl_free_var},_) ->
       Ident.Map.iter (fun _ v -> loop env v) cl_free_var;
+      let env = Ident.Set.empty in
       let env =
         if cl_fun.recursives
         then Ident.Map.fold (fun id _ env -> Ident.Set.add id env) cl_fun.funs env
