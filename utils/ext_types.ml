@@ -211,10 +211,19 @@ module Int = struct
   let print = Format.pp_print_int
 end
 
+module String_M = struct
+  type t = string
+  let compare = String.compare
+  let output = output_string
+  let hash (s:string) = Hashtbl.hash s
+  let equal (s1:string) s2 = s1 = s2
+  let print = Format.pp_print_string
+end
+
 module IntSet = ExtSet(Int)
 module IntMap = ExtMap(Int)
 module IntTbl = ExtHashtbl(Int)
 
-module StringSet = Set.Make(String)
-module StringMap = Map.Make(String)
-(* module StringTbl = ExtHashtbl(String) *)
+module StringSet = ExtSet(String_M)
+module StringMap = ExtMap(String_M)
+module StringTbl = ExtHashtbl(String_M)

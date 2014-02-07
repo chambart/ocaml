@@ -74,6 +74,13 @@ end
 module Closure_function = Closure_element
 module Closure_variable = Closure_element
 
+module Function_label = struct
+  include Ext_types.String_M
+  let create str = str
+end
+
+type function_label = Function_label.t
+
 module ClosureFunctionMap = ExtMap(Closure_function)
 module ClosureFunctionSet = ExtSet(Closure_function)
 module ClosureFunctionTbl = ExtHashtbl(Closure_function)
@@ -81,17 +88,6 @@ module ClosureFunctionTbl = ExtHashtbl(Closure_function)
 module ClosureVariableMap = ExtMap(Closure_variable)
 module ClosureVariableSet = ExtSet(Closure_variable)
 module ClosureVariableTbl = ExtHashtbl(Closure_variable)
-
-
-module M : sig
-  type function_label = private string
-  val make_function_label : string -> function_label
-end = struct
-  type function_label = string
-  let make_function_label str = str
-end
-
-include M
 
 type let_kind = Strict | Variable
 

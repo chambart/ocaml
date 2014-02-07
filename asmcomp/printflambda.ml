@@ -40,8 +40,8 @@ let rec lam ppf = function
     let idents ppf =
       List.iter (fprintf ppf "@ %a" Ident.print) in
     let one_fun ppf f =
-      fprintf ppf "(closure@ %s@ %d@ @[<2>%a@]@ @[<2>%a@])"
-        (f.label:>string) f.arity idents f.params lam f.body in
+      fprintf ppf "(closure@ %a@ %d@ @[<2>%a@]@ @[<2>%a@])"
+        Function_label.print f.label f.arity idents f.params lam f.body in
     let funs ppf =
       Ident.Map.iter (fun _ v -> fprintf ppf "@ %a" one_fun v) in
     let lams ppf =

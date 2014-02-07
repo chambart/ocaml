@@ -107,24 +107,16 @@ module type UnitId =
 module Id : functor (E : Empty) -> Id
 module UnitId : functor (Id : Id) -> UnitId
 
-module Int :
-  sig
-    type t = int
-    val compare : int -> int -> int
-    val output : out_channel -> int -> unit
-    val hash : 'a -> 'a
-    val equal : int -> int -> bool
-    val print : Format.formatter -> int -> unit
-  end
+module Int : PrintableHashOrdered with type t = int
 
 module IntSet : ExtSet with module M := Int
 module IntMap : ExtMap with module M := Int
 module IntTbl : ExtHashtbl with module M := Int
 
-module StringSet : Set.S
-  with type elt = string
-   and type t = Set.Make(String).t
+module String_M : PrintableHashOrdered with type t = string
+(** The module is named Stirng_M to avoid name clash with stdlib
+    String if Ext_types is openend *)
 
-module StringMap : Map.S
-  with type key = string
-   and type 'a t = 'a Map.Make(String).t
+module StringSet : ExtSet with module M := String_M
+module StringMap : ExtMap with module M := String_M
+module StringTbl : ExtHashtbl with module M := String_M

@@ -29,14 +29,17 @@ open Ext_types
 type linkage_name
 
 type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
-(** A symbol is an identifier of an external constant or top level module.
+(** A symbol is an identifier of a constant provided by another
+    compilation unit or of top level module.
     [sym_unit] is the compilation unit containing the value.
     [sym_lablel] is the linking name of the variable.
-    The label must be globaly unique: two compilation units linked in the
-    same program must not share labels *)
+    The label must be globaly unique: two compilation units linked
+    in the same program must not share labels *)
 
 type function_within_closure
 type variable_within_closure
+
+type function_label
 
 module Closure_function : sig
   include PrintableHashOrdered with type t = function_within_closure
@@ -50,6 +53,11 @@ module Closure_variable : sig
 end
 
 module Symbol : PrintableHashOrdered with type t = symbol
+
+module Function_label : sig
+  include PrintableHashOrdered with type t = function_label
+  val create : string -> function_label
+end
 
 module ExprId : Id
 module FunId : UnitId
@@ -73,10 +81,6 @@ module ClosureFunctionTbl : ExtHashtbl with module M := Closure_function
 module ClosureVariableSet : ExtSet with module M := Closure_variable
 module ClosureVariableMap : ExtMap with module M := Closure_variable
 module ClosureVariableTbl : ExtHashtbl with module M := Closure_variable
-
-
-type function_label = private string
-val make_function_label : string -> function_label
 
 type let_kind = Strict | Variable (** See Lambda.let_kind *)
 
