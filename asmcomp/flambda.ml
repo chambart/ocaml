@@ -203,14 +203,14 @@ and 'a variable_in_closure = {
 
 let can_be_merged f1 f2 = match f1,f2 with
   | Fsymbol (sym1, _), Fsymbol (sym2, _) ->
-    Symbol.equal sym1 sym2
+      Symbol.equal sym1 sym2
   | Fvar (id1, _), Fvar (id2, _) ->
-    Variable.equal id1 id2
+      Variable.equal id1 id2
   | Fconst (c1, _), Fconst (c2, _) -> begin
       let open Asttypes in
       match c1, c2 with
       | Fconst_base (Const_string _), _ ->
-        false (* string constants can't be merged: they are mutable *)
+          false (* string constants can't be merged: they are mutable *)
       | Fconst_base (Const_int _ | Const_char _ | Const_float _ |
                      Const_int32 _ | Const_int64 _ | Const_nativeint _), _
       | Fconst_pointer _, _
@@ -249,8 +249,8 @@ let description_of_toplevel_node = function
   | Fvar (id,data) -> Variable.to_string id
   | Fconst (cst,data) -> "const"
   | Flet(str, id, lam, body,data) ->
-    Printf.sprintf "let %s"
-      (Variable.to_string id)
+      Printf.sprintf "let %s"
+        (Variable.to_string id)
   | Fletrec(defs, body,data) -> "letrec"
   | Fclosure(_,data) -> "closure"
   | Ffunction(_,data) -> "function"

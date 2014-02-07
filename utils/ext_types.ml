@@ -60,9 +60,9 @@ struct
   include Map.Make(M)
   let map_option f m =
     fold (fun id v map ->
-      match f id v with
-      | None -> map
-      | Some r -> add id r map) m empty
+        match f id v with
+        | None -> map
+        | Some r -> add id r map) m empty
   let of_list l =
     List.fold_left (fun map (id,v) -> add id v map) empty l
   let disjoint_union ?eq m1 m2 =
@@ -71,8 +71,8 @@ struct
         | None, Some v | Some v, None -> Some v
         | Some v1, Some v2 ->
             let ok = match eq with
-            | None -> false
-            | Some eq -> eq v1 v2 in
+              | None -> false
+              | Some eq -> eq v1 v2 in
             if not ok
             then
               let err = Format.asprintf "ExtMap.disjoint_union %a" M.print id in
@@ -122,9 +122,9 @@ struct
   let memoize t f = fun key ->
     try find t key with
     | Not_found ->
-      let r = f key in
-      add t key r;
-      r
+        let r = f key in
+        add t key r;
+        r
 end
 
 module type Empty = sig end

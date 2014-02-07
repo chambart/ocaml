@@ -29,40 +29,40 @@ let every_used_identifier_is_bound flam =
     | Fassign(id,_,_)
     | Fvar(id,_) -> test id env
     | Fclosure({cl_specialised_arg},_) ->
-      VarMap.iter (fun _ id -> test id env) cl_specialised_arg
+        VarMap.iter (fun _ id -> test id env) cl_specialised_arg
     | _ -> ()
   in
   let rec dispach env = function
     | Flet(_,id,def,body,_) ->
-      loop env def;
-      loop (VarSet.add id env) body
+        loop env def;
+        loop (VarSet.add id env) body
     | Fletrec(defs,body,_) ->
-      let env =
-        List.fold_left (fun env (id,_) -> VarSet.add id env) env defs in
-      List.iter (fun (_,def) -> loop env def) defs;
-      loop env body
+        let env =
+          List.fold_left (fun env (id,_) -> VarSet.add id env) env defs in
+        List.iter (fun (_,def) -> loop env def) defs;
+        loop env body
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      VarMap.iter (fun _ v -> loop env v) cl_free_var;
-      let env = VarSet.empty in
-      let env =
-        if cl_fun.contains_recursive_function
-        then VarMap.fold (fun id _ env -> VarSet.add id env) cl_fun.funs env
-        else env in
-      VarMap.iter (fun _ { params; free_variables; body } ->
-          let env = List.fold_right VarSet.add params env in
-          let env = VarSet.union free_variables env in
-          loop env body)
-        cl_fun.funs
+        VarMap.iter (fun _ v -> loop env v) cl_free_var;
+        let env = VarSet.empty in
+        let env =
+          if cl_fun.contains_recursive_function
+          then VarMap.fold (fun id _ env -> VarSet.add id env) cl_fun.funs env
+          else env in
+        VarMap.iter (fun _ { params; free_variables; body } ->
+            let env = List.fold_right VarSet.add params env in
+            let env = VarSet.union free_variables env in
+            loop env body)
+          cl_fun.funs
     | Ffor (id, lo, hi, _, body, _) ->
-      loop env lo; loop env hi;
-      loop (VarSet.add id env) body
+        loop env lo; loop env hi;
+        loop (VarSet.add id env) body
     | Fcatch (i, vars, body, handler,_) ->
-      loop env body;
-      let env = List.fold_right VarSet.add vars env in
-      loop env handler
+        loop env body;
+        let env = List.fold_right VarSet.add vars env in
+        loop env handler
     | Ftrywith(body, id, handler,_) ->
-      loop env body;
-      loop (VarSet.add id env) handler
+        loop env body;
+        loop (VarSet.add id env) handler
     | exp -> loop env exp
   and loop env exp =
     check env exp;
@@ -84,19 +84,19 @@ let no_identifier_bound_multiple_times flam =
   in
   let f = function
     | Flet(_,id,_,_,_) ->
-      add_and_check id
+        add_and_check id
     | Fletrec(defs,_,_) ->
-      List.iter (fun (id,_) -> add_and_check id) defs
+        List.iter (fun (id,_) -> add_and_check id) defs
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      VarMap.iter (fun id _ -> add_and_check id) cl_free_var;
-      VarMap.iter (fun _ { params } -> List.iter add_and_check params)
-        cl_fun.funs
+        VarMap.iter (fun id _ -> add_and_check id) cl_free_var;
+        VarMap.iter (fun _ { params } -> List.iter add_and_check params)
+          cl_fun.funs
     | Ffor (id,_,_,_,_,_) ->
-      add_and_check id
+        add_and_check id
     | Fcatch (_,vars,_,_,_) ->
-      List.iter add_and_check vars
+        List.iter add_and_check vars
     | Ftrywith(_, id,_,_) ->
-      add_and_check id
+        add_and_check id
     | _ -> ()
   in
   try
@@ -115,19 +115,19 @@ let every_bound_variable_is_from_current_compilation_unit
   in
   let f = function
     | Flet(_,id,_,_,_) ->
-      check id
+        check id
     | Fletrec(defs,_,_) ->
-      List.iter (fun (id,_) -> check id) defs
+        List.iter (fun (id,_) -> check id) defs
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      VarMap.iter (fun id _ -> check id) cl_free_var;
-      VarMap.iter (fun _ { params } -> List.iter check params)
-        cl_fun.funs
+        VarMap.iter (fun id _ -> check id) cl_free_var;
+        VarMap.iter (fun _ { params } -> List.iter check params)
+          cl_fun.funs
     | Ffor (id,_,_,_,_,_) ->
-      check id
+        check id
     | Fcatch (_,vars,_,_,_) ->
-      List.iter check vars
+        List.iter check vars
     | Ftrywith(_, id,_,_) ->
-      check id
+        check id
     | _ -> ()
   in
   try
@@ -146,12 +146,12 @@ let no_assign_on_variable_of_kind_strict flam =
   in
   let rec dispach env = function
     | Flet(Variable,id,def,body,_) ->
-      loop env def;
-      loop (VarSet.add id env) body
+        loop env def;
+        loop (VarSet.add id env) body
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      VarMap.iter (fun _ v -> loop env v) cl_free_var;
-      let env = VarSet.empty in
-      VarMap.iter (fun _ { body } -> loop env body) cl_fun.funs
+        VarMap.iter (fun _ v -> loop env v) cl_free_var;
+        let env = VarSet.empty in
+        VarMap.iter (fun _ { body } -> loop env body) cl_fun.funs
     | exp -> loop env exp
   and loop env exp =
     check env exp;
@@ -174,9 +174,9 @@ let declared_variable_within_closure flam =
   in
   let f = function
     | Fclosure ({cl_fun;cl_free_var},_) ->
-      VarMap.iter (fun id _ ->
-          let var = Closure_variable.create id in
-          add_and_check var) cl_free_var
+        VarMap.iter (fun id _ ->
+            let var = Closure_variable.create id in
+            add_and_check var) cl_free_var
     | _ -> ()
   in
   Flambdaiter.iter f flam;
@@ -193,8 +193,8 @@ let every_declared_closure_is_from_current_compilation_unit
     ~current_compilation_unit flam =
   let f = function
     | Fclosure ({cl_fun = { compilation_unit }},_) ->
-      if not (Compilation_unit.equal compilation_unit current_compilation_unit)
-      then raise (Counter_example_cu compilation_unit)
+        if not (Compilation_unit.equal compilation_unit current_compilation_unit)
+        then raise (Counter_example_cu compilation_unit)
     | _ -> ()
   in
   try
@@ -213,9 +213,9 @@ let declared_function_within_closure flam =
   in
   let f = function
     | Fclosure ({cl_fun},_) ->
-      VarMap.iter (fun id _ ->
-          let var = Closure_function.create id in
-          add_and_check var) cl_fun.funs
+        VarMap.iter (fun id _ ->
+            let var = Closure_function.create id in
+            add_and_check var) cl_fun.funs
     | _ -> ()
   in
   Flambdaiter.iter f flam;
@@ -230,13 +230,13 @@ let used_function_within_closure flam =
   let used = ref ClosureFunctionSet.empty in
   let f = function
     | Ffunction ({fu_fun;fu_relative_to},_) ->
-      used := ClosureFunctionSet.add fu_fun !used;
-      (match fu_relative_to with
-       | None -> ()
-       | Some rel ->
-         used := ClosureFunctionSet.add fu_fun !used)
+        used := ClosureFunctionSet.add fu_fun !used;
+        (match fu_relative_to with
+         | None -> ()
+         | Some rel ->
+             used := ClosureFunctionSet.add fu_fun !used)
     | Fvariable_in_closure ({vc_fun},_) ->
-      used := ClosureFunctionSet.add vc_fun !used
+        used := ClosureFunctionSet.add vc_fun !used
     | _ -> ()
   in
   Flambdaiter.iter f flam;
@@ -246,7 +246,7 @@ let used_variable_within_closure flam =
   let used = ref ClosureVariableSet.empty in
   let f = function
     | Fvariable_in_closure ({vc_var},_) ->
-      used := ClosureVariableSet.add vc_var !used
+        used := ClosureVariableSet.add vc_var !used
     | _ -> ()
   in
   Flambdaiter.iter f flam;
@@ -289,15 +289,15 @@ exception Counter_example_int of int
 let every_static_exception_is_caught flam =
   let check env = function
     | Fstaticfail(exn,_,_) ->
-      if not (IntSet.mem exn env)
-      then raise (Counter_example_int exn)
+        if not (IntSet.mem exn env)
+        then raise (Counter_example_int exn)
     | _ -> ()
   in
   let rec dispach env = function
     | Fcatch (i, _, body, handler,_) ->
-      loop env handler;
-      let env = IntSet.add i env in
-      loop env body
+        loop env handler;
+        let env = IntSet.add i env in
+        loop env body
     | exp -> loop env exp
   and loop env exp =
     check env exp;
@@ -314,9 +314,9 @@ let every_static_exception_is_caught_at_a_single_position flam =
   let caught = ref IntSet.empty in
   let f = function
     | Fcatch (i, _, body, handler,_) ->
-      if IntSet.mem i !caught
-      then raise (Counter_example_int i);
-      caught := IntSet.add i !caught
+        if IntSet.mem i !caught
+        then raise (Counter_example_int i);
+        caught := IntSet.add i !caught
     | _ -> ()
   in
   try
@@ -329,7 +329,7 @@ let test result fmt printer =
   match result with
   | No_counter_example -> ()
   | Counter_example ce ->
-    Misc.fatal_error (Format.asprintf fmt printer ce)
+      Misc.fatal_error (Format.asprintf fmt printer ce)
 
 let check ~current_compilation_unit flam =
   test (every_used_identifier_is_bound flam)
@@ -355,12 +355,12 @@ let check ~current_compilation_unit flam =
     Closure_function.print;
 
   test (every_declared_closure_is_from_current_compilation_unit
-         ~current_compilation_unit flam)
+          ~current_compilation_unit flam)
     "function declare using unit %a which is not the current one"
     Compilation_unit.print;
 
   test (every_used_function_from_current_compilation_unit_is_declared
-         ~current_compilation_unit flam)
+          ~current_compilation_unit flam)
     "functions %a from the current compilation unit are used but \
      not declared"
     ClosureFunctionSet.print;
@@ -368,7 +368,7 @@ let check ~current_compilation_unit flam =
   test (every_used_variable_in_closure_from_current_compilation_unit_is_declared
           ~current_compilation_unit flam)
     "variables %a from the current compilation unit are used but \
-      not declared"
+     not declared"
     ClosureVariableSet.print;
 
   test (every_static_exception_is_caught flam)

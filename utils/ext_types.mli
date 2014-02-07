@@ -66,43 +66,43 @@ module ExtHashtbl :
 module type Empty = sig end
 
 module type BaseId =
-  sig
-    type t
-    val equal : t -> t -> bool
-    val compare : t -> t -> int
-    val hash : t -> int
-    val name : t -> string option
-    val to_string : t -> string
-    val output : out_channel -> t -> unit
-    val print : Format.formatter -> t -> unit
-  end
+sig
+  type t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val name : t -> string option
+  val to_string : t -> string
+  val output : out_channel -> t -> unit
+  val print : Format.formatter -> t -> unit
+end
 
 module type Id =
-  sig
-    type t
-    val equal : t -> t -> bool
-    val compare : t -> t -> int
-    val hash : t -> int
-    val name : t -> string option
-    val to_string : t -> string
-    val output : out_channel -> t -> unit
-    val print : Format.formatter -> t -> unit
-    val create : ?name:string -> unit -> t
-  end
+sig
+  type t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val name : t -> string option
+  val to_string : t -> string
+  val output : out_channel -> t -> unit
+  val print : Format.formatter -> t -> unit
+  val create : ?name:string -> unit -> t
+end
 
 module type UnitId =
-  sig
-    type t
-    val equal : t -> t -> bool
-    val compare : t -> t -> int
-    val hash : t -> int
-    val name : t -> string option
-    val to_string : t -> string
-    val output : out_channel -> t -> unit
-    val print : Format.formatter -> t -> unit
-    val create : ?name:string -> string -> t
-    val unit : t -> string
-  end
+sig
+  type t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val hash : t -> int
+  val name : t -> string option
+  val to_string : t -> string
+  val output : out_channel -> t -> unit
+  val print : Format.formatter -> t -> unit
+  val create : ?name:string -> string -> t
+  val unit : t -> string
+end
 
 module Id : functor (E : Empty) -> Id
 module UnitId : functor (Id : Id) -> UnitId
