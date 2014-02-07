@@ -103,7 +103,7 @@ type call_kind =
 (* A data is attached to each node. It is often used to uniquely
    identify an expression *)
 type 'a flambda =
-    Fsymbol of symbol * 'a (** an external constant value *)
+    Fsymbol of symbol * 'a
   | Fvar of Ident.t * 'a
   | Fconst of const * 'a
   | Fapply of 'a apply * 'a
