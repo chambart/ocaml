@@ -32,7 +32,7 @@ let every_used_identifier_is_bound flam =
         VarMap.iter (fun _ id -> test id env) cl_specialised_arg
     | _ -> ()
   in
-  let rec dispach env = function
+  let rec loop env = function
     | Flet(_,id,def,body,_) ->
         loop env def;
         loop (VarSet.add id env) body
@@ -63,10 +63,9 @@ let every_used_identifier_is_bound flam =
     | Ftrywith(body, id, handler,_) ->
         loop env body;
         loop (VarSet.add id env) handler
-    | exp -> loop env exp
-  and loop env exp =
-    check env exp;
-    Flambdaiter.apply_on_subexpressions (dispach env) exp
+    | exp ->
+        check env exp;
+        Flambdaiter.apply_on_subexpressions (loop env) exp
   in
   let env = VarSet.empty in
   try
@@ -144,7 +143,7 @@ let no_assign_on_variable_of_kind_strict flam =
     | Fassign(id,_,_) -> test id env
     | _ -> ()
   in
-  let rec dispach env = function
+  let rec loop env = function
     | Flet(Variable,id,def,body,_) ->
         loop env def;
         loop (VarSet.add id env) body
@@ -152,10 +151,9 @@ let no_assign_on_variable_of_kind_strict flam =
         VarMap.iter (fun _ v -> loop env v) cl_free_var;
         let env = VarSet.empty in
         VarMap.iter (fun _ { body } -> loop env body) cl_fun.funs
-    | exp -> loop env exp
-  and loop env exp =
-    check env exp;
-    Flambdaiter.apply_on_subexpressions (dispach env) exp
+    | exp ->
+        check env exp;
+        Flambdaiter.apply_on_subexpressions (loop env) exp
   in
   let env = VarSet.empty in
   try
@@ -293,15 +291,14 @@ let every_static_exception_is_caught flam =
         then raise (Counter_example_int exn)
     | _ -> ()
   in
-  let rec dispach env = function
+  let rec loop env = function
     | Fcatch (i, _, body, handler,_) ->
         loop env handler;
         let env = IntSet.add i env in
         loop env body
-    | exp -> loop env exp
-  and loop env exp =
-    check env exp;
-    Flambdaiter.apply_on_subexpressions (dispach env) exp
+    | exp ->
+        check env exp;
+        Flambdaiter.apply_on_subexpressions (loop env) exp
   in
   let env = IntSet.empty in
   try
