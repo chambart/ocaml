@@ -313,26 +313,32 @@ let iter f = function
   | Lifused (v, e) ->
       f e
 
+module IdentSet =
+  Set.Make(struct
+    type t = Ident.t
+    let compare = compare
+  end)
+
 let free_ids get l =
-  let fv = ref Ident.Set.empty in
+  let fv = ref IdentSet.empty in
   let rec free l =
     iter free l;
-    fv := List.fold_right Ident.Set.add (get l) !fv;
+    fv := List.fold_right IdentSet.add (get l) !fv;
     match l with
       Lfunction(kind, params, body) ->
-        List.iter (fun param -> fv := Ident.Set.remove param !fv) params
+        List.iter (fun param -> fv := IdentSet.remove param !fv) params
     | Llet(str, id, arg, body) ->
-        fv := Ident.Set.remove id !fv
+        fv := IdentSet.remove id !fv
     | Lletrec(decl, body) ->
-        List.iter (fun (id, exp) -> fv := Ident.Set.remove id !fv) decl
+        List.iter (fun (id, exp) -> fv := IdentSet.remove id !fv) decl
     | Lstaticcatch(e1, (_,vars), e2) ->
-        List.iter (fun id -> fv := Ident.Set.remove id !fv) vars
+        List.iter (fun id -> fv := IdentSet.remove id !fv) vars
     | Ltrywith(e1, exn, e2) ->
-        fv := Ident.Set.remove exn !fv
+        fv := IdentSet.remove exn !fv
     | Lfor(v, e1, e2, dir, e3) ->
-        fv := Ident.Set.remove v !fv
+        fv := IdentSet.remove v !fv
     | Lassign(id, e) ->
-        fv := Ident.Set.add id !fv
+        fv := IdentSet.add id !fv
     | Lvar _ | Lconst _ | Lapply _
     | Lprim _ | Lswitch _ | Lstaticraise _
     | Lifthenelse _ | Lsequence _ | Lwhile _

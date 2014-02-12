@@ -62,8 +62,3 @@ val find_all: string -> 'a tbl -> 'a list
 val fold_name: (t -> 'a -> 'b -> 'b) -> 'a tbl -> 'b -> 'b
 val fold_all: (t -> 'a -> 'b -> 'b) -> 'a tbl -> 'b -> 'b
 val iter: (t -> 'a -> unit) -> 'a tbl -> unit
-
-module Id : Ext_types.PrintableHashOrdered with type t = t
-module Set : Ext_types.ExtSet with module M := Id
-module Map : Ext_types.ExtMap with module M := Id
-module Tbl : Ext_types.ExtHashtbl with module M := Id

@@ -176,7 +176,7 @@ let reorder_rec_bindings bindings =
         if init.(i) = None then begin
           status.(i) <- Inprogress;
           for j = 0 to num_bindings - 1 do
-            if Ident.Set.mem id.(j) fv.(i) then emit_binding j
+            if IdentSet.mem id.(j) fv.(i) then emit_binding j
           done
         end;
         res := (id.(i), init.(i), rhs.(i)) :: !res;
@@ -668,7 +668,7 @@ let toploop_setvalue id lam =
 let toploop_setvalue_id id = toploop_setvalue id (Lvar id)
 
 let close_toplevel_term lam =
-  Ident.Set.fold (fun id l -> Llet(Strict, id, toploop_getvalue id, l))
+  IdentSet.fold (fun id l -> Llet(Strict, id, toploop_getvalue id, l))
                 (free_variables lam) lam
 
 let transl_toplevel_item item =
