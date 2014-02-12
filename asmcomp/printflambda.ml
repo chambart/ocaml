@@ -39,11 +39,10 @@ let rec lam ppf = function
   | Fclosure({cl_fun;cl_free_var;cl_specialised_arg},_) ->
       let idents ppf =
         List.iter (fprintf ppf "@ %a" Variable.print) in
-      let one_fun ppf f =
-        fprintf ppf "(closure@ %a@ %d@ @[<2>%a@]@ @[<2>%a@])"
-          Function_label.print f.label f.arity idents f.params lam f.body in
       let funs ppf =
-        VarMap.iter (fun _ v -> fprintf ppf "@ %a" one_fun v) in
+        VarMap.iter (fun var f ->
+            fprintf ppf "@ (closure@ %a@ %d@ @[<2>%a@]@ @[<2>%a@])"
+              Variable.print var f.arity idents f.params lam f.body) in
       let lams ppf =
         VarMap.iter (fun id v -> fprintf ppf "@ %a = %a"
                         Variable.print id lam v) in
