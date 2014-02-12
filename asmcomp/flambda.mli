@@ -166,7 +166,7 @@ and 'a ffunction = {
       with a special call convention. For instance indirect calls to
       tuplified function must go through a stub. Stubs will be
       unconditionnaly inlined. *)
-  params : variable list; (** internal identifiers of parameters. *)
+  params : variable list;
   free_variables : VarSet.t;
   body : 'a flambda;
   dbg : Debuginfo.t;
