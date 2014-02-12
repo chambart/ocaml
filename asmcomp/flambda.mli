@@ -73,7 +73,10 @@ end
 module ExprId : Id
 module FunId : UnitId with module Compilation_unit := Compilation_unit
 
-module VarSet : ExtSet with module M := Variable
+module VarSet : sig
+  include ExtSet with module M := Variable
+  val of_ident_set : compilation_unit:compilation_unit -> Lambda.IdentSet.t -> t
+end
 module VarMap : ExtMap with module M := Variable
 module VarTbl : ExtHashtbl with module M := Variable
 

@@ -67,7 +67,13 @@ module SymbolSet = ExtSet(Symbol)
 module SymbolMap = ExtMap(Symbol)
 module SymbolTbl = ExtHashtbl(Symbol)
 
-module VarSet = ExtSet(Variable)
+module VarSet = struct
+  include ExtSet(Variable)
+  let of_ident_set ~compilation_unit idset =
+    Lambda.IdentSet.fold (fun id set ->
+        add (Variable.create ~compilation_unit id) set)
+      idset empty
+end
 module VarMap = ExtMap(Variable)
 module VarTbl = ExtHashtbl(Variable)
 
