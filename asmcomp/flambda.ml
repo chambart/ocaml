@@ -103,13 +103,6 @@ end
 module Closure_function = Closure_element
 module Closure_variable = Closure_element
 
-module Function_label = struct
-  include Ext_types.String_M
-  let create str = str
-end
-
-type function_label = Function_label.t
-
 module ClosureFunctionMap = ExtMap(Closure_function)
 module ClosureFunctionSet = ExtSet(Closure_function)
 module ClosureFunctionTbl = ExtHashtbl(Closure_function)
@@ -172,7 +165,6 @@ and 'a closure =
     cl_specialised_arg : variable VarMap.t }
 
 and 'a ffunction = {
-  label  : function_label;
   stub   : bool;
   arity  : int;
   params : variable list;

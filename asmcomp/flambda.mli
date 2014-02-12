@@ -43,7 +43,6 @@ type compilation_unit
 type function_within_closure
 type variable_within_closure
 
-type function_label
 
 module Variable : sig
   include PrintableHashOrdered with type t = variable
@@ -65,9 +64,6 @@ end
 module Symbol : PrintableHashOrdered with type t = symbol
 module Compilation_unit : PrintableHashOrdered with type t = compilation_unit
 
-module Function_label : sig
-  include PrintableHashOrdered with type t = function_label
-  val create : string -> function_label
 end
 
 module ExprId : Id
@@ -160,7 +156,6 @@ and 'a closure =
     cl_specialised_arg : variable VarMap.t }
 
 and 'a ffunction = {
-  label : function_label; (** an unique name used for linking *)
   stub : bool;
   (** A stub function is a generated function used to prepare
       arguments or return value to allow indirect calls to function
