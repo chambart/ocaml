@@ -18,6 +18,8 @@ type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
 
 type compilation_unit = symbol
 
+let linkage_name s = s
+
 module Symbol = struct
   type t = symbol
   let compare s1 s2 = String.compare s1.sym_label s2.sym_label
@@ -30,7 +32,10 @@ module Symbol = struct
     Format.fprintf ppf "%a - %s" Ident.print s.sym_unit s.sym_label
 end
 
-module Compilation_unit = Symbol
+module Compilation_unit = struct
+  include Symbol
+  let create s = s
+end
 
 type variable = { var_unit : symbol; var_var : Ident.t }
 
@@ -49,7 +54,12 @@ module Variable = struct
   let print ppf v = Ident.print ppf v.var_var
   let create ~compilation_unit id =
     { var_unit = compilation_unit; var_var = id }
+  let make ~compilation_unit name =
+    { var_unit = compilation_unit; var_var = Ident.create name }
   let compilation_unit var = var.var_unit
+  let rename ~compilation_unit var =
+    { var_unit = compilation_unit;
+      var_var = Ident.rename var.var_var }
   let to_string var = Format.asprintf "%a" print var
 end
 

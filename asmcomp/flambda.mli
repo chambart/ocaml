@@ -43,11 +43,14 @@ type compilation_unit
 type function_within_closure
 type variable_within_closure
 
+val linkage_name : string -> linkage_name
 
 module Variable : sig
   include PrintableHashOrdered with type t = variable
   val create : compilation_unit:compilation_unit -> Ident.t -> t
+  val make : compilation_unit:compilation_unit -> string -> t
   val compilation_unit : t -> compilation_unit
+  val rename : compilation_unit:compilation_unit -> t -> t
 end
 
 module Closure_function : sig
@@ -62,8 +65,9 @@ module Closure_variable : sig
 end
 
 module Symbol : PrintableHashOrdered with type t = symbol
-module Compilation_unit : PrintableHashOrdered with type t = compilation_unit
-
+module Compilation_unit : sig
+  include PrintableHashOrdered with type t = compilation_unit
+  val create : symbol -> t
 end
 
 module ExprId : Id
