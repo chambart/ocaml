@@ -176,7 +176,6 @@ and 'a closure =
 
 and 'a ffunction = {
   stub   : bool;
-  arity  : int;
   params : variable list;
   free_variables : VarSet.t;
   body   : 'a flambda;
@@ -203,6 +202,10 @@ and 'a variable_in_closure = {
   vc_var : variable_within_closure;
 }
 
+(* utility functions *)
+
+let function_arity f = List.length f.params
+
 let can_be_merged f1 f2 = match f1,f2 with
   | Fsymbol (sym1, _), Fsymbol (sym2, _) ->
       Symbol.equal sym1 sym2
@@ -220,8 +223,6 @@ let can_be_merged f1 f2 = match f1,f2 with
       | Fconst_immstring _, _ -> c1 = c2
     end
   | _ -> false
-
-(* utility functions *)
 
 let data_at_toplevel_node = function
   | Fsymbol (_,data)

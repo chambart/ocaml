@@ -41,8 +41,8 @@ let rec lam ppf = function
         List.iter (fprintf ppf "@ %a" Variable.print) in
       let funs ppf =
         VarMap.iter (fun var f ->
-            fprintf ppf "@ (closure@ %a@ %d@ @[<2>%a@]@ @[<2>%a@])"
-              Variable.print var f.arity idents f.params lam f.body) in
+            fprintf ppf "@ (closure@ %a@ @[<2>%a@]@ @[<2>%a@])"
+              Variable.print var idents f.params lam f.body) in
       let lams ppf =
         VarMap.iter (fun id v -> fprintf ppf "@ %a = %a"
                         Variable.print id lam v) in

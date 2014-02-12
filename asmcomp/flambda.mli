@@ -166,7 +166,6 @@ and 'a ffunction = {
       with a special call convention. For instance indirect calls to
       tuplified function must go through a stub. Stubs will be
       unconditionnaly inlined. *)
-  arity : int;
   params : variable list; (** internal identifiers of parameters. *)
   free_variables : VarSet.t;
   body : 'a flambda;
@@ -197,6 +196,8 @@ and 'a variable_in_closure = {
 }
 
 (* utility functions *)
+
+val function_arity : 'a ffunction -> int
 
 val can_be_merged : 'a flambda -> 'a flambda -> bool
 (** If [can_be_merged f1 f2] is true, it is safe to merge switch
