@@ -31,6 +31,7 @@ module type ExtMap = sig
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
   val map_keys : (key -> key) -> 'a t -> 'a t
+  val keys : 'a t -> Set.Make(M).t
   val print :
     (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 end
@@ -94,6 +95,11 @@ struct
     let elts ppf s = iter (fun id v ->
         Format.fprintf ppf "@ (%a %a)" M.print id f v) s in
     Format.fprintf ppf "@[<1>{@[%a@ @]}@]" elts s
+
+  module MSet = Set.Make(M)
+
+  let keys map = fold (fun k _ set -> MSet.add k set) map MSet.empty
+
 end
 
 module ExtSet(M:PrintableHashOrdered) : ExtSet with module M := M =

@@ -168,6 +168,9 @@ and 'a ffunction = {
       unconditionnaly inlined. *)
   params : variable list;
   free_variables : VarSet.t;
+  (** All free variables used in body, including function parameters,
+      functions and variables declared in the closure.
+      It is present for efficiency reasons. *)
   body : 'a flambda;
   dbg : Debuginfo.t;
 }
@@ -178,7 +181,6 @@ and 'a ffunctions = {
   (** The ident key correspond to off_id of offset type *)
   compilation_unit : compilation_unit;
   closed : bool;
-  contains_recursive_function : bool;
 }
 
 and 'a funct = {

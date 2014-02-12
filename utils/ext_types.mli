@@ -31,6 +31,7 @@ module type ExtMap = sig
   val last_union : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
   val map_keys : (key -> key) -> 'a t -> 'a t
+  val keys : 'a t -> Set.Make(M).t
   val print :
     (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 end

@@ -187,7 +187,6 @@ and 'a ffunctions = {
   funs   : 'a ffunction VarMap.t;
   compilation_unit : symbol;
   closed : bool;
-  contains_recursive_function : bool;
 }
 
 and 'a funct = {

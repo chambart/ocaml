@@ -43,15 +43,7 @@ let every_used_identifier_is_bound flam =
         loop env body
     | Fclosure ({cl_fun;cl_free_var},_) ->
         VarMap.iter (fun _ v -> loop env v) cl_free_var;
-        let env = VarSet.empty in
-        let env =
-          if cl_fun.contains_recursive_function
-          then VarMap.fold (fun id _ env -> VarSet.add id env) cl_fun.funs env
-          else env in
-        VarMap.iter (fun _ { params; free_variables; body } ->
-            let env = List.fold_right VarSet.add params env in
-            let env = VarSet.union free_variables env in
-            loop env body)
+        VarMap.iter (fun _ { free_variables; body } -> loop free_variables body)
           cl_fun.funs
     | Ffor (id, lo, hi, _, body, _) ->
         loop env lo; loop env hi;
@@ -73,6 +65,33 @@ let every_used_identifier_is_bound flam =
     No_counter_example
   with Counter_example_id var ->
     Counter_example var
+
+exception Counter_example_varset of VarSet.t
+
+let function_free_variables_are_bound_in_the_closure_and_parameters flam =
+  let f = function
+    | Fclosure ({cl_fun;cl_free_var},_) ->
+        let variables_in_closure = VarMap.keys cl_free_var in
+        let functions_in_closure =
+          VarMap.fold (fun id _ env -> VarSet.add id env)
+            cl_fun.funs VarSet.empty in
+        VarMap.iter (fun _ { params; free_variables } ->
+            let acceptable_free_variables =
+              VarSet.union
+                (VarSet.union variables_in_closure functions_in_closure)
+                (VarSet.of_list params) in
+            let counter_examples =
+              VarSet.diff free_variables acceptable_free_variables in
+            if not (VarSet.is_empty counter_examples)
+            then raise (Counter_example_varset counter_examples))
+          cl_fun.funs
+    | _ -> ()
+  in
+  try
+    Flambdaiter.iter f flam;
+    No_counter_example
+  with Counter_example_varset set ->
+    Counter_example set
 
 let no_identifier_bound_multiple_times flam =
   let bound = ref VarSet.empty in
@@ -331,6 +350,10 @@ let test result fmt printer =
 let check ~current_compilation_unit flam =
   test (every_used_identifier_is_bound flam)
     "Unbound identifier %a" Variable.print;
+
+  test (function_free_variables_are_bound_in_the_closure_and_parameters flam)
+    "Variables %a are in function free variables but are not bound in \
+     the closure or in function parameters" VarSet.print;
 
   test (no_identifier_bound_multiple_times flam)
     "identifier bound multiple times %a" Variable.print;
