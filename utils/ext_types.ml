@@ -152,9 +152,10 @@ module type Id = sig
 end
 
 module type UnitId = sig
+  module Compilation_unit : PrintableHashOrdered
   include BaseId
-  val create : ?name:string -> string -> t
-  val unit : t -> string
+  val create : ?name:string -> Compilation_unit.t -> t
+  val unit : t -> Compilation_unit.t
 end
 
 module Id(E:Empty) : Id = struct
@@ -177,31 +178,32 @@ module Id(E:Empty) : Id = struct
   let print ppf v = Format.pp_print_string ppf (to_string v)
 end
 
-module UnitId(Innerid:Id) : UnitId = struct
+module UnitId(Innerid:Id)(Compilation_unit:PrintableHashOrdered) :
+  UnitId with module Compilation_unit := Compilation_unit = struct
   type t = {
     id : Innerid.t;
-    unit : string;
+    unit : Compilation_unit.t;
   }
   let compare x y =
     let c = Innerid.compare x.id y.id in
     if c <> 0
     then c
-    else String.compare x.unit y.unit
+    else Compilation_unit.compare x.unit y.unit
   let output oc x =
-    Printf.fprintf oc "%s.%a"
-      x.unit
+    Printf.fprintf oc "%a.%a"
+      Compilation_unit.output x.unit
       Innerid.output x.id
   let print ppf x =
-    Format.fprintf ppf "%s.%a"
-      x.unit
+    Format.fprintf ppf "%a.%a"
+      Compilation_unit.print x.unit
       Innerid.print x.id
   let hash off = Hashtbl.hash off
   let equal o1 o2 = compare o1 o2 = 0
   let name o = Innerid.name o.id
   let to_string x =
-    Printf.sprintf "%s.%s"
-      x.unit
-      (Innerid.to_string x.id)
+    Format.asprintf "%a.%a"
+      Compilation_unit.print x.unit
+      Innerid.print x.id
   let create ?name unit =
     let id = Innerid.create ?name () in
     { id; unit }

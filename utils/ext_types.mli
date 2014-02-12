@@ -93,6 +93,7 @@ end
 
 module type UnitId =
 sig
+  module Compilation_unit : PrintableHashOrdered
   type t
   val equal : t -> t -> bool
   val compare : t -> t -> int
@@ -101,12 +102,16 @@ sig
   val to_string : t -> string
   val output : out_channel -> t -> unit
   val print : Format.formatter -> t -> unit
-  val create : ?name:string -> string -> t
-  val unit : t -> string
+  val create : ?name:string -> Compilation_unit.t -> t
+  val unit : t -> Compilation_unit.t
 end
 
 module Id : functor (E : Empty) -> Id
-module UnitId : functor (Id : Id) -> UnitId
+module UnitId :
+  functor (Id : Id) ->
+  functor (Compilation_unit : PrintableHashOrdered) ->
+    UnitId with module Compilation_unit := Compilation_unit
+
 
 module Int : PrintableHashOrdered with type t = int
 

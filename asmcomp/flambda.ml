@@ -77,7 +77,8 @@ module ExprSet = ExtSet(ExprId)
 module ExprTbl = ExtHashtbl(ExprId)
 
 module FunInnerid : Id = Id(struct end)
-module FunId : UnitId = UnitId(FunInnerid)
+module FunId : UnitId with module Compilation_unit := Compilation_unit
+  = UnitId(FunInnerid)(Compilation_unit)
 module FunMap = ExtMap(FunId)
 module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)

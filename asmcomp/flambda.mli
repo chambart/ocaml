@@ -71,7 +71,7 @@ module Compilation_unit : sig
 end
 
 module ExprId : Id
-module FunId : UnitId
+module FunId : UnitId with module Compilation_unit := Compilation_unit
 
 module VarSet : ExtSet with module M := Variable
 module VarMap : ExtMap with module M := Variable
