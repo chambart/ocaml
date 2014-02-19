@@ -29,6 +29,7 @@ let sort_files = ref false
 let all_dependencies = ref false
 let one_line = ref false
 let files = ref []
+let prefix = ref []
 
 (* Fix path to use '/' as directory separator instead of '\'.
    Only under Windows. *)
@@ -149,7 +150,13 @@ let find_dependency target_kind modname (byt_deps, opt_deps) =
 
 let (depends_on, escaped_eol) = (":", " \\\n    ")
 
+let add_prefix s =
+  if s <> ":"
+  then List.fold_right Filename.concat !prefix s
+  else s
+
 let print_filename s =
+  let s = add_prefix s in
   let s = if !Clflags.force_slash then fix_slash s else s in
   if not (String.contains s ' ') then begin
     print_string s;
@@ -434,6 +441,8 @@ let _ =
          "<cmd>  Pipe sources through preprocessor <cmd>";
      "-ppx", Arg.String(fun s -> first_ppx := s :: !first_ppx),
          "<cmd>  Pipe abstract syntax trees through preprocessor <cmd>";
+     "-prefix", Arg.String (fun s -> prefix := s :: !prefix),
+        "<prefix>  Add the prefix <prefix> to each filename";
      "-slash", Arg.Set Clflags.force_slash,
          " (Windows) Use forward slash / instead of backslash \\ in file paths";
      "-sort", Arg.Set sort_files,

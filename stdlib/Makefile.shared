@@ -78,6 +78,21 @@ clean::
 .ml.p.cmx:
 	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -p -c -o $*.p.cmx $<
 
+BOOT_OBJS=$(addprefix boot/,$(OBJS))
+
+boot/%.cmi: %.mli boot
+	$(CAMLC) $(COMPFLAGS) `./Compflags $*.cmi` -c $< -o $@
+
+boot/%.cmo: %.ml boot
+	$(CAMLC) $(COMPFLAGS) `./Compflags $*.cmo` -c $< -o $@
+
+boot/stdlib.cma: $(BOOT_OBJS)
+	$(CAMLC) -a -o stdlib.cma $(OBJS)
+
+
+boot:
+	mkdir boot
+
 # Dependencies on the compiler
 $(OBJS) std_exit.cmo: $(COMPILER)
 $(OBJS:.cmo=.cmi) std_exit.cmi: $(COMPILER)
@@ -92,12 +107,17 @@ $(OBJS:.cmo=.p.cmx) std_exit.p.cmx: pervasives.cmi
 $(OTHERS:.cmo=.cmx) std_exit.cmx: pervasives.cmx
 $(OTHERS:.cmo=.p.cmx) std_exit.p.cmx: pervasives.cmx
 
+$(BOOT_OBJS) boot/std_exit.cmo: pervasives.cmi
+$(BOOT_OBJS:.cmo=.cmi) boot/std_exit.cmi: pervasives.cmi
+
 clean::
 	rm -f *.cm* *.$(O) *.$(A)
+	rm -rf boot
 	rm -f *~
 
 include .depend
 
 depend:
 	$(CAMLDEP) *.mli *.ml > .depend
+	$(CAMLDEP) -prefix boot *.mli *.ml >> .depend
 	$(CAMLDEP) *.ml | sed -e 's/\.cmx/.p.cmx/g' >>.depend
