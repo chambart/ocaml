@@ -25,8 +25,8 @@ BOOT_RUNTIME=../boot/ocamlrun
 BOOT_COMPILER=../boot/ocamlc
 BOOT_CAMLC=$(RUNTIME) $(BOOT_COMPILER)
 
-OPT_CAMLC=../ocamlc.opt
-OPT_CAMLOPT=../ocamlopt.opt
+OPT_CAMLC=../byte/ocamlc.opt
+OPT_CAMLOPT=../byte/ocamlopt.opt
 
 BYTE_RUNTIME=../byterun/ocamlrun
 BYTE_COMPILER=../boot_build/ocamlc
@@ -79,17 +79,17 @@ clean::
 
 .SUFFIXES: .mli .ml .cmi .cmo .cmx .p.cmx
 
-.mli.cmi:
-	$(CAMLC) $(COMPFLAGS) `./Compflags $@` -c $<
+# .mli.cmi:
+# 	$(CAMLC) $(COMPFLAGS) `./Compflags $@` -c $<
 
-.ml.cmo:
-	$(CAMLC) $(COMPFLAGS) `./Compflags $@` -c $<
+# .ml.cmo:
+# 	$(CAMLC) $(COMPFLAGS) `./Compflags $@` -c $<
 
-.ml.cmx:
-	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -c $<
+# .ml.cmx:
+# 	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -c $<
 
-.ml.p.cmx:
-	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -p -c -o $*.p.cmx $<
+# .ml.p.cmx:
+# 	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -p -c -o $*.p.cmx $<
 
 BOOT_OBJS=$(addprefix boot/,$(OBJS))
 BOOT_OTHERS=$(addprefix boot/,$(OTHERS))
