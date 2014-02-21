@@ -53,6 +53,9 @@ BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
 BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
 	      -I byte/asmcomp -I byte/driver -I byte/toplevel
 
+OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing -I opt/bytecomp \
+	      -I opt/asmcomp -I opt/driver -I opt/toplevel
+
 UTILS=utils/misc.cmo utils/tbl.cmo utils/config.cmo \
   utils/clflags.cmo utils/terminfo.cmo utils/ccomp.cmo utils/warnings.cmo \
   utils/consistbl.cmo
@@ -124,6 +127,21 @@ NATTOPOBJS=$(UTILS) $(PARSING) $(TYPING) $(COMP) $(ASMCOMP) \
   toplevel/genprintval.cmo toplevel/opttoploop.cmo toplevel/opttopdirs.cmo \
   toplevel/opttopmain.cmo toplevel/opttopstart.cmo
 
+OPT_UTILS=$(addprefix opt/,$(UTILS))
+OPT_PARSING=$(addprefix opt/,$(PARSING))
+OPT_TYPING=$(addprefix opt/,$(TYPING))
+OPT_COMP=$(addprefix opt/,$(COMP))
+OPT_COMMON=$(addprefix opt/,$(COMMON))
+OPT_BYTECOMP=$(addprefix opt/,$(BYTECOMP))
+OPT_ASMCOMP=$(addprefix opt/,$(ASMCOMP))
+OPT_TOPLEVEL=$(addprefix opt/,$(TOPLEVEL))
+OPT_BYTESTART=$(addprefix opt/,$(BYTESTART))
+OPT_OPTSTART=$(addprefix opt/,$(OPTSTART))
+OPT_TOPLEVELSTART=$(addprefix opt/,$(TOPLEVELSTART))
+OPT_NATTOPOBJS=$(addprefix opt/,$(NATTOPOBJS))
+OPT_ALL=$(OPT_NATTOPOBJS) $(OPT_TOPLEVELSTART) $(OPT_OPTSTART) \
+	 $(OPT_BYTESTART) $(OPT_TOPLEVEL) $(OPT_ASMCOMP) \
+	 $(OPT_BYTECOMP) $(OPT_COMMON)
 
 BYTE_UTILS=$(addprefix byte/,$(UTILS))
 BYTE_PARSING=$(addprefix byte/,$(PARSING))
@@ -257,11 +275,21 @@ stdlib/boot/std_exit.cmo: byterun/ocamlrun
 stdlib/byte/stdlib.cma: byterun/ocamlrun boot_build/ocamlc
 	$(MAKE) -C stdlib byte/stdlib.cma
 
-stdlib/byte/stdlib.cmxa: byterun/ocamlrun boot_build/ocamlopt
+stdlib/byte/stdlib.cmxa: byterun/ocamlrun boot_build/ocamlopt stdlib/byte/libasmrun.a
 	$(MAKE) -C stdlib byte/stdlib.cmxa
 
 stdlib/byte/std_exit.cmo: byterun/ocamlrun boot_build/ocamlc
 	$(MAKE) -C stdlib byte/std_exit.cmo
+
+stdlib/byte/std_exit.cmx: byterun/ocamlrun boot_build/ocamlopt
+	$(MAKE) -C stdlib byte/std_exit.cmx
+
+asmrun/libasmrun.a:
+	$(MAKE) -C asmrun libasmrun.a
+
+stdlib/byte/libasmrun.a: asmrun/libasmrun.a
+	$(MAKE) -C stdlib byte
+	cp asmrun/libasmrun.a stdlib/byte/libasmrun.a
 
 demarage: stdlib/boot/stdlib.cma stdlib/boot/std_exit.cmo
 
@@ -898,13 +926,13 @@ boot_build/%.cmx: %.ml stdlib/boot/stdlib.cmxa
 $(BOOT_ALL): | $(dir $(BOOT_ALL))
 $(BOOT_ALL:.cmo=.cmi): | $(dir $(BOOT_ALL))
 
-boot_build/compilerlibs/ocamlcommon.cma: $(BOOT_COMMON) boot_build/compilerlibs
+boot_build/compilerlibs/ocamlcommon.cma: $(BOOT_COMMON) | boot_build/compilerlibs
 	$(BOOT_CAMLC) -a -o $@ $(BOOT_COMMON)
-boot_build/compilerlibs/ocamlbytecomp.cma: $(BOOT_BYTECOMP) boot_build/compilerlibs
+boot_build/compilerlibs/ocamlbytecomp.cma: $(BOOT_BYTECOMP) | boot_build/compilerlibs
 	$(BOOT_CAMLC) -a -o $@ $(BOOT_BYTECOMP)
-boot_build/compilerlibs/ocamltoplevel.cma: $(BOOT_TOPLEVEL) boot_build/compilerlibs
+boot_build/compilerlibs/ocamltoplevel.cma: $(BOOT_TOPLEVEL) | boot_build/compilerlibs
 	$(BOOT_CAMLC) -a -o $@ $(BOOT_TOPLEVEL)
-boot_build/compilerlibs/ocamloptcomp.cma: $(BOOT_ASMCOMP) boot_build/compilerlibs
+boot_build/compilerlibs/ocamloptcomp.cma: $(BOOT_ASMCOMP) | boot_build/compilerlibs
 	$(BOOT_CAMLC) -a -o $@ $(BOOT_ASMCOMP)
 
 boot_build/ocamlc: boot_build/compilerlibs/ocamlcommon.cma \
@@ -936,14 +964,40 @@ byte/%.cmx: %.ml stdlib/byte/stdlib.cmxa
 $(BYTE_ALL): | $(dir $(BYTE_ALL))
 $(BYTE_ALL:.cmo=.cmi): | $(dir $(BYTE_ALL))
 
-byte/compilerlibs/ocamlcommon.cma: $(BYTE_COMMON) byte/compilerlibs
+byte/compilerlibs/ocamlcommon.cma: $(BYTE_COMMON) | byte/compilerlibs
 	$(BYTE_CAMLC) -a -o $@ $(BYTE_COMMON)
-byte/compilerlibs/ocamlbytecomp.cma: $(BYTE_BYTECOMP) byte/compilerlibs
+byte/compilerlibs/ocamlbytecomp.cma: $(BYTE_BYTECOMP) | byte/compilerlibs
 	$(BYTE_CAMLC) -a -o $@ $(BYTE_BYTECOMP)
-byte/compilerlibs/ocamltoplevel.cma: $(BYTE_TOPLEVEL) byte/compilerlibs
+byte/compilerlibs/ocamltoplevel.cma: $(BYTE_TOPLEVEL) | byte/compilerlibs
 	$(BYTE_CAMLC) -a -o $@ $(BYTE_TOPLEVEL)
-byte/compilerlibs/ocamloptcomp.cma: $(BYTE_ASMCOMP) byte/compilerlibs
+byte/compilerlibs/ocamloptcomp.cma: $(BYTE_ASMCOMP) | byte/compilerlibs
 	$(BYTE_CAMLC) -a -o $@ $(BYTE_ASMCOMP)
+byte/compilerlibs/ocamlcommon.cmxa: $(BYTE_COMMON:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_COMMON:.cmo=.cmx)
+byte/compilerlibs/ocamlbytecomp.cmxa: $(BYTE_BYTECOMP:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_BYTECOMP:.cmo=.cmx)
+byte/compilerlibs/ocamltoplevel.cmxa: $(BYTE_TOPLEVEL:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_TOPLEVEL:.cmo=.cmx)
+byte/compilerlibs/ocamloptcomp.cmxa: $(BYTE_ASMCOMP:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_ASMCOMP:.cmo=.cmx)
+
+byte/ocamlc.opt: byte/compilerlibs/ocamlcommon.cmxa \
+	         byte/compilerlibs/ocamlbytecomp.cmxa \
+	         $(BYTE_BYTESTART:.cmo=.cmx) stdlib/byte/std_exit.cmx \
+	         asmrun/libasmrun.a
+	$(BYTE_CAMLOPT) $(LINKFLAGS) -o byte/ocamlc.opt \
+	   byte/compilerlibs/ocamlcommon.cmxa \
+	   byte/compilerlibs/ocamlbytecomp.cmxa \
+	   $(BYTE_BYTESTART:.cmo=.cmx)
+
+byte/ocamlopt.opt: byte/compilerlibs/ocamlcommon.cmxa \
+	           byte/compilerlibs/ocamloptcomp.cmxa \
+	           $(BYTE_OPTSTART:.cmo=.cmx) stdlib/byte/std_exit.cmx \
+	           asmrun/libasmrun.a
+	$(BYTE_CAMLOPT) $(LINKFLAGS) -o byte/ocamlopt.opt \
+	   byte/compilerlibs/ocamlcommon.cmxa \
+	   byte/compilerlibs/ocamloptcomp.cmxa \
+	   $(BYTE_OPTSTART:.cmo=.cmx)
 
 byte/ocamlc: byte/compilerlibs/ocamlcommon.cma \
 	           byte/compilerlibs/ocamlbytecomp.cma \
