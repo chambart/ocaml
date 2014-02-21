@@ -15,10 +15,19 @@
 include config/Makefile
 include stdlib/StdlibModules
 
-CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
+COMMON_COMPFLAGS=-strict-sequence -w +33..39 -warn-error A
+
+CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I stdlib
 CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
-COMPFLAGS=-strict-sequence -w +33..39 -warn-error A $(INCLUDES)
+COMPFLAGS=$(COMMON_COMPFLAGS) $(INCLUDES)
 LINKFLAGS=
+
+BOOT_CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I stdlib/boot
+BOOT_COMPFLAGS=$(COMMON_COMPFLAGS) $(BOOT_INCLUDES)
+
+BYTE_CAMLC=byterun/ocamlrun boot_build/ocamlc -nostdlib -I stdlib/byte
+BYTE_CAMLOPT=byterun/ocamlrun boot_build/ocamlopt -nostdlib -I stdlib/byte -I otherlibs/dynlink
+BYTE_COMPFLAGS=$(COMMON_COMPFLAGS) $(BYTE_INCLUDES)
 
 CAMLYACC=boot/ocamlyacc
 YACCFLAGS=-v
@@ -36,6 +45,13 @@ OCAMLDOC_OPT=$(WITH_OCAMLDOC:=.opt)
 
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
 	 -I toplevel
+
+BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
+	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
+	      -I boot_build/toplevel
+
+BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
+	      -I byte/asmcomp -I byte/driver -I byte/toplevel
 
 UTILS=utils/misc.cmo utils/tbl.cmo utils/config.cmo \
   utils/clflags.cmo utils/terminfo.cmo utils/ccomp.cmo utils/warnings.cmo \
@@ -61,6 +77,7 @@ TYPING=typing/ident.cmo typing/path.cmo \
   typing/stypes.cmo typing/typecore.cmo \
   typing/typedecl.cmo typing/typeclass.cmo \
   typing/typemod.cmo
+
 
 COMP=bytecomp/lambda.cmo bytecomp/printlambda.cmo \
   bytecomp/typeopt.cmo bytecomp/switch.cmo bytecomp/matching.cmo \
@@ -106,6 +123,39 @@ TOPLEVELSTART=toplevel/topstart.cmo
 NATTOPOBJS=$(UTILS) $(PARSING) $(TYPING) $(COMP) $(ASMCOMP) \
   toplevel/genprintval.cmo toplevel/opttoploop.cmo toplevel/opttopdirs.cmo \
   toplevel/opttopmain.cmo toplevel/opttopstart.cmo
+
+
+BYTE_UTILS=$(addprefix byte/,$(UTILS))
+BYTE_PARSING=$(addprefix byte/,$(PARSING))
+BYTE_TYPING=$(addprefix byte/,$(TYPING))
+BYTE_COMP=$(addprefix byte/,$(COMP))
+BYTE_COMMON=$(addprefix byte/,$(COMMON))
+BYTE_BYTECOMP=$(addprefix byte/,$(BYTECOMP))
+BYTE_ASMCOMP=$(addprefix byte/,$(ASMCOMP))
+BYTE_TOPLEVEL=$(addprefix byte/,$(TOPLEVEL))
+BYTE_BYTESTART=$(addprefix byte/,$(BYTESTART))
+BYTE_OPTSTART=$(addprefix byte/,$(OPTSTART))
+BYTE_TOPLEVELSTART=$(addprefix byte/,$(TOPLEVELSTART))
+BYTE_NATTOPOBJS=$(addprefix byte/,$(NATTOPOBJS))
+BYTE_ALL=$(BYTE_NATTOPOBJS) $(BYTE_TOPLEVELSTART) $(BYTE_OPTSTART) \
+	 $(BYTE_BYTESTART) $(BYTE_TOPLEVEL) $(BYTE_ASMCOMP) \
+	 $(BYTE_BYTECOMP) $(BYTE_COMMON)
+
+BOOT_UTILS=$(addprefix boot_build/,$(UTILS))
+BOOT_PARSING=$(addprefix boot_build/,$(PARSING))
+BOOT_TYPING=$(addprefix boot_build/,$(TYPING))
+BOOT_COMP=$(addprefix boot_build/,$(COMP))
+BOOT_COMMON=$(addprefix boot_build/,$(COMMON))
+BOOT_BYTECOMP=$(addprefix boot_build/,$(BYTECOMP))
+BOOT_ASMCOMP=$(addprefix boot_build/,$(ASMCOMP))
+BOOT_TOPLEVEL=$(addprefix boot_build/,$(TOPLEVEL))
+BOOT_BYTESTART=$(addprefix boot_build/,$(BYTESTART))
+BOOT_OPTSTART=$(addprefix boot_build/,$(OPTSTART))
+BOOT_TOPLEVELSTART=$(addprefix boot_build/,$(TOPLEVELSTART))
+BOOT_NATTOPOBJS=$(addprefix boot_build/,$(NATTOPOBJS))
+BOOT_ALL=$(BOOT_NATTOPOBJS) $(BOOT_TOPLEVELSTART) $(BOOT_OPTSTART) \
+	 $(BOOT_BYTESTART) $(BOOT_TOPLEVEL) $(BOOT_ASMCOMP) \
+	 $(BOOT_BYTECOMP) $(BOOT_COMMON)
 
 PERVASIVES=$(STDLIB_MODULES) outcometree topdirs toploop
 
@@ -194,6 +244,26 @@ coldstart:
 	  ln -s ../byterun/libcamlrun.a boot/libcamlrun.a; fi
 	if test -d stdlib/caml; then :; else \
 	  ln -s ../byterun stdlib/caml; fi
+
+byterun/ocamlrun:
+	$(MAKE) -C byterun ocamlrun
+
+stdlib/boot/stdlib.cma: byterun/ocamlrun
+	$(MAKE) -C stdlib boot/stdlib.cma
+
+stdlib/boot/std_exit.cmo: byterun/ocamlrun
+	$(MAKE) -C stdlib boot/std_exit.cmo
+
+stdlib/byte/stdlib.cma: byterun/ocamlrun boot_build/ocamlc
+	$(MAKE) -C stdlib byte/stdlib.cma
+
+stdlib/byte/stdlib.cmxa: byterun/ocamlrun boot_build/ocamlopt
+	$(MAKE) -C stdlib byte/stdlib.cmxa
+
+stdlib/byte/std_exit.cmo: byterun/ocamlrun boot_build/ocamlc
+	$(MAKE) -C stdlib byte/std_exit.cmo
+
+demarage: stdlib/boot/stdlib.cma stdlib/boot/std_exit.cmo
 
 # Build the core system: the minimum needed to make depend and bootstrap
 core:
@@ -816,6 +886,148 @@ clean::
 .ml.cmx:
 	$(CAMLOPT) $(COMPFLAGS) -c $<
 
+boot_build/%.cmi: %.mli stdlib/boot/stdlib.cma
+	$(BOOT_CAMLC) $(BOOT_COMPFLAGS) -o $@ -c $<
+
+boot_build/%.cmo: %.ml stdlib/boot/stdlib.cma
+	$(BOOT_CAMLC) $(BOOT_COMPFLAGS) -o $@ -c $<
+
+boot_build/%.cmx: %.ml stdlib/boot/stdlib.cmxa
+	$(BOOT_CAMLOPT) $(BOOT_COMPFLAGS) -o $@ -c $<
+
+$(BOOT_ALL): | $(dir $(BOOT_ALL))
+$(BOOT_ALL:.cmo=.cmi): | $(dir $(BOOT_ALL))
+
+boot_build/compilerlibs/ocamlcommon.cma: $(BOOT_COMMON) boot_build/compilerlibs
+	$(BOOT_CAMLC) -a -o $@ $(BOOT_COMMON)
+boot_build/compilerlibs/ocamlbytecomp.cma: $(BOOT_BYTECOMP) boot_build/compilerlibs
+	$(BOOT_CAMLC) -a -o $@ $(BOOT_BYTECOMP)
+boot_build/compilerlibs/ocamltoplevel.cma: $(BOOT_TOPLEVEL) boot_build/compilerlibs
+	$(BOOT_CAMLC) -a -o $@ $(BOOT_TOPLEVEL)
+boot_build/compilerlibs/ocamloptcomp.cma: $(BOOT_ASMCOMP) boot_build/compilerlibs
+	$(BOOT_CAMLC) -a -o $@ $(BOOT_ASMCOMP)
+
+boot_build/ocamlc: boot_build/compilerlibs/ocamlcommon.cma \
+	           boot_build/compilerlibs/ocamlbytecomp.cma \
+	           $(BOOT_BYTESTART) stdlib/boot/std_exit.cmo
+	$(BOOT_CAMLC) $(LINKFLAGS) -compat-32 -o boot_build/ocamlc \
+	   boot_build/compilerlibs/ocamlcommon.cma \
+	   boot_build/compilerlibs/ocamlbytecomp.cma \
+	   $(BOOT_BYTESTART)
+
+#FIXME: missing -compat-32
+boot_build/ocamlopt: boot_build/compilerlibs/ocamlcommon.cma \
+	             boot_build/compilerlibs/ocamloptcomp.cma \
+	             $(BOOT_OPTSTART) stdlib/boot/std_exit.cmo
+	$(BOOT_CAMLC) $(LINKFLAGS) -o boot_build/ocamlopt \
+	   boot_build/compilerlibs/ocamlcommon.cma \
+	   boot_build/compilerlibs/ocamloptcomp.cma \
+	   $(BOOT_OPTSTART)
+
+byte/%.cmi: %.mli stdlib/byte/stdlib.cma
+	$(BYTE_CAMLC) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+byte/%.cmo: %.ml stdlib/byte/stdlib.cma
+	$(BYTE_CAMLC) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+byte/%.cmx: %.ml stdlib/byte/stdlib.cmxa
+	$(BYTE_CAMLOPT) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+$(BYTE_ALL): | $(dir $(BYTE_ALL))
+$(BYTE_ALL:.cmo=.cmi): | $(dir $(BYTE_ALL))
+
+byte/compilerlibs/ocamlcommon.cma: $(BYTE_COMMON) byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_COMMON)
+byte/compilerlibs/ocamlbytecomp.cma: $(BYTE_BYTECOMP) byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_BYTECOMP)
+byte/compilerlibs/ocamltoplevel.cma: $(BYTE_TOPLEVEL) byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_TOPLEVEL)
+byte/compilerlibs/ocamloptcomp.cma: $(BYTE_ASMCOMP) byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_ASMCOMP)
+
+byte/ocamlc: byte/compilerlibs/ocamlcommon.cma \
+	           byte/compilerlibs/ocamlbytecomp.cma \
+	           $(BYTE_BYTESTART) stdlib/byte/std_exit.cmo
+	$(BYTE_CAMLC) $(LINKFLAGS) -compat-32 -o byte/ocamlc \
+	   byte/compilerlibs/ocamlcommon.cma \
+	   byte/compilerlibs/ocamlbytecomp.cma \
+	   $(BYTE_BYTESTART)
+
+#FIXME: missing -compat-32
+byte/ocamlopt: byte/compilerlibs/ocamlcommon.cma \
+	             byte/compilerlibs/ocamloptcomp.cma \
+	             $(BYTE_OPTSTART) stdlib/byte/std_exit.cmo
+	$(BYTE_CAMLC) $(LINKFLAGS) -o byte/ocamlopt \
+	   byte/compilerlibs/ocamlcommon.cma \
+	   byte/compilerlibs/ocamloptcomp.cma \
+	   $(BYTE_OPTSTART)
+
+#################
+#make directories
+
+boot_build:
+	mkdir boot_build
+
+boot_build/utils: | boot_build
+	mkdir boot_build/utils
+
+boot_build/parsing: | boot_build
+	mkdir boot_build/parsing
+
+boot_build/typing: | boot_build
+	mkdir boot_build/typing
+
+boot_build/driver: | boot_build
+	mkdir boot_build/driver
+
+boot_build/bytecomp: | boot_build
+	mkdir boot_build/bytecomp
+
+boot_build/asmcomp: | boot_build
+	mkdir boot_build/asmcomp
+
+boot_build/toplevel: | boot_build
+	mkdir boot_build/toplevel
+
+boot_build/compilerlibs: | boot_build
+	mkdir boot_build/compilerlibs
+
+partialclean::
+	rm -rf boot_build
+
+
+byte:
+	mkdir byte
+
+byte/utils: | byte
+	mkdir byte/utils
+
+byte/parsing: | byte
+	mkdir byte/parsing
+
+byte/typing: | byte
+	mkdir byte/typing
+
+byte/driver: | byte
+	mkdir byte/driver
+
+byte/bytecomp: | byte
+	mkdir byte/bytecomp
+
+byte/asmcomp: | byte
+	mkdir byte/asmcomp
+
+byte/toplevel: | byte
+	mkdir byte/toplevel
+
+byte/compilerlibs: | byte
+	mkdir byte/compilerlibs
+
+partialclean::
+	rm -rf byte
+
+#################
+
 partialclean::
 	for d in utils parsing typing bytecomp asmcomp driver toplevel tools; \
 	  do rm -f $$d/*.cm[iox] $$d/*.annot $$d/*.[so] $$d/*~; done
@@ -824,6 +1036,8 @@ partialclean::
 depend: beforedepend
 	(for d in utils parsing typing bytecomp asmcomp driver toplevel; \
 	 do $(CAMLDEP) $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
+	    $(CAMLDEP) -prefix boot_build $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
+	    $(CAMLDEP) -prefix byte $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
 	 done) > .depend
 
 alldepend:: depend

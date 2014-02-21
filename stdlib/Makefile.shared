@@ -21,6 +21,19 @@ CAMLOPT=$(RUNTIME) $(OPTCOMPILER)
 OPTCOMPFLAGS=-warn-error A -nostdlib -g
 CAMLDEP=../boot/ocamlrun ../tools/ocamldep
 
+BOOT_RUNTIME=../boot/ocamlrun
+BOOT_COMPILER=../boot/ocamlc
+BOOT_CAMLC=$(RUNTIME) $(BOOT_COMPILER)
+
+OPT_CAMLC=../ocamlc.opt
+OPT_CAMLOPT=../ocamlopt.opt
+
+BYTE_RUNTIME=../byterun/ocamlrun
+BYTE_COMPILER=../boot_build/ocamlc
+BYTE_OPTCOMPILER=../boot_build/ocamlopt
+BYTE_CAMLC=$(RUNTIME) $(BYTE_COMPILER)
+BYTE_CAMLOPT=$(RUNTIME) $(BYTE_OPTCOMPILER)
+
 OBJS=pervasives.cmo $(OTHERS)
 OTHERS=array.cmo list.cmo char.cmo string.cmo sys.cmo \
   sort.cmo marshal.cmo obj.cmo \
@@ -79,25 +92,78 @@ clean::
 	$(CAMLOPT) $(OPTCOMPFLAGS) `./Compflags $@` -p -c -o $*.p.cmx $<
 
 BOOT_OBJS=$(addprefix boot/,$(OBJS))
+BOOT_OTHERS=$(addprefix boot/,$(OTHERS))
 
-boot/%.cmi: %.mli boot
-	$(CAMLC) $(COMPFLAGS) `./Compflags $*.cmi` -c $< -o $@
+boot/%.cmi: %.mli | boot
+	$(BOOT_CAMLC) $(COMPFLAGS) -I boot `./Compflags $*.cmi` -o $@ -c $<
 
-boot/%.cmo: %.ml boot
-	$(CAMLC) $(COMPFLAGS) `./Compflags $*.cmo` -c $< -o $@
+boot/%.cmo: %.ml | boot
+	$(BOOT_CAMLC) $(COMPFLAGS) -I boot `./Compflags $*.cmo` -o $@ -c $<
 
 boot/stdlib.cma: $(BOOT_OBJS)
-	$(CAMLC) -a -o stdlib.cma $(OBJS)
-
+	$(BOOT_CAMLC) -a -o boot/stdlib.cma $(BOOT_OBJS)
 
 boot:
 	mkdir boot
+
+BYTE_OBJS=$(addprefix byte/,$(OBJS))
+BYTE_OTHERS=$(addprefix byte/,$(OTHERS))
+
+byte/%.cmi: %.mli $(BYTE_CAMLC) | byte
+	$(BYTE_CAMLC) $(COMPFLAGS) -I byte `./Compflags $*.cmi` -o $@ -c $<
+
+byte/%.cmo: %.ml | byte
+	$(BYTE_CAMLC) $(COMPFLAGS) -I byte `./Compflags $*.cmo` -o $@ -c $<
+
+byte/%.cmx: %.ml | byte
+	$(BYTE_CAMLOPT) $(OPTCOMPFLAGS) -I byte `./Compflags $@` -o $@ -c $<
+
+byte/%.p.cmx: %.ml | byte
+	$(BYTE_CAMLOPT) $(OPTCOMPFLAGS) -I byte `./Compflags $@` -o byte/$*.p.cmx -p -c $<
+
+byte/stdlib.cma: $(BYTE_OBJS)
+	$(BYTE_CAMLC) -a -o byte/stdlib.cma $(BYTE_OBJS)
+
+byte/stdlib.cmxa: $(BYTE_OBJS:.cmo=.cmx) byte
+	$(BYTE_CAMLOPT) -a -o byte/stdlib.cmxa $(BYTE_OBJS:.cmo=.cmx)
+
+byte:
+	mkdir byte
+
+OPT_OBJS=$(addprefix opt/,$(OBJS))
+OPT_OTHERS=$(addprefix opt/,$(OTHERS))
+
+opt/%.cmi: %.mli $(OPT_CAMLC) | opt
+	$(OPT_CAMLC) $(COMPFLAGS) -I opt `./Compflags $*.cmi` -o $@ -c $<
+
+opt/%.cmo: %.ml | opt
+	$(OPT_CAMLC) $(COMPFLAGS) -I opt `./Compflags $*.cmo` -o $@ -c $<
+
+opt/%.cmx: %.ml | opt
+	$(OPT_CAMLOPT) $(OPTCOMPFLAGS) -I opt `./Compflags $@` -o $@ -c $<
+
+opt/%.p.cmx: %.ml | opt
+	$(OPT_CAMLOPT) $(OPTCOMPFLAGS) -I opt `./Compflags $@` -o opt/$*.p.cmx -p -c $<
+
+opt/stdlib.cma: $(OPT_OBJS)
+	$(OPT_CAMLC) -a -o opt/stdlib.cma $(OPT_OBJS)
+
+opt/stdlib.cmxa: $(OPT_OBJS:.cmo=.cmx) | opt
+	$(OPT_CAMLOPT) -a -o opt/stdlib.cmxa $(OPT_OBJS:.cmo=.cmx)
+
+opt:
+	mkdir opt
 
 # Dependencies on the compiler
 $(OBJS) std_exit.cmo: $(COMPILER)
 $(OBJS:.cmo=.cmi) std_exit.cmi: $(COMPILER)
 $(OBJS:.cmo=.cmx) std_exit.cmx: $(OPTCOMPILER)
 $(OBJS:.cmo=.p.cmx) std_exit.p.cmx: $(OPTCOMPILER)
+
+$(OPT_OBJS) std_exit.cmo: $(OPT_OCAMLC)
+$(OPT_OBJS:.cmo=.cmi) std_exit.cmi: $(OPT_OCAMLC)
+$(OPT_OBJS:.cmo=.cmx) std_exit.cmx: $(OPT_OCAMLOPT)
+$(OPT_OBJS:.cmo=.p.cmx) std_exit.p.cmx: $(OPT_OCAMLOPT)
 
 # Dependencies on Pervasives (not tracked by ocamldep)
 $(OBJS) std_exit.cmo: pervasives.cmi
@@ -107,17 +173,37 @@ $(OBJS:.cmo=.p.cmx) std_exit.p.cmx: pervasives.cmi
 $(OTHERS:.cmo=.cmx) std_exit.cmx: pervasives.cmx
 $(OTHERS:.cmo=.p.cmx) std_exit.p.cmx: pervasives.cmx
 
-$(BOOT_OBJS) boot/std_exit.cmo: pervasives.cmi
-$(BOOT_OBJS:.cmo=.cmi) boot/std_exit.cmi: pervasives.cmi
+$(BOOT_OBJS) boot/std_exit.cmo: boot/pervasives.cmi
+$(BOOT_OTHERS:.cmo=.cmi) boot/std_exit.cmi: boot/pervasives.cmi
+$(BOOT_OBJS:.cmo=.cmx) boot/std_exit.cmx: boot/pervasives.cmi
+$(BOOT_OBJS:.cmo=.p.cmx) boot/std_exit.p.cmx: boot/pervasives.cmi
+$(BOOT_OTHERS:.cmo=.cmx) boot/std_exit.cmx: boot/pervasives.cmx
+$(BOOT_OTHERS:.cmo=.p.cmx) boot/std_exit.p.cmx: boot/pervasives.cmx
+
+$(OPT_OBJS) opt/std_exit.cmo: opt/pervasives.cmi
+$(OPT_OTHERS:.cmo=.cmi) opt/std_exit.cmi: opt/pervasives.cmi
+$(OPT_OBJS:.cmo=.cmx) opt/std_exit.cmx: opt/pervasives.cmi
+$(OPT_OBJS:.cmo=.p.cmx) opt/std_exit.p.cmx: opt/pervasives.cmi
+$(OPT_OTHERS:.cmo=.cmx) opt/std_exit.cmx: opt/pervasives.cmx
+$(OPT_OTHERS:.cmo=.p.cmx) opt/std_exit.p.cmx: opt/pervasives.cmx
+
+$(BYTE_OBJS) byte/std_exit.cmo: byte/pervasives.cmi
+$(BYTE_OTHERS:.cmo=.cmi) byte/std_exit.cmi: byte/pervasives.cmi
+$(BYTE_OBJS:.cmo=.cmx) byte/std_exit.cmx: byte/pervasives.cmi
+$(BYTE_OBJS:.cmo=.p.cmx) byte/std_exit.p.cmx: byte/pervasives.cmi
+$(BYTE_OTHERS:.cmo=.cmx) byte/std_exit.cmx: byte/pervasives.cmx
+$(BYTE_OTHERS:.cmo=.p.cmx) byte/std_exit.p.cmx: byte/pervasives.cmx
 
 clean::
 	rm -f *.cm* *.$(O) *.$(A)
-	rm -rf boot
+	rm -rf boot opt byte
 	rm -f *~
 
 include .depend
 
-depend:
+depend: sys.ml
 	$(CAMLDEP) *.mli *.ml > .depend
 	$(CAMLDEP) -prefix boot *.mli *.ml >> .depend
+	$(CAMLDEP) -prefix opt *.mli *.ml >> .depend
+	$(CAMLDEP) -prefix byte *.mli *.ml >> .depend
 	$(CAMLDEP) *.ml | sed -e 's/\.cmx/.p.cmx/g' >>.depend
