@@ -4199,8 +4199,10 @@ tools/ocamldep.cmo : driver/pparse.cmi parsing/parsetree.cmi \
 tools/ocamldep.cmx : driver/pparse.cmx parsing/parsetree.cmi \
     parsing/parse.cmx utils/misc.cmx parsing/location.cmx tools/depend.cmx \
     utils/config.cmx driver/compenv.cmx utils/clflags.cmx
-tools/ocamlmklib.cmo :
-tools/ocamlmklib.cmx :
+tools/ocamlmklibconfig.cmo :
+tools/ocamlmklibconfig.cmx :
+tools/ocamlmklib.cmo : tools/ocamlmklibconfig.cmo
+tools/ocamlmklib.cmx : tools/ocamlmklibconfig.cmx
 tools/ocamlmktop.cmo : utils/ccomp.cmi
 tools/ocamlmktop.cmx : utils/ccomp.cmx
 tools/ocamloptp.cmo : driver/main_args.cmi
@@ -4288,8 +4290,10 @@ boot_build/tools/ocamldep.cmo : boot_build/driver/pparse.cmi boot_build/parsing/
 boot_build/tools/ocamldep.cmx : boot_build/driver/pparse.cmx boot_build/parsing/parsetree.cmi \
     boot_build/parsing/parse.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/tools/depend.cmx \
     boot_build/utils/config.cmx boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx
-boot_build/tools/ocamlmklib.cmo :
-boot_build/tools/ocamlmklib.cmx :
+boot_build/tools/ocamlmklibconfig.cmo :
+boot_build/tools/ocamlmklibconfig.cmx :
+boot_build/tools/ocamlmklib.cmo : boot_build/tools/ocamlmklibconfig.cmo
+boot_build/tools/ocamlmklib.cmx : boot_build/tools/ocamlmklibconfig.cmx
 boot_build/tools/ocamlmktop.cmo : boot_build/utils/ccomp.cmi
 boot_build/tools/ocamlmktop.cmx : boot_build/utils/ccomp.cmx
 boot_build/tools/ocamloptp.cmo : boot_build/driver/main_args.cmi
@@ -4377,8 +4381,10 @@ byte/tools/ocamldep.cmo : byte/driver/pparse.cmi byte/parsing/parsetree.cmi \
 byte/tools/ocamldep.cmx : byte/driver/pparse.cmx byte/parsing/parsetree.cmi \
     byte/parsing/parse.cmx byte/utils/misc.cmx byte/parsing/location.cmx byte/tools/depend.cmx \
     byte/utils/config.cmx byte/driver/compenv.cmx byte/utils/clflags.cmx
-byte/tools/ocamlmklib.cmo :
-byte/tools/ocamlmklib.cmx :
+byte/tools/ocamlmklibconfig.cmo :
+byte/tools/ocamlmklibconfig.cmx :
+byte/tools/ocamlmklib.cmo : byte/tools/ocamlmklibconfig.cmo
+byte/tools/ocamlmklib.cmx : byte/tools/ocamlmklibconfig.cmx
 byte/tools/ocamlmktop.cmo : byte/utils/ccomp.cmi
 byte/tools/ocamlmktop.cmx : byte/utils/ccomp.cmx
 byte/tools/ocamloptp.cmo : byte/driver/main_args.cmi
@@ -4466,8 +4472,10 @@ opt/tools/ocamldep.cmo : opt/driver/pparse.cmi opt/parsing/parsetree.cmi \
 opt/tools/ocamldep.cmx : opt/driver/pparse.cmx opt/parsing/parsetree.cmi \
     opt/parsing/parse.cmx opt/utils/misc.cmx opt/parsing/location.cmx opt/tools/depend.cmx \
     opt/utils/config.cmx opt/driver/compenv.cmx opt/utils/clflags.cmx
-opt/tools/ocamlmklib.cmo :
-opt/tools/ocamlmklib.cmx :
+opt/tools/ocamlmklibconfig.cmo :
+opt/tools/ocamlmklibconfig.cmx :
+opt/tools/ocamlmklib.cmo : opt/tools/ocamlmklibconfig.cmo
+opt/tools/ocamlmklib.cmx : opt/tools/ocamlmklibconfig.cmx
 opt/tools/ocamlmktop.cmo : opt/utils/ccomp.cmi
 opt/tools/ocamlmktop.cmx : opt/utils/ccomp.cmx
 opt/tools/ocamloptp.cmo : opt/driver/main_args.cmi
