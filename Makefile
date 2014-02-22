@@ -832,10 +832,10 @@ alldepend::
 
 # The lexer and parser generators
 
-ocamllex: ocamlyacc ocamlc
+lex/ocamllex: ocamlyacc boot_build/ocamlc stdlib/byte/stdlib.cma stdlib/byte/std_exit.cmo
 	cd lex; $(MAKE) all
 
-ocamllex.opt: ocamlopt
+lex/ocamllex.opt: boot_build/ocamlopt stdlib/byte/stdlib.cmxa stdlib/byte/std_exit.cmx
 	cd lex; $(MAKE) allopt
 
 partialclean::

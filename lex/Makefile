@@ -11,13 +11,13 @@
 #########################################################################
 
 # The lexer generator
-CAMLC=../boot/ocamlrun ../boot/ocamlc -strict-sequence -nostdlib -I ../boot
-CAMLOPT=../boot/ocamlrun ../ocamlopt -nostdlib -I ../stdlib
+CAMLC=../boot/ocamlrun ../boot_build/ocamlc -strict-sequence -nostdlib -I ../stdlib/byte
+CAMLOPT=../boot/ocamlrun ../boot_build/ocamlopt -nostdlib -I ../stdlib/byte
 COMPFLAGS=-w +33..39 -warn-error A
 CAMLYACC=../boot/ocamlyacc
 YACCFLAGS=-v
 CAMLLEX=../boot/ocamlrun ../boot/ocamllex
-CAMLDEP=../boot/ocamlrun ../tools/ocamldep
+CAMLDEP=../boot/ocamlrun ../boot_build/tools/ocamldep
 
 
 OBJS=cset.cmo syntax.cmo parser.cmo lexer.cmo table.cmo lexgen.cmo \
