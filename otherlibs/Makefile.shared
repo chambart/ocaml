@@ -20,7 +20,7 @@ include $(ROOTDIR)/config/Makefile
 CC=$(BYTECC)
 CAMLRUN=$(ROOTDIR)/boot/ocamlrun
 COMPFLAGS=-w +33..39 -warn-error A -g $(EXTRACAMLFLAGS)
-MKLIB=$(CAMLRUN) $(ROOTDIR)/tools/ocamlmklib
+MKLIB=$(CAMLRUN) $(ROOTDIR)/boot_build/tools/ocamlmklib
 
 # Variables to be defined by individual libraries:
 #LIBNAME=
