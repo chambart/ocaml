@@ -52,13 +52,15 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
 
 BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
 	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
-	      -I boot_build/toplevel -I boot_build/tools
+	      -I boot_build/toplevel -I boot_build/tools -I boot_build/asmcomp/boot
 
 BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
-	      -I byte/asmcomp -I byte/driver -I byte/toplevel -I byte/tools
+	      -I byte/asmcomp -I byte/driver -I byte/toplevel -I byte/tools \
+	      -I byte/asmcomp/byte
 
 OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing -I opt/bytecomp \
-	     -I opt/asmcomp -I opt/driver -I opt/toplevel -I opt/tools
+	     -I opt/asmcomp -I opt/driver -I opt/toplevel -I opt/tools \
+	     -I opt/asmcomp/opt
 
 UTILS=utils/misc.cmo utils/tbl.cmo utils/config.cmo \
   utils/clflags.cmo utils/terminfo.cmo utils/ccomp.cmo utils/warnings.cmo \
@@ -102,18 +104,18 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
 
-ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
+ASMCOMP=asmcomp/$$(ARCH_DIR)/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
-  asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/proc.cmo \
+  asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/$$(ARCH_DIR)/proc.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/closure.cmo asmcomp/cmmgen.cmo \
-  asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/selection.cmo \
+  asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/$$(ARCH_DIR)/selection.cmo \
   asmcomp/comballoc.cmo asmcomp/liveness.cmo \
   asmcomp/spill.cmo asmcomp/split.cmo \
   asmcomp/interf.cmo asmcomp/coloring.cmo \
-  asmcomp/reloadgen.cmo asmcomp/reload.cmo \
+  asmcomp/reloadgen.cmo asmcomp/$$(ARCH_DIR)/reload.cmo \
   asmcomp/printlinear.cmo asmcomp/linearize.cmo \
-  asmcomp/schedgen.cmo asmcomp/scheduling.cmo \
+  asmcomp/schedgen.cmo asmcomp/$$(ARCH_DIR)/scheduling.cmo \
   asmcomp/emitaux.cmo asmcomp/emit.cmo asmcomp/asmgen.cmo \
   asmcomp/asmlink.cmo asmcomp/asmlibrarian.cmo asmcomp/asmpackager.cmo \
   driver/opterrors.cmo driver/optcompile.cmo
@@ -633,45 +635,63 @@ beforedepend:: bytecomp/runtimedef.ml
 
 # Choose the right machine-dependent files
 
-asmcomp/arch.ml: asmcomp/$(ARCH)/arch.ml
-	ln -s $(ARCH)/arch.ml asmcomp/arch.ml
+BOOT_ARCH=$(ARCH)
+BYTE_ARCH=$(ARCH)
+OPT_ARCH=$(ARCH)
+
+asmcomp/boot:
+	ln -s $(BOOT_ARCH) $@
+
+asmcomp/byte:
+	ln -s $(BYTE_ARCH) $@
+
+asmcomp/opt:
+	ln -s $(OPT_ARCH) $@
+
+partialclean::
+	rm -f asmcomp/boot asmcomp/byte asmcomp/opt
+
+beforedepend:: asmcomp/boot asmcomp/byte asmcomp/opt
+
+# asmcomp/arch.ml: asmcomp/$(ARCH)/arch.ml
+# 	ln -s $(ARCH)/arch.ml asmcomp/arch.ml
 
 partialclean::
 	rm -f asmcomp/arch.ml
 
-beforedepend:: asmcomp/arch.ml
+# beforedepend:: asmcomp/arch.ml
 
-asmcomp/proc.ml: asmcomp/$(ARCH)/proc.ml
-	ln -s $(ARCH)/proc.ml asmcomp/proc.ml
+# asmcomp/proc.ml: asmcomp/$(ARCH)/proc.ml
+# 	ln -s $(ARCH)/proc.ml asmcomp/proc.ml
 
 partialclean::
 	rm -f asmcomp/proc.ml
 
-beforedepend:: asmcomp/proc.ml
+# beforedepend:: asmcomp/proc.ml
 
-asmcomp/selection.ml: asmcomp/$(ARCH)/selection.ml
-	ln -s $(ARCH)/selection.ml asmcomp/selection.ml
+# asmcomp/selection.ml: asmcomp/$(ARCH)/selection.ml
+# 	ln -s $(ARCH)/selection.ml asmcomp/selection.ml
 
 partialclean::
 	rm -f asmcomp/selection.ml
 
-beforedepend:: asmcomp/selection.ml
+# beforedepend:: asmcomp/selection.ml
 
-asmcomp/reload.ml: asmcomp/$(ARCH)/reload.ml
-	ln -s $(ARCH)/reload.ml asmcomp/reload.ml
+# asmcomp/reload.ml: asmcomp/$(ARCH)/reload.ml
+# 	ln -s $(ARCH)/reload.ml asmcomp/reload.ml
 
 partialclean::
 	rm -f asmcomp/reload.ml
 
-beforedepend:: asmcomp/reload.ml
+# beforedepend:: asmcomp/reload.ml
 
-asmcomp/scheduling.ml: asmcomp/$(ARCH)/scheduling.ml
-	ln -s $(ARCH)/scheduling.ml asmcomp/scheduling.ml
+# asmcomp/scheduling.ml: asmcomp/$(ARCH)/scheduling.ml
+# 	ln -s $(ARCH)/scheduling.ml asmcomp/scheduling.ml
 
 partialclean::
 	rm -f asmcomp/scheduling.ml
 
-beforedepend:: asmcomp/scheduling.ml
+# beforedepend:: asmcomp/scheduling.ml
 
 # Preprocess the code emitters
 
@@ -889,18 +909,25 @@ boot_build/%: CAMLC=$(BOOT_CAMLC)
 boot_build/%: COMPFLAGS=$(BOOT_COMPFLAGS)
 boot_build/%: STDLIB_DIR=boot
 boot_build/%: PREF=boot_build
+boot_build/%: ARCH_DIR=boot
 
 byte/%: CAMLC=$(BYTE_CAMLC)
 byte/%: CAMLOPT=$(BYTE_CAMLOPT)
 byte/%: COMPFLAGS=$(BYTE_COMPFLAGS)
 byte/%: STDLIB_DIR=byte
 byte/%: PREF=byte
+byte/%: ARCH_DIR=byte
 
 opt/%: CAMLC=$(OPT_CAMLC)
 opt/%: CAMLOPT=$(OPT_CAMLOPT)
 opt/%: COMPFLAGS=$(OPT_COMPFLAGS)
 opt/%: STDLIB_DIR=opt
 opt/%: PREF=opt
+opt/%: ARCH_DIR=opt
+
+boot_build/asmcomp/boot: | asmcomp/boot
+byte/asmcomp/byte: | asmcomp/byte
+opt/asmcomp/opt: | asmcomp/opt
 
 # depend on directory
 .SECONDEXPANSION:
@@ -1003,7 +1030,8 @@ tools/ocamldep: boot_build/tools/ocamldep
 #################
 #make directories
 
-DIRS=tools utils parsing typing driver bytecomp asmcomp toplevel compilerlibs
+DIRS=tools utils parsing typing driver bytecomp asmcomp toplevel compilerlibs \
+     asmcomp/boot asmcomp/byte asmcomp/opt
 
 $(addprefix boot_build/,$(DIRS)):
 	mkdir -p $@
@@ -1024,13 +1052,22 @@ partialclean::
 	  do rm -f $$d/*.cm[iox] $$d/*.annot $$d/*.[so] $$d/*~; done
 	rm -f *~
 
-depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp driver toplevel tools; \
-	 do $(CAMLDEP) $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
-	    $(CAMLDEP) -prefix boot_build $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
-	    $(CAMLDEP) -prefix byte $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
-	    $(CAMLDEP) -prefix opt $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
-	 done) > .depend
+boot_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp asmcomp/boot driver toplevel tools; \
+	 do $(CAMLDEP) -prefix boot_build $(DEPFLAGS) -I asmcomp/boot $$d/*.mli $$d/*.ml; \
+	 done) > .boot_depend
+
+byte_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp asmcomp/byte driver toplevel tools; \
+	 do $(CAMLDEP) -prefix byte $(DEPFLAGS) -I asmcomp/byte $$d/*.mli $$d/*.ml; \
+	 done) > .byte_depend
+
+opt_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp asmcomp/opt driver toplevel tools; \
+	 do $(CAMLDEP) -prefix opt $(DEPFLAGS) -I asmcomp/opt $$d/*.mli $$d/*.ml; \
+	 done) > .opt_depend
+
+depend: boot_depend byte_depend opt_depend
 
 alldepend:: depend
 
@@ -1046,6 +1083,7 @@ distclean:
 .PHONY: all backup bootstrap checkstack clean
 .PHONY: partialclean beforedepend alldepend cleanboot coldstart
 .PHONY: compare core coreall
+.PHONY: boot_depend byte_depend opt_depend
 .PHONY: coreboot defaultentry depend distclean install installopt
 .PHONY: library library-cross libraryopt
 .PHONY: ocamlbuild.byte ocamlbuild.native ocamldebugger ocamldoc
@@ -1054,4 +1092,6 @@ distclean:
 .PHONY: otherlibrariesopt package-macosx promote promote-cross
 .PHONY: restore runtime runtimeopt makeruntimeopt world world.opt
 
-include .depend
+include .boot_depend
+include .byte_depend
+include .opt_depend

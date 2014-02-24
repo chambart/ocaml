@@ -1,0 +1,1128 @@
+boot_build/utils/ccomp.cmi :
+boot_build/utils/clflags.cmi :
+boot_build/utils/config.cmi :
+boot_build/utils/consistbl.cmi :
+boot_build/utils/misc.cmi :
+boot_build/utils/tbl.cmi :
+boot_build/utils/terminfo.cmi :
+boot_build/utils/warnings.cmi :
+boot_build/utils/ccomp.cmo : boot_build/utils/misc.cmi boot_build/utils/config.cmi boot_build/utils/clflags.cmi \
+    boot_build/utils/ccomp.cmi
+boot_build/utils/ccomp.cmx : boot_build/utils/misc.cmx boot_build/utils/config.cmx boot_build/utils/clflags.cmx \
+    boot_build/utils/ccomp.cmi
+boot_build/utils/clflags.cmo : boot_build/utils/config.cmi boot_build/utils/clflags.cmi
+boot_build/utils/clflags.cmx : boot_build/utils/config.cmx boot_build/utils/clflags.cmi
+boot_build/utils/config.cmo : boot_build/utils/config.cmi
+boot_build/utils/config.cmx : boot_build/utils/config.cmi
+boot_build/utils/consistbl.cmo : boot_build/utils/consistbl.cmi
+boot_build/utils/consistbl.cmx : boot_build/utils/consistbl.cmi
+boot_build/utils/misc.cmo : boot_build/utils/misc.cmi
+boot_build/utils/misc.cmx : boot_build/utils/misc.cmi
+boot_build/utils/tbl.cmo : boot_build/utils/tbl.cmi
+boot_build/utils/tbl.cmx : boot_build/utils/tbl.cmi
+boot_build/utils/terminfo.cmo : boot_build/utils/terminfo.cmi
+boot_build/utils/terminfo.cmx : boot_build/utils/terminfo.cmi
+boot_build/utils/warnings.cmo : boot_build/utils/warnings.cmi
+boot_build/utils/warnings.cmx : boot_build/utils/warnings.cmi
+boot_build/parsing/ast_helper.cmi : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi
+boot_build/parsing/ast_mapper.cmi : boot_build/parsing/parsetree.cmi boot_build/parsing/location.cmi
+boot_build/parsing/asttypes.cmi : boot_build/parsing/location.cmi
+boot_build/parsing/lexer.cmi : boot_build/parsing/parser.cmi boot_build/parsing/location.cmi
+boot_build/parsing/location.cmi : boot_build/utils/warnings.cmi
+boot_build/parsing/longident.cmi :
+boot_build/parsing/parse.cmi : boot_build/parsing/parsetree.cmi
+boot_build/parsing/parser.cmi : boot_build/parsing/parsetree.cmi boot_build/parsing/location.cmi
+boot_build/parsing/parsetree.cmi : boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/parsing/asttypes.cmi
+boot_build/parsing/pprintast.cmi : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/asttypes.cmi
+boot_build/parsing/printast.cmi : boot_build/parsing/parsetree.cmi
+boot_build/parsing/syntaxerr.cmi : boot_build/parsing/location.cmi
+boot_build/parsing/ast_helper.cmo : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi
+boot_build/parsing/ast_helper.cmx : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi
+boot_build/parsing/ast_mapper.cmo : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/location.cmi boot_build/utils/config.cmi boot_build/parsing/ast_helper.cmi \
+    boot_build/parsing/ast_mapper.cmi
+boot_build/parsing/ast_mapper.cmx : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/location.cmx boot_build/utils/config.cmx boot_build/parsing/ast_helper.cmx \
+    boot_build/parsing/ast_mapper.cmi
+boot_build/parsing/lexer.cmo : boot_build/utils/warnings.cmi boot_build/parsing/parser.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/lexer.cmi
+boot_build/parsing/lexer.cmx : boot_build/utils/warnings.cmx boot_build/parsing/parser.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/lexer.cmi
+boot_build/parsing/location.cmo : boot_build/utils/warnings.cmi boot_build/utils/terminfo.cmi \
+    boot_build/parsing/location.cmi
+boot_build/parsing/location.cmx : boot_build/utils/warnings.cmx boot_build/utils/terminfo.cmx \
+    boot_build/parsing/location.cmi
+boot_build/parsing/longident.cmo : boot_build/utils/misc.cmi boot_build/parsing/longident.cmi
+boot_build/parsing/longident.cmx : boot_build/utils/misc.cmx boot_build/parsing/longident.cmi
+boot_build/parsing/parse.cmo : boot_build/parsing/syntaxerr.cmi boot_build/parsing/parser.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/lexer.cmi boot_build/parsing/parse.cmi
+boot_build/parsing/parse.cmx : boot_build/parsing/syntaxerr.cmx boot_build/parsing/parser.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/lexer.cmx boot_build/parsing/parse.cmi
+boot_build/parsing/parser.cmo : boot_build/parsing/syntaxerr.cmi boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/utils/clflags.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi boot_build/parsing/parser.cmi
+boot_build/parsing/parser.cmx : boot_build/parsing/syntaxerr.cmx boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/utils/clflags.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmx boot_build/parsing/parser.cmi
+boot_build/parsing/pprintast.cmo : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/pprintast.cmi
+boot_build/parsing/pprintast.cmx : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/pprintast.cmi
+boot_build/parsing/printast.cmo : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/printast.cmi
+boot_build/parsing/printast.cmx : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/printast.cmi
+boot_build/parsing/syntaxerr.cmo : boot_build/parsing/location.cmi boot_build/parsing/syntaxerr.cmi
+boot_build/parsing/syntaxerr.cmx : boot_build/parsing/location.cmx boot_build/parsing/syntaxerr.cmi
+boot_build/typing/annot.cmi : boot_build/parsing/location.cmi
+boot_build/typing/btype.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/cmi_format.cmi : boot_build/typing/types.cmi
+boot_build/typing/cmt_format.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/env.cmi boot_build/typing/cmi_format.cmi
+boot_build/typing/ctype.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/parsing/longident.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/datarepr.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/typing/ident.cmi \
+    boot_build/parsing/asttypes.cmi
+boot_build/typing/envaux.cmi : boot_build/typing/subst.cmi boot_build/typing/path.cmi boot_build/typing/env.cmi
+boot_build/typing/env.cmi : boot_build/utils/warnings.cmi boot_build/typing/types.cmi boot_build/typing/subst.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/utils/consistbl.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/ident.cmi :
+boot_build/typing/includeclass.cmi : boot_build/typing/types.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi
+boot_build/typing/includecore.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi
+boot_build/typing/includemod.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/location.cmi boot_build/typing/includecore.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi
+boot_build/typing/mtype.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi
+boot_build/typing/oprint.cmi : boot_build/typing/outcometree.cmi
+boot_build/typing/outcometree.cmi : boot_build/parsing/asttypes.cmi
+boot_build/typing/parmatch.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/path.cmi : boot_build/typing/ident.cmi
+boot_build/typing/predef.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/typing/ident.cmi
+boot_build/typing/primitive.cmi :
+boot_build/typing/printtyped.cmi : boot_build/typing/typedtree.cmi
+boot_build/typing/printtyp.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi \
+    boot_build/typing/outcometree.cmi boot_build/parsing/longident.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi
+boot_build/typing/stypes.cmi : boot_build/typing/typedtree.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/annot.cmi
+boot_build/typing/subst.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/typing/ident.cmi
+boot_build/typing/typeclass.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/typecore.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi boot_build/typing/annot.cmi
+boot_build/typing/typedecl.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/includecore.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi
+boot_build/typing/typedtreeIter.cmi : boot_build/typing/typedtree.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/typedtreeMap.cmi : boot_build/typing/typedtree.cmi
+boot_build/typing/typedtree.cmi : boot_build/typing/types.cmi boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/typemod.cmi : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/includemod.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi
+boot_build/typing/types.cmi : boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi
+boot_build/typing/typetexp.cmi : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typedtree.cmi boot_build/typing/path.cmi boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/typing/env.cmi \
+    boot_build/parsing/asttypes.cmi
+boot_build/typing/btype.cmo : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/utils/misc.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/btype.cmi
+boot_build/typing/btype.cmx : boot_build/typing/types.cmx boot_build/typing/path.cmx boot_build/utils/misc.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/btype.cmi
+boot_build/typing/cmi_format.cmo : boot_build/typing/types.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/utils/config.cmi boot_build/typing/cmi_format.cmi
+boot_build/typing/cmi_format.cmx : boot_build/typing/types.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/utils/config.cmx boot_build/typing/cmi_format.cmi
+boot_build/typing/cmt_format.cmo : boot_build/typing/types.cmi boot_build/typing/typedtreeMap.cmi \
+    boot_build/typing/typedtree.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/parsing/lexer.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi boot_build/typing/cmi_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/cmt_format.cmi
+boot_build/typing/cmt_format.cmx : boot_build/typing/types.cmx boot_build/typing/typedtreeMap.cmx \
+    boot_build/typing/typedtree.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/parsing/lexer.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx boot_build/typing/cmi_format.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/cmt_format.cmi
+boot_build/typing/ctype.cmo : boot_build/typing/types.cmi boot_build/typing/subst.cmi boot_build/typing/path.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/utils/clflags.cmi boot_build/typing/btype.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/typing/ctype.cmi
+boot_build/typing/ctype.cmx : boot_build/typing/types.cmx boot_build/typing/subst.cmx boot_build/typing/path.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/longident.cmx boot_build/parsing/location.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/utils/clflags.cmx boot_build/typing/btype.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/typing/ctype.cmi
+boot_build/typing/datarepr.cmo : boot_build/typing/types.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/btype.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/typing/datarepr.cmi
+boot_build/typing/datarepr.cmx : boot_build/typing/types.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/btype.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/typing/datarepr.cmi
+boot_build/typing/envaux.cmo : boot_build/typing/types.cmi boot_build/typing/subst.cmi boot_build/typing/printtyp.cmi \
+    boot_build/typing/path.cmi boot_build/typing/mtype.cmi boot_build/utils/misc.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi boot_build/typing/envaux.cmi
+boot_build/typing/envaux.cmx : boot_build/typing/types.cmx boot_build/typing/subst.cmx boot_build/typing/printtyp.cmx \
+    boot_build/typing/path.cmx boot_build/typing/mtype.cmx boot_build/utils/misc.cmx boot_build/typing/ident.cmx \
+    boot_build/typing/env.cmx boot_build/parsing/asttypes.cmi boot_build/typing/envaux.cmi
+boot_build/typing/env.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi boot_build/utils/tbl.cmi \
+    boot_build/typing/subst.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/datarepr.cmi boot_build/utils/consistbl.cmi boot_build/utils/config.cmi \
+    boot_build/typing/cmi_format.cmi boot_build/utils/clflags.cmi boot_build/typing/btype.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/typing/env.cmi
+boot_build/typing/env.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx boot_build/utils/tbl.cmx \
+    boot_build/typing/subst.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx \
+    boot_build/typing/datarepr.cmx boot_build/utils/consistbl.cmx boot_build/utils/config.cmx \
+    boot_build/typing/cmi_format.cmx boot_build/utils/clflags.cmx boot_build/typing/btype.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/typing/env.cmi
+boot_build/typing/ident.cmo : boot_build/typing/ident.cmi
+boot_build/typing/ident.cmx : boot_build/typing/ident.cmi
+boot_build/typing/includeclass.cmo : boot_build/typing/types.cmi boot_build/typing/printtyp.cmi \
+    boot_build/typing/ctype.cmi boot_build/typing/includeclass.cmi
+boot_build/typing/includeclass.cmx : boot_build/typing/types.cmx boot_build/typing/printtyp.cmx \
+    boot_build/typing/ctype.cmx boot_build/typing/includeclass.cmi
+boot_build/typing/includecore.cmo : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/utils/misc.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/includecore.cmi
+boot_build/typing/includecore.cmx : boot_build/typing/types.cmx boot_build/typing/typedtree.cmx \
+    boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/utils/misc.cmx boot_build/typing/ident.cmx \
+    boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/typing/includecore.cmi
+boot_build/typing/includemod.cmo : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/utils/tbl.cmi \
+    boot_build/typing/subst.cmi boot_build/typing/printtyp.cmi boot_build/typing/path.cmi boot_build/typing/mtype.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/includecore.cmi \
+    boot_build/typing/includeclass.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi \
+    boot_build/typing/cmt_format.cmi boot_build/utils/clflags.cmi boot_build/typing/includemod.cmi
+boot_build/typing/includemod.cmx : boot_build/typing/types.cmx boot_build/typing/typedtree.cmx boot_build/utils/tbl.cmx \
+    boot_build/typing/subst.cmx boot_build/typing/printtyp.cmx boot_build/typing/path.cmx boot_build/typing/mtype.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/includecore.cmx \
+    boot_build/typing/includeclass.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx \
+    boot_build/typing/cmt_format.cmx boot_build/utils/clflags.cmx boot_build/typing/includemod.cmi
+boot_build/typing/mtype.cmo : boot_build/typing/types.cmi boot_build/typing/subst.cmi boot_build/typing/path.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/typing/ctype.cmi boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/mtype.cmi
+boot_build/typing/mtype.cmx : boot_build/typing/types.cmx boot_build/typing/subst.cmx boot_build/typing/path.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/typing/ctype.cmx boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/typing/mtype.cmi
+boot_build/typing/oprint.cmo : boot_build/typing/outcometree.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/oprint.cmi
+boot_build/typing/oprint.cmx : boot_build/typing/outcometree.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/oprint.cmi
+boot_build/typing/parmatch.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typedtree.cmi boot_build/typing/subst.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/datarepr.cmi \
+    boot_build/typing/ctype.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmi boot_build/typing/parmatch.cmi
+boot_build/typing/parmatch.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typedtree.cmx boot_build/typing/subst.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/datarepr.cmx \
+    boot_build/typing/ctype.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmx boot_build/typing/parmatch.cmi
+boot_build/typing/path.cmo : boot_build/typing/ident.cmi boot_build/typing/path.cmi
+boot_build/typing/path.cmx : boot_build/typing/ident.cmx boot_build/typing/path.cmi
+boot_build/typing/predef.cmo : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi boot_build/typing/predef.cmi
+boot_build/typing/predef.cmx : boot_build/typing/types.cmx boot_build/typing/path.cmx boot_build/parsing/location.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi boot_build/typing/predef.cmi
+boot_build/typing/primitive.cmo : boot_build/utils/misc.cmi boot_build/typing/primitive.cmi
+boot_build/typing/primitive.cmx : boot_build/utils/misc.cmx boot_build/typing/primitive.cmi
+boot_build/typing/printtyped.cmo : boot_build/typing/typedtree.cmi boot_build/parsing/printast.cmi \
+    boot_build/typing/path.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi boot_build/typing/printtyped.cmi
+boot_build/typing/printtyped.cmx : boot_build/typing/typedtree.cmx boot_build/parsing/printast.cmx \
+    boot_build/typing/path.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx boot_build/parsing/location.cmx \
+    boot_build/typing/ident.cmx boot_build/parsing/asttypes.cmi boot_build/typing/printtyped.cmi
+boot_build/typing/printtyp.cmo : boot_build/typing/types.cmi boot_build/typing/primitive.cmi \
+    boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/printtyp.cmi
+boot_build/typing/printtyp.cmx : boot_build/typing/types.cmx boot_build/typing/primitive.cmx \
+    boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/typing/printtyp.cmi
+boot_build/typing/stypes.cmo : boot_build/typing/typedtree.cmi boot_build/typing/printtyp.cmi \
+    boot_build/parsing/location.cmi boot_build/utils/clflags.cmi boot_build/typing/annot.cmi boot_build/typing/stypes.cmi
+boot_build/typing/stypes.cmx : boot_build/typing/typedtree.cmx boot_build/typing/printtyp.cmx \
+    boot_build/parsing/location.cmx boot_build/utils/clflags.cmx boot_build/typing/annot.cmi boot_build/typing/stypes.cmi
+boot_build/typing/subst.cmo : boot_build/typing/types.cmi boot_build/utils/tbl.cmi boot_build/typing/path.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/utils/clflags.cmi \
+    boot_build/typing/btype.cmi boot_build/parsing/ast_mapper.cmi boot_build/typing/subst.cmi
+boot_build/typing/subst.cmx : boot_build/typing/types.cmx boot_build/utils/tbl.cmx boot_build/typing/path.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/utils/clflags.cmx \
+    boot_build/typing/btype.cmx boot_build/parsing/ast_mapper.cmx boot_build/typing/subst.cmi
+boot_build/typing/typeclass.cmo : boot_build/utils/warnings.cmi boot_build/typing/typetexp.cmi \
+    boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/typing/typedecl.cmi \
+    boot_build/typing/typecore.cmi boot_build/typing/subst.cmi boot_build/typing/stypes.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/typing/parmatch.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/typing/includeclass.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/typing/cmt_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmi boot_build/typing/typeclass.cmi
+boot_build/typing/typeclass.cmx : boot_build/utils/warnings.cmx boot_build/typing/typetexp.cmx \
+    boot_build/typing/types.cmx boot_build/typing/typedtree.cmx boot_build/typing/typedecl.cmx \
+    boot_build/typing/typecore.cmx boot_build/typing/subst.cmx boot_build/typing/stypes.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/typing/parmatch.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/typing/includeclass.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/typing/cmt_format.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmx boot_build/typing/typeclass.cmi
+boot_build/typing/typecore.cmo : boot_build/utils/warnings.cmi boot_build/typing/typetexp.cmi \
+    boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/typing/subst.cmi boot_build/typing/stypes.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/primitive.cmi boot_build/typing/predef.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/parsetree.cmi boot_build/typing/parmatch.cmi \
+    boot_build/typing/oprint.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi \
+    boot_build/typing/cmt_format.cmi boot_build/utils/clflags.cmi boot_build/typing/btype.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi boot_build/typing/annot.cmi \
+    boot_build/typing/typecore.cmi
+boot_build/typing/typecore.cmx : boot_build/utils/warnings.cmx boot_build/typing/typetexp.cmx \
+    boot_build/typing/types.cmx boot_build/typing/typedtree.cmx boot_build/typing/subst.cmx boot_build/typing/stypes.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/primitive.cmx boot_build/typing/predef.cmx \
+    boot_build/typing/path.cmx boot_build/parsing/parsetree.cmi boot_build/typing/parmatch.cmx \
+    boot_build/typing/oprint.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx \
+    boot_build/typing/cmt_format.cmx boot_build/utils/clflags.cmx boot_build/typing/btype.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmx boot_build/typing/annot.cmi \
+    boot_build/typing/typecore.cmi
+boot_build/typing/typedecl.cmo : boot_build/utils/warnings.cmi boot_build/typing/typetexp.cmi \
+    boot_build/typing/types.cmi boot_build/typing/typedtree.cmi boot_build/typing/subst.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/primitive.cmi boot_build/typing/predef.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/typing/includecore.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/utils/config.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmi boot_build/typing/typedecl.cmi
+boot_build/typing/typedecl.cmx : boot_build/utils/warnings.cmx boot_build/typing/typetexp.cmx \
+    boot_build/typing/types.cmx boot_build/typing/typedtree.cmx boot_build/typing/subst.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/primitive.cmx boot_build/typing/predef.cmx \
+    boot_build/typing/path.cmx boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/typing/includecore.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/utils/config.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/parsing/ast_helper.cmx boot_build/typing/typedecl.cmi
+boot_build/typing/typedtreeIter.cmo : boot_build/typing/typedtree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/typing/typedtreeIter.cmi
+boot_build/typing/typedtreeIter.cmx : boot_build/typing/typedtree.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/typing/typedtreeIter.cmi
+boot_build/typing/typedtreeMap.cmo : boot_build/typing/typedtree.cmi boot_build/utils/misc.cmi \
+    boot_build/typing/typedtreeMap.cmi
+boot_build/typing/typedtreeMap.cmx : boot_build/typing/typedtree.cmx boot_build/utils/misc.cmx \
+    boot_build/typing/typedtreeMap.cmi
+boot_build/typing/typedtree.cmo : boot_build/typing/types.cmi boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/typedtree.cmi
+boot_build/typing/typedtree.cmx : boot_build/typing/types.cmx boot_build/typing/primitive.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/typing/typedtree.cmi
+boot_build/typing/typemod.cmo : boot_build/utils/warnings.cmi boot_build/typing/typetexp.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typedtree.cmi boot_build/typing/typedecl.cmi boot_build/typing/typecore.cmi \
+    boot_build/typing/typeclass.cmi boot_build/typing/subst.cmi boot_build/typing/stypes.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/path.cmi boot_build/parsing/parsetree.cmi \
+    boot_build/typing/mtype.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/includemod.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/utils/config.cmi boot_build/typing/cmt_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi boot_build/typing/annot.cmi \
+    boot_build/typing/typemod.cmi
+boot_build/typing/typemod.cmx : boot_build/utils/warnings.cmx boot_build/typing/typetexp.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typedtree.cmx boot_build/typing/typedecl.cmx boot_build/typing/typecore.cmx \
+    boot_build/typing/typeclass.cmx boot_build/typing/subst.cmx boot_build/typing/stypes.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/path.cmx boot_build/parsing/parsetree.cmi \
+    boot_build/typing/mtype.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/includemod.cmx boot_build/typing/ident.cmx \
+    boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/utils/config.cmx boot_build/typing/cmt_format.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi boot_build/typing/annot.cmi \
+    boot_build/typing/typemod.cmi
+boot_build/typing/types.cmo : boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi boot_build/parsing/location.cmi \
+    boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi boot_build/typing/types.cmi
+boot_build/typing/types.cmx : boot_build/typing/primitive.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmx boot_build/parsing/location.cmx \
+    boot_build/typing/ident.cmx boot_build/parsing/asttypes.cmi boot_build/typing/types.cmi
+boot_build/typing/typetexp.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typedtree.cmi boot_build/utils/tbl.cmi boot_build/typing/printtyp.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/utils/clflags.cmi \
+    boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi \
+    boot_build/typing/typetexp.cmi
+boot_build/typing/typetexp.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typedtree.cmx boot_build/utils/tbl.cmx boot_build/typing/printtyp.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/utils/clflags.cmx \
+    boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmx \
+    boot_build/typing/typetexp.cmi
+boot_build/bytecomp/bytegen.cmi : boot_build/bytecomp/lambda.cmi boot_build/bytecomp/instruct.cmi
+boot_build/bytecomp/bytelibrarian.cmi :
+boot_build/bytecomp/bytelink.cmi : boot_build/bytecomp/symtable.cmi boot_build/bytecomp/cmo_format.cmi
+boot_build/bytecomp/bytepackager.cmi : boot_build/typing/ident.cmi
+boot_build/bytecomp/bytesections.cmi :
+boot_build/bytecomp/cmo_format.cmi : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi
+boot_build/bytecomp/dll.cmi :
+boot_build/bytecomp/emitcode.cmi : boot_build/bytecomp/instruct.cmi boot_build/bytecomp/cmo_format.cmi
+boot_build/bytecomp/instruct.cmi : boot_build/typing/types.cmi boot_build/typing/subst.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi
+boot_build/bytecomp/lambda.cmi : boot_build/typing/types.cmi boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/parsing/asttypes.cmi
+boot_build/bytecomp/matching.cmi : boot_build/typing/typedtree.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi
+boot_build/bytecomp/meta.cmi :
+boot_build/bytecomp/printinstr.cmi : boot_build/bytecomp/instruct.cmi
+boot_build/bytecomp/printlambda.cmi : boot_build/bytecomp/lambda.cmi
+boot_build/bytecomp/runtimedef.cmi :
+boot_build/bytecomp/simplif.cmi : boot_build/bytecomp/lambda.cmi
+boot_build/bytecomp/switch.cmi :
+boot_build/bytecomp/symtable.cmi : boot_build/utils/misc.cmi boot_build/typing/ident.cmi \
+    boot_build/bytecomp/cmo_format.cmi
+boot_build/bytecomp/translclass.cmi : boot_build/typing/typedtree.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi
+boot_build/bytecomp/translcore.cmi : boot_build/typing/typedtree.cmi boot_build/typing/primitive.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/parsing/asttypes.cmi
+boot_build/bytecomp/translmod.cmi : boot_build/typing/typedtree.cmi boot_build/typing/primitive.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi
+boot_build/bytecomp/translobj.cmi : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi
+boot_build/bytecomp/typeopt.cmi : boot_build/typing/typedtree.cmi boot_build/typing/path.cmi \
+    boot_build/bytecomp/lambda.cmi
+boot_build/bytecomp/bytegen.cmo : boot_build/typing/types.cmi boot_build/bytecomp/switch.cmi boot_build/typing/subst.cmi \
+    boot_build/typing/primitive.cmi boot_build/utils/misc.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/bytecomp/instruct.cmi boot_build/typing/ident.cmi boot_build/utils/config.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/bytegen.cmi
+boot_build/bytecomp/bytegen.cmx : boot_build/typing/types.cmx boot_build/bytecomp/switch.cmx boot_build/typing/subst.cmx \
+    boot_build/typing/primitive.cmx boot_build/utils/misc.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/bytecomp/instruct.cmx boot_build/typing/ident.cmx boot_build/utils/config.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/bytegen.cmi
+boot_build/bytecomp/bytelibrarian.cmo : boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/utils/config.cmi boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmi \
+    boot_build/bytecomp/bytelink.cmi boot_build/bytecomp/bytelibrarian.cmi
+boot_build/bytecomp/bytelibrarian.cmx : boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/utils/config.cmx boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmx \
+    boot_build/bytecomp/bytelink.cmx boot_build/bytecomp/bytelibrarian.cmi
+boot_build/bytecomp/bytelink.cmo : boot_build/utils/warnings.cmi boot_build/bytecomp/symtable.cmi \
+    boot_build/bytecomp/opcodes.cmo boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi \
+    boot_build/bytecomp/dll.cmi boot_build/utils/consistbl.cmi boot_build/utils/config.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi \
+    boot_build/bytecomp/bytesections.cmi boot_build/bytecomp/bytelink.cmi
+boot_build/bytecomp/bytelink.cmx : boot_build/utils/warnings.cmx boot_build/bytecomp/symtable.cmx \
+    boot_build/bytecomp/opcodes.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx \
+    boot_build/bytecomp/dll.cmx boot_build/utils/consistbl.cmx boot_build/utils/config.cmx \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx \
+    boot_build/bytecomp/bytesections.cmx boot_build/bytecomp/bytelink.cmi
+boot_build/bytecomp/bytepackager.cmo : boot_build/typing/typemod.cmi boot_build/bytecomp/translmod.cmi \
+    boot_build/typing/subst.cmi boot_build/typing/path.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/instruct.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/bytecomp/emitcode.cmi boot_build/utils/config.cmi boot_build/bytecomp/cmo_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/bytecomp/bytelink.cmi boot_build/bytecomp/bytegen.cmi \
+    boot_build/bytecomp/bytepackager.cmi
+boot_build/bytecomp/bytepackager.cmx : boot_build/typing/typemod.cmx boot_build/bytecomp/translmod.cmx \
+    boot_build/typing/subst.cmx boot_build/typing/path.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/bytecomp/instruct.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/bytecomp/emitcode.cmx boot_build/utils/config.cmx boot_build/bytecomp/cmo_format.cmi \
+    boot_build/utils/clflags.cmx boot_build/bytecomp/bytelink.cmx boot_build/bytecomp/bytegen.cmx \
+    boot_build/bytecomp/bytepackager.cmi
+boot_build/bytecomp/bytesections.cmo : boot_build/utils/misc.cmi boot_build/utils/config.cmi \
+    boot_build/bytecomp/bytesections.cmi
+boot_build/bytecomp/bytesections.cmx : boot_build/utils/misc.cmx boot_build/utils/config.cmx \
+    boot_build/bytecomp/bytesections.cmi
+boot_build/bytecomp/dll.cmo : boot_build/utils/misc.cmi boot_build/utils/config.cmi boot_build/bytecomp/dll.cmi
+boot_build/bytecomp/dll.cmx : boot_build/utils/misc.cmx boot_build/utils/config.cmx boot_build/bytecomp/dll.cmi
+boot_build/bytecomp/emitcode.cmo : boot_build/bytecomp/translmod.cmi boot_build/typing/primitive.cmi \
+    boot_build/bytecomp/opcodes.cmo boot_build/utils/misc.cmi boot_build/bytecomp/meta.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/bytecomp/instruct.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmi boot_build/typing/btype.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/emitcode.cmi
+boot_build/bytecomp/emitcode.cmx : boot_build/bytecomp/translmod.cmx boot_build/typing/primitive.cmx \
+    boot_build/bytecomp/opcodes.cmx boot_build/utils/misc.cmx boot_build/bytecomp/meta.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/bytecomp/instruct.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmx boot_build/typing/btype.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/emitcode.cmi
+boot_build/bytecomp/instruct.cmo : boot_build/typing/types.cmi boot_build/typing/subst.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/bytecomp/instruct.cmi
+boot_build/bytecomp/instruct.cmx : boot_build/typing/types.cmx boot_build/typing/subst.cmx \
+    boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/bytecomp/instruct.cmi
+boot_build/bytecomp/lambda.cmo : boot_build/typing/types.cmi boot_build/typing/primitive.cmi boot_build/typing/path.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/lambda.cmi
+boot_build/bytecomp/lambda.cmx : boot_build/typing/types.cmx boot_build/typing/primitive.cmx boot_build/typing/path.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/lambda.cmi
+boot_build/bytecomp/matching.cmo : boot_build/typing/types.cmi boot_build/bytecomp/typeopt.cmi \
+    boot_build/typing/typedtree.cmi boot_build/bytecomp/switch.cmi boot_build/bytecomp/printlambda.cmi \
+    boot_build/typing/primitive.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi \
+    boot_build/typing/parmatch.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/bytecomp/matching.cmi
+boot_build/bytecomp/matching.cmx : boot_build/typing/types.cmx boot_build/bytecomp/typeopt.cmx \
+    boot_build/typing/typedtree.cmx boot_build/bytecomp/switch.cmx boot_build/bytecomp/printlambda.cmx \
+    boot_build/typing/primitive.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx \
+    boot_build/typing/parmatch.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/bytecomp/matching.cmi
+boot_build/bytecomp/meta.cmo : boot_build/bytecomp/meta.cmi
+boot_build/bytecomp/meta.cmx : boot_build/bytecomp/meta.cmi
+boot_build/bytecomp/opcodes.cmo :
+boot_build/bytecomp/opcodes.cmx :
+boot_build/bytecomp/printinstr.cmo : boot_build/bytecomp/printlambda.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/bytecomp/instruct.cmi boot_build/typing/ident.cmi \
+    boot_build/bytecomp/printinstr.cmi
+boot_build/bytecomp/printinstr.cmx : boot_build/bytecomp/printlambda.cmx boot_build/parsing/location.cmx \
+    boot_build/bytecomp/lambda.cmx boot_build/bytecomp/instruct.cmx boot_build/typing/ident.cmx \
+    boot_build/bytecomp/printinstr.cmi
+boot_build/bytecomp/printlambda.cmo : boot_build/typing/types.cmi boot_build/typing/primitive.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/printlambda.cmi
+boot_build/bytecomp/printlambda.cmx : boot_build/typing/types.cmx boot_build/typing/primitive.cmx \
+    boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/printlambda.cmi
+boot_build/bytecomp/runtimedef.cmo : boot_build/bytecomp/runtimedef.cmi
+boot_build/bytecomp/runtimedef.cmx : boot_build/bytecomp/runtimedef.cmi
+boot_build/bytecomp/simplif.cmo : boot_build/utils/tbl.cmi boot_build/typing/stypes.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/typing/ident.cmi boot_build/utils/clflags.cmi boot_build/parsing/asttypes.cmi boot_build/typing/annot.cmi \
+    boot_build/bytecomp/simplif.cmi
+boot_build/bytecomp/simplif.cmx : boot_build/utils/tbl.cmx boot_build/typing/stypes.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/typing/ident.cmx boot_build/utils/clflags.cmx boot_build/parsing/asttypes.cmi boot_build/typing/annot.cmi \
+    boot_build/bytecomp/simplif.cmi
+boot_build/bytecomp/switch.cmo : boot_build/bytecomp/switch.cmi
+boot_build/bytecomp/switch.cmx : boot_build/bytecomp/switch.cmi
+boot_build/bytecomp/symtable.cmo : boot_build/utils/tbl.cmi boot_build/bytecomp/runtimedef.cmi \
+    boot_build/typing/predef.cmi boot_build/utils/misc.cmi boot_build/bytecomp/meta.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/bytecomp/dll.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmi boot_build/bytecomp/bytesections.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/symtable.cmi
+boot_build/bytecomp/symtable.cmx : boot_build/utils/tbl.cmx boot_build/bytecomp/runtimedef.cmx \
+    boot_build/typing/predef.cmx boot_build/utils/misc.cmx boot_build/bytecomp/meta.cmx boot_build/parsing/location.cmx \
+    boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/bytecomp/dll.cmx \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmx boot_build/bytecomp/bytesections.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/bytecomp/symtable.cmi
+boot_build/bytecomp/translclass.cmo : boot_build/typing/types.cmi boot_build/bytecomp/typeopt.cmi \
+    boot_build/typing/typedtree.cmi boot_build/bytecomp/translobj.cmi boot_build/bytecomp/translcore.cmi \
+    boot_build/typing/path.cmi boot_build/bytecomp/matching.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/utils/clflags.cmi \
+    boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi boot_build/bytecomp/translclass.cmi
+boot_build/bytecomp/translclass.cmx : boot_build/typing/types.cmx boot_build/bytecomp/typeopt.cmx \
+    boot_build/typing/typedtree.cmx boot_build/bytecomp/translobj.cmx boot_build/bytecomp/translcore.cmx \
+    boot_build/typing/path.cmx boot_build/bytecomp/matching.cmx boot_build/parsing/location.cmx \
+    boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/utils/clflags.cmx \
+    boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi boot_build/bytecomp/translclass.cmi
+boot_build/bytecomp/translcore.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/bytecomp/typeopt.cmi boot_build/typing/typedtree.cmi boot_build/bytecomp/translobj.cmi \
+    boot_build/typing/primitive.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi \
+    boot_build/typing/parmatch.cmi boot_build/utils/misc.cmi boot_build/bytecomp/matching.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi boot_build/utils/clflags.cmi \
+    boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi boot_build/bytecomp/translcore.cmi
+boot_build/bytecomp/translcore.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/bytecomp/typeopt.cmx boot_build/typing/typedtree.cmx boot_build/bytecomp/translobj.cmx \
+    boot_build/typing/primitive.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx \
+    boot_build/typing/parmatch.cmx boot_build/utils/misc.cmx boot_build/bytecomp/matching.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx boot_build/utils/clflags.cmx \
+    boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi boot_build/bytecomp/translcore.cmi
+boot_build/bytecomp/translmod.cmo : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/bytecomp/translobj.cmi boot_build/bytecomp/translcore.cmi boot_build/bytecomp/translclass.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/primitive.cmi boot_build/typing/predef.cmi \
+    boot_build/typing/path.cmi boot_build/typing/mtype.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/typing/ctype.cmi boot_build/parsing/asttypes.cmi boot_build/bytecomp/translmod.cmi
+boot_build/bytecomp/translmod.cmx : boot_build/typing/types.cmx boot_build/typing/typedtree.cmx \
+    boot_build/bytecomp/translobj.cmx boot_build/bytecomp/translcore.cmx boot_build/bytecomp/translclass.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/primitive.cmx boot_build/typing/predef.cmx \
+    boot_build/typing/path.cmx boot_build/typing/mtype.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/typing/ctype.cmx boot_build/parsing/asttypes.cmi boot_build/bytecomp/translmod.cmi
+boot_build/bytecomp/translobj.cmo : boot_build/typing/primitive.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/utils/clflags.cmi boot_build/typing/btype.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/bytecomp/translobj.cmi
+boot_build/bytecomp/translobj.cmx : boot_build/typing/primitive.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/utils/clflags.cmx boot_build/typing/btype.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/bytecomp/translobj.cmi
+boot_build/bytecomp/typeopt.cmo : boot_build/typing/types.cmi boot_build/typing/typedtree.cmi \
+    boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/typing/env.cmi boot_build/typing/ctype.cmi boot_build/bytecomp/typeopt.cmi
+boot_build/bytecomp/typeopt.cmx : boot_build/typing/types.cmx boot_build/typing/typedtree.cmx \
+    boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx \
+    boot_build/typing/env.cmx boot_build/typing/ctype.cmx boot_build/bytecomp/typeopt.cmi
+boot_build/asmcomp/asmgen.cmi : boot_build/bytecomp/lambda.cmi boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/asmlibrarian.cmi :
+boot_build/asmcomp/asmlink.cmi : boot_build/asmcomp/cmx_format.cmi
+boot_build/asmcomp/asmpackager.cmi :
+boot_build/asmcomp/clambda.cmi : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/asmcomp/debuginfo.cmi boot_build/parsing/asttypes.cmi
+boot_build/asmcomp/closure.cmi : boot_build/bytecomp/lambda.cmi boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/cmmgen.cmi : boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmm.cmi \
+    boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/cmm.cmi : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/asmcomp/debuginfo.cmi
+boot_build/asmcomp/cmx_format.cmi : boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/codegen.cmi : boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/coloring.cmi :
+boot_build/asmcomp/comballoc.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/compilenv.cmi : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/debuginfo.cmi : boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi
+boot_build/asmcomp/emitaux.cmi : boot_build/asmcomp/debuginfo.cmi
+boot_build/asmcomp/emit.cmi : boot_build/asmcomp/linearize.cmi boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/interf.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/linearize.cmi : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/asmcomp/debuginfo.cmi
+boot_build/asmcomp/liveness.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/mach.cmi : boot_build/asmcomp/reg.cmi boot_build/bytecomp/lambda.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/cmm.cmi boot_build/asmcomp/boot/arch.cmo
+boot_build/asmcomp/printclambda.cmi : boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/printcmm.cmi : boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/printlinear.cmi : boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/printmach.cmi : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/proc.cmi : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/reg.cmi : boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/reloadgen.cmi : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/reload.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/schedgen.cmi : boot_build/asmcomp/mach.cmi boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/scheduling.cmi : boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/selectgen.cmi : boot_build/utils/tbl.cmi boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/typing/ident.cmi boot_build/asmcomp/debuginfo.cmi boot_build/asmcomp/cmm.cmi \
+    boot_build/asmcomp/boot/arch.cmo
+boot_build/asmcomp/selection.cmi : boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/spill.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/split.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/asmgen.cmo : boot_build/bytecomp/translmod.cmi boot_build/asmcomp/split.cmi \
+    boot_build/asmcomp/spill.cmi boot_build/asmcomp/selection.cmi boot_build/asmcomp/scheduling.cmi \
+    boot_build/asmcomp/reload.cmi boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/printmach.cmi \
+    boot_build/asmcomp/printlinear.cmi boot_build/asmcomp/printcmm.cmi boot_build/asmcomp/printclambda.cmi \
+    boot_build/typing/primitive.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi boot_build/parsing/location.cmi \
+    boot_build/asmcomp/liveness.cmi boot_build/asmcomp/linearize.cmi boot_build/asmcomp/interf.cmi \
+    boot_build/asmcomp/emitaux.cmi boot_build/asmcomp/emit.cmi boot_build/utils/config.cmi \
+    boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/comballoc.cmi boot_build/asmcomp/coloring.cmi \
+    boot_build/asmcomp/cmmgen.cmi boot_build/asmcomp/cmm.cmi boot_build/asmcomp/closure.cmi boot_build/utils/clflags.cmi \
+    boot_build/asmcomp/asmgen.cmi
+boot_build/asmcomp/asmgen.cmx : boot_build/bytecomp/translmod.cmx boot_build/asmcomp/split.cmx \
+    boot_build/asmcomp/spill.cmx boot_build/asmcomp/selection.cmi boot_build/asmcomp/scheduling.cmi \
+    boot_build/asmcomp/reload.cmi boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/printmach.cmx \
+    boot_build/asmcomp/printlinear.cmx boot_build/asmcomp/printcmm.cmx boot_build/asmcomp/printclambda.cmx \
+    boot_build/typing/primitive.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx boot_build/parsing/location.cmx \
+    boot_build/asmcomp/liveness.cmx boot_build/asmcomp/linearize.cmx boot_build/asmcomp/interf.cmx \
+    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/comballoc.cmx boot_build/asmcomp/coloring.cmx \
+    boot_build/asmcomp/cmmgen.cmx boot_build/asmcomp/cmm.cmx boot_build/asmcomp/closure.cmx boot_build/utils/clflags.cmx \
+    boot_build/asmcomp/asmgen.cmi
+boot_build/asmcomp/asmlibrarian.cmo : boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/utils/config.cmi boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/cmx_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/asmcomp/clambda.cmi boot_build/utils/ccomp.cmi boot_build/asmcomp/asmlink.cmi \
+    boot_build/asmcomp/asmlibrarian.cmi
+boot_build/asmcomp/asmlibrarian.cmx : boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/utils/config.cmx boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/cmx_format.cmi \
+    boot_build/utils/clflags.cmx boot_build/asmcomp/clambda.cmx boot_build/utils/ccomp.cmx boot_build/asmcomp/asmlink.cmx \
+    boot_build/asmcomp/asmlibrarian.cmi
+boot_build/asmcomp/asmlink.cmo : boot_build/bytecomp/runtimedef.cmi boot_build/asmcomp/proc.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/asmcomp/emitaux.cmi boot_build/asmcomp/emit.cmi \
+    boot_build/utils/consistbl.cmi boot_build/utils/config.cmi boot_build/asmcomp/compilenv.cmi \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmmgen.cmi boot_build/utils/clflags.cmi \
+    boot_build/utils/ccomp.cmi boot_build/asmcomp/asmgen.cmi boot_build/asmcomp/asmlink.cmi
+boot_build/asmcomp/asmlink.cmx : boot_build/bytecomp/runtimedef.cmx boot_build/asmcomp/proc.cmi \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmx \
+    boot_build/utils/consistbl.cmx boot_build/utils/config.cmx boot_build/asmcomp/compilenv.cmx \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmmgen.cmx boot_build/utils/clflags.cmx \
+    boot_build/utils/ccomp.cmx boot_build/asmcomp/asmgen.cmx boot_build/asmcomp/asmlink.cmi
+boot_build/asmcomp/asmpackager.cmo : boot_build/typing/typemod.cmi boot_build/bytecomp/translmod.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/utils/config.cmi boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/cmx_format.cmi \
+    boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi boot_build/asmcomp/asmlink.cmi boot_build/asmcomp/asmgen.cmi \
+    boot_build/asmcomp/asmpackager.cmi
+boot_build/asmcomp/asmpackager.cmx : boot_build/typing/typemod.cmx boot_build/bytecomp/translmod.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/utils/config.cmx boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/cmx_format.cmi \
+    boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx boot_build/asmcomp/asmlink.cmx boot_build/asmcomp/asmgen.cmx \
+    boot_build/asmcomp/asmpackager.cmi
+boot_build/asmcomp/clambda.cmo : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/asmcomp/debuginfo.cmi boot_build/parsing/asttypes.cmi boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/clambda.cmx : boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx \
+    boot_build/asmcomp/debuginfo.cmx boot_build/parsing/asttypes.cmi boot_build/asmcomp/clambda.cmi
+boot_build/asmcomp/closure.cmo : boot_build/utils/tbl.cmi boot_build/bytecomp/switch.cmi boot_build/typing/primitive.cmi \
+    boot_build/utils/misc.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/compilenv.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/clambda.cmi \
+    boot_build/parsing/asttypes.cmi boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/closure.cmi
+boot_build/asmcomp/closure.cmx : boot_build/utils/tbl.cmx boot_build/bytecomp/switch.cmx boot_build/typing/primitive.cmx \
+    boot_build/utils/misc.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/asmcomp/compilenv.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/clambda.cmx \
+    boot_build/parsing/asttypes.cmi boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/closure.cmi
+boot_build/asmcomp/cmmgen.cmo : boot_build/typing/types.cmi boot_build/bytecomp/switch.cmi boot_build/asmcomp/proc.cmi \
+    boot_build/typing/primitive.cmi boot_build/utils/misc.cmi boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/asmcomp/debuginfo.cmi boot_build/utils/config.cmi boot_build/asmcomp/compilenv.cmi \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi \
+    boot_build/asmcomp/clambda.cmi boot_build/parsing/asttypes.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/cmmgen.cmi
+boot_build/asmcomp/cmmgen.cmx : boot_build/typing/types.cmx boot_build/bytecomp/switch.cmx boot_build/asmcomp/proc.cmi \
+    boot_build/typing/primitive.cmx boot_build/utils/misc.cmx boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx \
+    boot_build/asmcomp/debuginfo.cmx boot_build/utils/config.cmx boot_build/asmcomp/compilenv.cmx \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx \
+    boot_build/asmcomp/clambda.cmx boot_build/parsing/asttypes.cmi boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/cmmgen.cmi
+boot_build/asmcomp/cmm.cmo : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/cmm.cmx : boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/codegen.cmo : boot_build/asmcomp/split.cmi boot_build/asmcomp/spill.cmi boot_build/asmcomp/reload.cmi \
+    boot_build/asmcomp/reg.cmi boot_build/asmcomp/printmach.cmi boot_build/asmcomp/printlinear.cmi \
+    boot_build/asmcomp/printcmm.cmi boot_build/asmcomp/liveness.cmi boot_build/asmcomp/linearize.cmi \
+    boot_build/asmcomp/interf.cmi boot_build/asmcomp/emit.cmi boot_build/asmcomp/coloring.cmi boot_build/asmcomp/cmm.cmi \
+    boot_build/asmcomp/codegen.cmi
+boot_build/asmcomp/codegen.cmx : boot_build/asmcomp/split.cmx boot_build/asmcomp/spill.cmx boot_build/asmcomp/reload.cmi \
+    boot_build/asmcomp/reg.cmx boot_build/asmcomp/printmach.cmx boot_build/asmcomp/printlinear.cmx \
+    boot_build/asmcomp/printcmm.cmx boot_build/asmcomp/liveness.cmx boot_build/asmcomp/linearize.cmx \
+    boot_build/asmcomp/interf.cmx boot_build/asmcomp/emit.cmx boot_build/asmcomp/coloring.cmx boot_build/asmcomp/cmm.cmx \
+    boot_build/asmcomp/codegen.cmi
+boot_build/asmcomp/coloring.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/coloring.cmi
+boot_build/asmcomp/coloring.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/coloring.cmi
+boot_build/asmcomp/comballoc.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi boot_build/utils/config.cmi \
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/comballoc.cmi
+boot_build/asmcomp/comballoc.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/mach.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/comballoc.cmi
+boot_build/asmcomp/compilenv.cmo : boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/clambda.cmi boot_build/asmcomp/compilenv.cmi
+boot_build/asmcomp/compilenv.cmx : boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/clambda.cmx boot_build/asmcomp/compilenv.cmi
+boot_build/asmcomp/debuginfo.cmo : boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/asmcomp/debuginfo.cmi
+boot_build/asmcomp/debuginfo.cmx : boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/asmcomp/debuginfo.cmi
+boot_build/asmcomp/emitaux.cmo : boot_build/asmcomp/linearize.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/utils/config.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/emitaux.cmi
+boot_build/asmcomp/emitaux.cmx : boot_build/asmcomp/linearize.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/utils/config.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/emitaux.cmi
+boot_build/asmcomp/emit.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/linearize.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/asmcomp/emitaux.cmi boot_build/asmcomp/debuginfo.cmi boot_build/utils/config.cmi \
+    boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi \
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/emit.cmi
+boot_build/asmcomp/emit.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx \
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/linearize.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/debuginfo.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx \
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/emit.cmi
+boot_build/asmcomp/interf.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/interf.cmi
+boot_build/asmcomp/interf.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/interf.cmi
+boot_build/asmcomp/linearize.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/bytecomp/lambda.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/cmm.cmi boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/linearize.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx \
+    boot_build/asmcomp/mach.cmx boot_build/bytecomp/lambda.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/asmcomp/cmm.cmx boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/liveness.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/printmach.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/liveness.cmi
+boot_build/asmcomp/liveness.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/printmach.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/liveness.cmi
+boot_build/asmcomp/mach.cmo : boot_build/asmcomp/reg.cmi boot_build/bytecomp/lambda.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/cmm.cmi boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/mach.cmx : boot_build/asmcomp/reg.cmx boot_build/bytecomp/lambda.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/asmcomp/cmm.cmx boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/printclambda.cmo : boot_build/bytecomp/printlambda.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/typing/ident.cmi boot_build/asmcomp/clambda.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/asmcomp/printclambda.cmi
+boot_build/asmcomp/printclambda.cmx : boot_build/bytecomp/printlambda.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/typing/ident.cmx boot_build/asmcomp/clambda.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/asmcomp/printclambda.cmi
+boot_build/asmcomp/printcmm.cmo : boot_build/bytecomp/lambda.cmi boot_build/typing/ident.cmi \
+    boot_build/asmcomp/debuginfo.cmi boot_build/asmcomp/cmm.cmi boot_build/asmcomp/printcmm.cmi
+boot_build/asmcomp/printcmm.cmx : boot_build/bytecomp/lambda.cmx boot_build/typing/ident.cmx \
+    boot_build/asmcomp/debuginfo.cmx boot_build/asmcomp/cmm.cmx boot_build/asmcomp/printcmm.cmi
+boot_build/asmcomp/printlinear.cmo : boot_build/asmcomp/printmach.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/linearize.cmi boot_build/bytecomp/lambda.cmi boot_build/asmcomp/debuginfo.cmi \
+    boot_build/asmcomp/printlinear.cmi
+boot_build/asmcomp/printlinear.cmx : boot_build/asmcomp/printmach.cmx boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/linearize.cmx boot_build/bytecomp/lambda.cmx boot_build/asmcomp/debuginfo.cmx \
+    boot_build/asmcomp/printlinear.cmi
+boot_build/asmcomp/printmach.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/printcmm.cmi boot_build/asmcomp/mach.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/asmcomp/debuginfo.cmi boot_build/asmcomp/cmm.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/printmach.cmi
+boot_build/asmcomp/printmach.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/printcmm.cmx boot_build/asmcomp/mach.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/asmcomp/debuginfo.cmx boot_build/asmcomp/cmm.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/printmach.cmi
+boot_build/asmcomp/reg.cmo : boot_build/asmcomp/cmm.cmi boot_build/asmcomp/reg.cmi
+boot_build/asmcomp/reg.cmx : boot_build/asmcomp/cmm.cmx boot_build/asmcomp/reg.cmi
+boot_build/asmcomp/reloadgen.cmo : boot_build/asmcomp/reg.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/reloadgen.cmi
+boot_build/asmcomp/reloadgen.cmx : boot_build/asmcomp/reg.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/reloadgen.cmi
+boot_build/asmcomp/schedgen.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/linearize.cmi boot_build/asmcomp/cmm.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/schedgen.cmi
+boot_build/asmcomp/schedgen.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/linearize.cmx boot_build/asmcomp/cmm.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/schedgen.cmi
+boot_build/asmcomp/selectgen.cmo : boot_build/utils/tbl.cmi boot_build/bytecomp/simplif.cmi boot_build/asmcomp/reg.cmi \
+    boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/typing/ident.cmi boot_build/asmcomp/debuginfo.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi \
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/selectgen.cmi
+boot_build/asmcomp/selectgen.cmx : boot_build/utils/tbl.cmx boot_build/bytecomp/simplif.cmx boot_build/asmcomp/reg.cmx \
+    boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/typing/ident.cmx boot_build/asmcomp/debuginfo.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx \
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/selectgen.cmi
+boot_build/asmcomp/spill.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/spill.cmi
+boot_build/asmcomp/spill.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx \
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/spill.cmi
+boot_build/asmcomp/split.cmo : boot_build/asmcomp/reg.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/asmcomp/split.cmi
+boot_build/asmcomp/split.cmx : boot_build/asmcomp/reg.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
+    boot_build/asmcomp/split.cmi
+boot_build/asmcomp/boot/arch.cmo :
+boot_build/asmcomp/boot/arch.cmx :
+boot_build/asmcomp/boot/proc.cmo : boot_build/asmcomp/reg.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi \
+    boot_build/utils/config.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi \
+    boot_build/asmcomp/boot/arch.cmo
+boot_build/asmcomp/boot/proc.cmx : boot_build/asmcomp/reg.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
+    boot_build/utils/config.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx \
+    boot_build/asmcomp/boot/arch.cmx
+boot_build/asmcomp/boot/reload.cmo : boot_build/asmcomp/reloadgen.cmi boot_build/asmcomp/reg.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo
+boot_build/asmcomp/boot/reload.cmx : boot_build/asmcomp/reloadgen.cmx boot_build/asmcomp/reg.cmx \
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx
+boot_build/asmcomp/boot/scheduling.cmo : boot_build/asmcomp/schedgen.cmi
+boot_build/asmcomp/boot/scheduling.cmx : boot_build/asmcomp/schedgen.cmx
+boot_build/asmcomp/boot/selection.cmo : boot_build/asmcomp/selectgen.cmi boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo
+boot_build/asmcomp/boot/selection.cmx : boot_build/asmcomp/selectgen.cmx boot_build/asmcomp/proc.cmi \
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx
+boot_build/driver/compenv.cmi :
+boot_build/driver/compile.cmi :
+boot_build/driver/compmisc.cmi : boot_build/typing/env.cmi
+boot_build/driver/errors.cmi :
+boot_build/driver/main_args.cmi :
+boot_build/driver/main.cmi :
+boot_build/driver/optcompile.cmi :
+boot_build/driver/opterrors.cmi :
+boot_build/driver/optmain.cmi :
+boot_build/driver/pparse.cmi : boot_build/parsing/parsetree.cmi
+boot_build/driver/compenv.cmo : boot_build/utils/warnings.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/utils/config.cmi boot_build/utils/clflags.cmi boot_build/driver/compenv.cmi
+boot_build/driver/compenv.cmx : boot_build/utils/warnings.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/utils/config.cmx boot_build/utils/clflags.cmx boot_build/driver/compenv.cmi
+boot_build/driver/compile.cmo : boot_build/utils/warnings.cmi boot_build/typing/typemod.cmi \
+    boot_build/typing/typedtree.cmi boot_build/typing/typecore.cmi boot_build/bytecomp/translmod.cmi \
+    boot_build/typing/stypes.cmi boot_build/bytecomp/simplif.cmi boot_build/typing/printtyped.cmi \
+    boot_build/typing/printtyp.cmi boot_build/bytecomp/printlambda.cmi boot_build/bytecomp/printinstr.cmi \
+    boot_build/parsing/printast.cmi boot_build/parsing/pprintast.cmi boot_build/driver/pparse.cmi \
+    boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/typing/includemod.cmi boot_build/typing/env.cmi \
+    boot_build/bytecomp/emitcode.cmi boot_build/driver/compmisc.cmi boot_build/driver/compenv.cmi \
+    boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi boot_build/bytecomp/bytegen.cmi boot_build/driver/compile.cmi
+boot_build/driver/compile.cmx : boot_build/utils/warnings.cmx boot_build/typing/typemod.cmx \
+    boot_build/typing/typedtree.cmx boot_build/typing/typecore.cmx boot_build/bytecomp/translmod.cmx \
+    boot_build/typing/stypes.cmx boot_build/bytecomp/simplif.cmx boot_build/typing/printtyped.cmx \
+    boot_build/typing/printtyp.cmx boot_build/bytecomp/printlambda.cmx boot_build/bytecomp/printinstr.cmx \
+    boot_build/parsing/printast.cmx boot_build/parsing/pprintast.cmx boot_build/driver/pparse.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/typing/includemod.cmx boot_build/typing/env.cmx \
+    boot_build/bytecomp/emitcode.cmx boot_build/driver/compmisc.cmx boot_build/driver/compenv.cmx \
+    boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx boot_build/bytecomp/bytegen.cmx boot_build/driver/compile.cmi
+boot_build/driver/compmisc.cmo : boot_build/utils/misc.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/utils/config.cmi boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi boot_build/driver/compmisc.cmi
+boot_build/driver/compmisc.cmx : boot_build/utils/misc.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/utils/config.cmx boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx boot_build/driver/compmisc.cmi
+boot_build/driver/errors.cmo : boot_build/parsing/location.cmi boot_build/driver/errors.cmi
+boot_build/driver/errors.cmx : boot_build/parsing/location.cmx boot_build/driver/errors.cmi
+boot_build/driver/main_args.cmo : boot_build/utils/warnings.cmi boot_build/driver/main_args.cmi
+boot_build/driver/main_args.cmx : boot_build/utils/warnings.cmx boot_build/driver/main_args.cmi
+boot_build/driver/main.cmo : boot_build/utils/warnings.cmi boot_build/utils/misc.cmi boot_build/driver/main_args.cmi \
+    boot_build/parsing/location.cmi boot_build/utils/config.cmi boot_build/driver/compmisc.cmi \
+    boot_build/driver/compile.cmi boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi \
+    boot_build/bytecomp/bytepackager.cmi boot_build/bytecomp/bytelink.cmi \
+    boot_build/bytecomp/bytelibrarian.cmi boot_build/driver/main.cmi
+boot_build/driver/main.cmx : boot_build/utils/warnings.cmx boot_build/utils/misc.cmx boot_build/driver/main_args.cmx \
+    boot_build/parsing/location.cmx boot_build/utils/config.cmx boot_build/driver/compmisc.cmx \
+    boot_build/driver/compile.cmx boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx \
+    boot_build/bytecomp/bytepackager.cmx boot_build/bytecomp/bytelink.cmx \
+    boot_build/bytecomp/bytelibrarian.cmx boot_build/driver/main.cmi
+boot_build/driver/optcompile.cmo : boot_build/utils/warnings.cmi boot_build/typing/typemod.cmi \
+    boot_build/typing/typedtree.cmi boot_build/typing/typecore.cmi boot_build/bytecomp/translmod.cmi \
+    boot_build/typing/stypes.cmi boot_build/bytecomp/simplif.cmi boot_build/typing/printtyped.cmi \
+    boot_build/typing/printtyp.cmi boot_build/bytecomp/printlambda.cmi boot_build/parsing/printast.cmi \
+    boot_build/parsing/pprintast.cmi boot_build/driver/pparse.cmi boot_build/utils/misc.cmi \
+    boot_build/typing/includemod.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi boot_build/driver/compmisc.cmi \
+    boot_build/asmcomp/compilenv.cmi boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi \
+    boot_build/utils/ccomp.cmi boot_build/asmcomp/asmgen.cmi boot_build/driver/optcompile.cmi
+boot_build/driver/optcompile.cmx : boot_build/utils/warnings.cmx boot_build/typing/typemod.cmx \
+    boot_build/typing/typedtree.cmx boot_build/typing/typecore.cmx boot_build/bytecomp/translmod.cmx \
+    boot_build/typing/stypes.cmx boot_build/bytecomp/simplif.cmx boot_build/typing/printtyped.cmx \
+    boot_build/typing/printtyp.cmx boot_build/bytecomp/printlambda.cmx boot_build/parsing/printast.cmx \
+    boot_build/parsing/pprintast.cmx boot_build/driver/pparse.cmx boot_build/utils/misc.cmx \
+    boot_build/typing/includemod.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx boot_build/driver/compmisc.cmx \
+    boot_build/asmcomp/compilenv.cmx boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx \
+    boot_build/utils/ccomp.cmx boot_build/asmcomp/asmgen.cmx boot_build/driver/optcompile.cmi
+boot_build/driver/opterrors.cmo : boot_build/parsing/location.cmi boot_build/driver/opterrors.cmi
+boot_build/driver/opterrors.cmx : boot_build/parsing/location.cmx boot_build/driver/opterrors.cmi
+boot_build/driver/optmain.cmo : boot_build/utils/warnings.cmi boot_build/asmcomp/printmach.cmi \
+    boot_build/driver/optcompile.cmi boot_build/utils/misc.cmi boot_build/driver/main_args.cmi \
+    boot_build/parsing/location.cmi boot_build/utils/config.cmi boot_build/driver/compmisc.cmi \
+    boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/asmpackager.cmi \
+    boot_build/asmcomp/asmlink.cmi boot_build/asmcomp/asmlibrarian.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/driver/optmain.cmi
+boot_build/driver/optmain.cmx : boot_build/utils/warnings.cmx boot_build/asmcomp/printmach.cmx \
+    boot_build/driver/optcompile.cmx boot_build/utils/misc.cmx boot_build/driver/main_args.cmx \
+    boot_build/parsing/location.cmx boot_build/utils/config.cmx boot_build/driver/compmisc.cmx \
+    boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/asmpackager.cmx \
+    boot_build/asmcomp/asmlink.cmx boot_build/asmcomp/asmlibrarian.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/driver/optmain.cmi
+boot_build/driver/pparse.cmo : boot_build/parsing/parse.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi \
+    boot_build/utils/config.cmi boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi boot_build/driver/pparse.cmi
+boot_build/driver/pparse.cmx : boot_build/parsing/parse.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx \
+    boot_build/utils/config.cmx boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx boot_build/driver/pparse.cmi
+boot_build/toplevel/genprintval.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi \
+    boot_build/typing/outcometree.cmi boot_build/typing/env.cmi
+boot_build/toplevel/opttopdirs.cmi : boot_build/parsing/longident.cmi
+boot_build/toplevel/opttoploop.cmi : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/path.cmi boot_build/parsing/parsetree.cmi boot_build/typing/outcometree.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/typing/env.cmi
+boot_build/toplevel/opttopmain.cmi :
+boot_build/toplevel/topdirs.cmi : boot_build/parsing/longident.cmi
+boot_build/toplevel/toploop.cmi : boot_build/utils/warnings.cmi boot_build/typing/types.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/typing/outcometree.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/env.cmi
+boot_build/toplevel/topmain.cmi :
+boot_build/toplevel/trace.cmi : boot_build/typing/types.cmi boot_build/typing/path.cmi boot_build/parsing/longident.cmi \
+    boot_build/typing/env.cmi
+boot_build/toplevel/expunge.cmo : boot_build/bytecomp/symtable.cmi boot_build/bytecomp/runtimedef.cmi \
+    boot_build/utils/misc.cmi boot_build/typing/ident.cmi boot_build/bytecomp/bytesections.cmi
+boot_build/toplevel/expunge.cmx : boot_build/bytecomp/symtable.cmx boot_build/bytecomp/runtimedef.cmx \
+    boot_build/utils/misc.cmx boot_build/typing/ident.cmx boot_build/bytecomp/bytesections.cmx
+boot_build/toplevel/genprintval.cmo : boot_build/typing/types.cmi boot_build/typing/printtyp.cmi \
+    boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/typing/outcometree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/datarepr.cmi \
+    boot_build/typing/ctype.cmi boot_build/typing/btype.cmi boot_build/toplevel/genprintval.cmi
+boot_build/toplevel/genprintval.cmx : boot_build/typing/types.cmx boot_build/typing/printtyp.cmx \
+    boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/typing/outcometree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/datarepr.cmx \
+    boot_build/typing/ctype.cmx boot_build/typing/btype.cmx boot_build/toplevel/genprintval.cmi
+boot_build/toplevel/opttopdirs.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/printtyp.cmi boot_build/toplevel/opttoploop.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi boot_build/typing/ctype.cmi \
+    boot_build/utils/config.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/asmlink.cmi \
+    boot_build/toplevel/opttopdirs.cmi
+boot_build/toplevel/opttopdirs.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/typing/printtyp.cmx boot_build/toplevel/opttoploop.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx boot_build/typing/ctype.cmx \
+    boot_build/utils/config.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/asmlink.cmx \
+    boot_build/toplevel/opttopdirs.cmi
+boot_build/toplevel/opttoploop.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typemod.cmi boot_build/typing/typedtree.cmi boot_build/typing/typecore.cmi \
+    boot_build/bytecomp/translmod.cmi boot_build/bytecomp/simplif.cmi boot_build/typing/printtyped.cmi \
+    boot_build/typing/printtyp.cmi boot_build/bytecomp/printlambda.cmi boot_build/parsing/printast.cmi \
+    boot_build/typing/predef.cmi boot_build/parsing/pprintast.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmi boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/lexer.cmi boot_build/typing/ident.cmi \
+    boot_build/toplevel/genprintval.cmi boot_build/typing/env.cmi boot_build/utils/config.cmi \
+    boot_build/driver/compmisc.cmi boot_build/asmcomp/compilenv.cmi boot_build/utils/clflags.cmi \
+    boot_build/typing/btype.cmi boot_build/asmcomp/asmlink.cmi boot_build/asmcomp/asmgen.cmi \
+    boot_build/toplevel/opttoploop.cmi
+boot_build/toplevel/opttoploop.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typemod.cmx boot_build/typing/typedtree.cmx boot_build/typing/typecore.cmx \
+    boot_build/bytecomp/translmod.cmx boot_build/bytecomp/simplif.cmx boot_build/typing/printtyped.cmx \
+    boot_build/typing/printtyp.cmx boot_build/bytecomp/printlambda.cmx boot_build/parsing/printast.cmx \
+    boot_build/typing/predef.cmx boot_build/parsing/pprintast.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmx boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmx boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/lexer.cmx boot_build/typing/ident.cmx \
+    boot_build/toplevel/genprintval.cmx boot_build/typing/env.cmx boot_build/utils/config.cmx \
+    boot_build/driver/compmisc.cmx boot_build/asmcomp/compilenv.cmx boot_build/utils/clflags.cmx \
+    boot_build/typing/btype.cmx boot_build/asmcomp/asmlink.cmx boot_build/asmcomp/asmgen.cmx \
+    boot_build/toplevel/opttoploop.cmi
+boot_build/toplevel/opttopmain.cmo : boot_build/utils/warnings.cmi boot_build/asmcomp/printmach.cmi \
+    boot_build/toplevel/opttoploop.cmi boot_build/toplevel/opttopdirs.cmi boot_build/utils/misc.cmi \
+    boot_build/driver/main_args.cmi boot_build/parsing/location.cmi boot_build/utils/config.cmi \
+    boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi boot_build/toplevel/opttopmain.cmi
+boot_build/toplevel/opttopmain.cmx : boot_build/utils/warnings.cmx boot_build/asmcomp/printmach.cmx \
+    boot_build/toplevel/opttoploop.cmx boot_build/toplevel/opttopdirs.cmx boot_build/utils/misc.cmx \
+    boot_build/driver/main_args.cmx boot_build/parsing/location.cmx boot_build/utils/config.cmx \
+    boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx boot_build/toplevel/opttopmain.cmi
+boot_build/toplevel/opttopstart.cmo : boot_build/toplevel/opttopmain.cmi
+boot_build/toplevel/opttopstart.cmx : boot_build/toplevel/opttopmain.cmx
+boot_build/toplevel/topdirs.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/toplevel/trace.cmi boot_build/toplevel/toploop.cmi boot_build/bytecomp/symtable.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/path.cmi boot_build/bytecomp/opcodes.cmo boot_build/utils/misc.cmi \
+    boot_build/bytecomp/meta.cmi boot_build/parsing/longident.cmi boot_build/typing/ident.cmi boot_build/typing/env.cmi \
+    boot_build/bytecomp/dll.cmi boot_build/typing/ctype.cmi boot_build/utils/consistbl.cmi boot_build/utils/config.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmi boot_build/toplevel/topdirs.cmi
+boot_build/toplevel/topdirs.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/toplevel/trace.cmx boot_build/toplevel/toploop.cmx boot_build/bytecomp/symtable.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/path.cmx boot_build/bytecomp/opcodes.cmx boot_build/utils/misc.cmx \
+    boot_build/bytecomp/meta.cmx boot_build/parsing/longident.cmx boot_build/typing/ident.cmx boot_build/typing/env.cmx \
+    boot_build/bytecomp/dll.cmx boot_build/typing/ctype.cmx boot_build/utils/consistbl.cmx boot_build/utils/config.cmx \
+    boot_build/bytecomp/cmo_format.cmi boot_build/utils/clflags.cmx boot_build/toplevel/topdirs.cmi
+boot_build/toplevel/toploop.cmo : boot_build/utils/warnings.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typemod.cmi boot_build/typing/typedtree.cmi boot_build/typing/typecore.cmi \
+    boot_build/bytecomp/translmod.cmi boot_build/bytecomp/symtable.cmi boot_build/bytecomp/simplif.cmi \
+    boot_build/typing/printtyped.cmi boot_build/typing/printtyp.cmi boot_build/bytecomp/printlambda.cmi \
+    boot_build/bytecomp/printinstr.cmi boot_build/parsing/printast.cmi boot_build/typing/predef.cmi \
+    boot_build/parsing/pprintast.cmi boot_build/driver/pparse.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmi boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmi boot_build/utils/misc.cmi boot_build/bytecomp/meta.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/lexer.cmi boot_build/typing/includemod.cmi \
+    boot_build/typing/ident.cmi boot_build/toplevel/genprintval.cmi boot_build/typing/env.cmi \
+    boot_build/bytecomp/emitcode.cmi boot_build/bytecomp/dll.cmi boot_build/utils/consistbl.cmi \
+    boot_build/utils/config.cmi boot_build/driver/compmisc.cmi boot_build/utils/clflags.cmi \
+    boot_build/bytecomp/bytegen.cmi boot_build/typing/btype.cmi boot_build/parsing/ast_helper.cmi \
+    boot_build/toplevel/toploop.cmi
+boot_build/toplevel/toploop.cmx : boot_build/utils/warnings.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typemod.cmx boot_build/typing/typedtree.cmx boot_build/typing/typecore.cmx \
+    boot_build/bytecomp/translmod.cmx boot_build/bytecomp/symtable.cmx boot_build/bytecomp/simplif.cmx \
+    boot_build/typing/printtyped.cmx boot_build/typing/printtyp.cmx boot_build/bytecomp/printlambda.cmx \
+    boot_build/bytecomp/printinstr.cmx boot_build/parsing/printast.cmx boot_build/typing/predef.cmx \
+    boot_build/parsing/pprintast.cmx boot_build/driver/pparse.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmx boot_build/typing/outcometree.cmi \
+    boot_build/typing/oprint.cmx boot_build/utils/misc.cmx boot_build/bytecomp/meta.cmx boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/lexer.cmx boot_build/typing/includemod.cmx \
+    boot_build/typing/ident.cmx boot_build/toplevel/genprintval.cmx boot_build/typing/env.cmx \
+    boot_build/bytecomp/emitcode.cmx boot_build/bytecomp/dll.cmx boot_build/utils/consistbl.cmx \
+    boot_build/utils/config.cmx boot_build/driver/compmisc.cmx boot_build/utils/clflags.cmx \
+    boot_build/bytecomp/bytegen.cmx boot_build/typing/btype.cmx boot_build/parsing/ast_helper.cmx \
+    boot_build/toplevel/toploop.cmi
+boot_build/toplevel/topmain.cmo : boot_build/utils/warnings.cmi boot_build/toplevel/toploop.cmi \
+    boot_build/toplevel/topdirs.cmi boot_build/utils/misc.cmi boot_build/driver/main_args.cmi \
+    boot_build/parsing/location.cmi boot_build/utils/config.cmi boot_build/driver/compenv.cmi \
+    boot_build/utils/clflags.cmi boot_build/toplevel/topmain.cmi
+boot_build/toplevel/topmain.cmx : boot_build/utils/warnings.cmx boot_build/toplevel/toploop.cmx \
+    boot_build/toplevel/topdirs.cmx boot_build/utils/misc.cmx boot_build/driver/main_args.cmx \
+    boot_build/parsing/location.cmx boot_build/utils/config.cmx boot_build/driver/compenv.cmx \
+    boot_build/utils/clflags.cmx boot_build/toplevel/topmain.cmi
+boot_build/toplevel/topstart.cmo : boot_build/toplevel/topmain.cmi
+boot_build/toplevel/topstart.cmx : boot_build/toplevel/topmain.cmx
+boot_build/toplevel/trace.cmo : boot_build/typing/types.cmi boot_build/toplevel/toploop.cmi \
+    boot_build/typing/printtyp.cmi boot_build/typing/predef.cmi boot_build/typing/path.cmi boot_build/utils/misc.cmi \
+    boot_build/bytecomp/meta.cmi boot_build/parsing/longident.cmi boot_build/typing/ctype.cmi \
+    boot_build/toplevel/trace.cmi
+boot_build/toplevel/trace.cmx : boot_build/typing/types.cmx boot_build/toplevel/toploop.cmx \
+    boot_build/typing/printtyp.cmx boot_build/typing/predef.cmx boot_build/typing/path.cmx boot_build/utils/misc.cmx \
+    boot_build/bytecomp/meta.cmx boot_build/parsing/longident.cmx boot_build/typing/ctype.cmx \
+    boot_build/toplevel/trace.cmi
+boot_build/tools/depend.cmi : boot_build/parsing/parsetree.cmi
+boot_build/tools/profiling.cmi :
+boot_build/tools/tast_iter.cmi : boot_build/typing/typedtree.cmi boot_build/parsing/asttypes.cmi
+boot_build/tools/untypeast.cmi : boot_build/typing/typedtree.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi
+boot_build/tools/addlabels.cmo : boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi
+boot_build/tools/addlabels.cmx : boot_build/parsing/parsetree.cmi boot_build/parsing/parse.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi
+boot_build/tools/cmt2annot.cmo : boot_build/tools/untypeast.cmi boot_build/typing/types.cmi \
+    boot_build/typing/typedtree.cmi boot_build/tools/tast_iter.cmi boot_build/typing/stypes.cmi \
+    boot_build/parsing/pprintast.cmi boot_build/typing/path.cmi boot_build/typing/oprint.cmi \
+    boot_build/parsing/location.cmi boot_build/typing/ident.cmi boot_build/typing/envaux.cmi boot_build/typing/env.cmi \
+    boot_build/utils/config.cmi boot_build/typing/cmt_format.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/typing/annot.cmi
+boot_build/tools/cmt2annot.cmx : boot_build/tools/untypeast.cmx boot_build/typing/types.cmx \
+    boot_build/typing/typedtree.cmx boot_build/tools/tast_iter.cmx boot_build/typing/stypes.cmx \
+    boot_build/parsing/pprintast.cmx boot_build/typing/path.cmx boot_build/typing/oprint.cmx \
+    boot_build/parsing/location.cmx boot_build/typing/ident.cmx boot_build/typing/envaux.cmx boot_build/typing/env.cmx \
+    boot_build/utils/config.cmx boot_build/typing/cmt_format.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/typing/annot.cmi
+boot_build/tools/cvt_emit.cmo :
+boot_build/tools/cvt_emit.cmx :
+boot_build/tools/depend.cmo : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi \
+    boot_build/parsing/longident.cmi boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi \
+    boot_build/tools/depend.cmi
+boot_build/tools/depend.cmx : boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx \
+    boot_build/parsing/longident.cmx boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi \
+    boot_build/tools/depend.cmi
+boot_build/tools/dumpobj.cmo : boot_build/utils/tbl.cmi boot_build/bytecomp/opcodes.cmo boot_build/utils/misc.cmi \
+    boot_build/parsing/location.cmi boot_build/bytecomp/lambda.cmi boot_build/bytecomp/instruct.cmi \
+    boot_build/typing/ident.cmi boot_build/utils/config.cmi boot_build/bytecomp/cmo_format.cmi \
+    boot_build/bytecomp/bytesections.cmi boot_build/parsing/asttypes.cmi
+boot_build/tools/dumpobj.cmx : boot_build/utils/tbl.cmx boot_build/bytecomp/opcodes.cmx boot_build/utils/misc.cmx \
+    boot_build/parsing/location.cmx boot_build/bytecomp/lambda.cmx boot_build/bytecomp/instruct.cmx \
+    boot_build/typing/ident.cmx boot_build/utils/config.cmx boot_build/bytecomp/cmo_format.cmi \
+    boot_build/bytecomp/bytesections.cmx boot_build/parsing/asttypes.cmi
+boot_build/tools/eqparsetree.cmo : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmi \
+    boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi
+boot_build/tools/eqparsetree.cmx : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmx \
+    boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi
+boot_build/tools/objinfo.cmo : boot_build/utils/misc.cmi boot_build/utils/config.cmi boot_build/asmcomp/cmx_format.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/typing/cmi_format.cmi boot_build/asmcomp/clambda.cmi \
+    boot_build/bytecomp/bytesections.cmi
+boot_build/tools/objinfo.cmx : boot_build/utils/misc.cmx boot_build/utils/config.cmx boot_build/asmcomp/cmx_format.cmi \
+    boot_build/bytecomp/cmo_format.cmi boot_build/typing/cmi_format.cmx boot_build/asmcomp/clambda.cmx \
+    boot_build/bytecomp/bytesections.cmx
+boot_build/tools/ocaml299to3.cmo :
+boot_build/tools/ocaml299to3.cmx :
+boot_build/tools/ocamlcp.cmo : boot_build/driver/main_args.cmi
+boot_build/tools/ocamlcp.cmx : boot_build/driver/main_args.cmx
+boot_build/tools/ocamldep.cmo : boot_build/driver/pparse.cmi boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/parse.cmi boot_build/utils/misc.cmi boot_build/parsing/location.cmi boot_build/tools/depend.cmi \
+    boot_build/utils/config.cmi boot_build/driver/compenv.cmi boot_build/utils/clflags.cmi
+boot_build/tools/ocamldep.cmx : boot_build/driver/pparse.cmx boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/parse.cmx boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/tools/depend.cmx \
+    boot_build/utils/config.cmx boot_build/driver/compenv.cmx boot_build/utils/clflags.cmx
+boot_build/tools/ocamlmklibconfig.cmo :
+boot_build/tools/ocamlmklibconfig.cmx :
+boot_build/tools/ocamlmklib.cmo : boot_build/tools/ocamlmklibconfig.cmo
+boot_build/tools/ocamlmklib.cmx : boot_build/tools/ocamlmklibconfig.cmx
+boot_build/tools/ocamlmktop.cmo : boot_build/utils/ccomp.cmi
+boot_build/tools/ocamlmktop.cmx : boot_build/utils/ccomp.cmx
+boot_build/tools/ocamloptp.cmo : boot_build/driver/main_args.cmi
+boot_build/tools/ocamloptp.cmx : boot_build/driver/main_args.cmx
+boot_build/tools/ocamlprof.cmo : boot_build/utils/warnings.cmi boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/parse.cmi boot_build/parsing/location.cmi
+boot_build/tools/ocamlprof.cmx : boot_build/utils/warnings.cmx boot_build/parsing/parsetree.cmi \
+    boot_build/parsing/parse.cmx boot_build/parsing/location.cmx
+boot_build/tools/primreq.cmo : boot_build/utils/config.cmi boot_build/bytecomp/cmo_format.cmi
+boot_build/tools/primreq.cmx : boot_build/utils/config.cmx boot_build/bytecomp/cmo_format.cmi
+boot_build/tools/profiling.cmo : boot_build/tools/profiling.cmi
+boot_build/tools/profiling.cmx : boot_build/tools/profiling.cmi
+boot_build/tools/read_cmt.cmo : boot_build/typing/cmt_format.cmi boot_build/tools/cmt2annot.cmo \
+    boot_build/utils/clflags.cmi
+boot_build/tools/read_cmt.cmx : boot_build/typing/cmt_format.cmx boot_build/tools/cmt2annot.cmx \
+    boot_build/utils/clflags.cmx
+boot_build/tools/scrapelabels.cmo :
+boot_build/tools/scrapelabels.cmx :
+boot_build/tools/tast_iter.cmo : boot_build/typing/typedtree.cmi boot_build/utils/misc.cmi \
+    boot_build/tools/tast_iter.cmi
+boot_build/tools/tast_iter.cmx : boot_build/typing/typedtree.cmx boot_build/utils/misc.cmx \
+    boot_build/tools/tast_iter.cmi
+boot_build/tools/untypeast.cmo : boot_build/typing/typedtree.cmi boot_build/typing/path.cmi \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmi boot_build/parsing/longident.cmi \
+    boot_build/typing/ident.cmi boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmi \
+    boot_build/tools/untypeast.cmi
+boot_build/tools/untypeast.cmx : boot_build/typing/typedtree.cmx boot_build/typing/path.cmx \
+    boot_build/parsing/parsetree.cmi boot_build/utils/misc.cmx boot_build/parsing/longident.cmx \
+    boot_build/typing/ident.cmx boot_build/parsing/asttypes.cmi boot_build/parsing/ast_helper.cmx \
+    boot_build/tools/untypeast.cmi
