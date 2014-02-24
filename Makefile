@@ -1079,107 +1079,19 @@ opt/ocamlopt: opt/compilerlibs/ocamlcommon.cma \
 #################
 #make directories
 
-boot_build:
-	mkdir boot_build
+DIRS=tools utils parsing typing driver bytecomp asmcomp toplevel compilerlibs
 
-boot_build/tools: | boot_build
-	mkdir boot_build/tools
+$(addprefix boot_build/,$(DIRS)):
+	mkdir -p $@
 
-boot_build/utils: | boot_build
-	mkdir boot_build/utils
+$(addprefix byte/,$(DIRS)):
+	mkdir -p $@
 
-boot_build/parsing: | boot_build
-	mkdir boot_build/parsing
-
-boot_build/typing: | boot_build
-	mkdir boot_build/typing
-
-boot_build/driver: | boot_build
-	mkdir boot_build/driver
-
-boot_build/bytecomp: | boot_build
-	mkdir boot_build/bytecomp
-
-boot_build/asmcomp: | boot_build
-	mkdir boot_build/asmcomp
-
-boot_build/toplevel: | boot_build
-	mkdir boot_build/toplevel
-
-boot_build/compilerlibs: | boot_build
-	mkdir boot_build/compilerlibs
+$(addprefix opt/,$(DIRS)):
+	mkdir -p $@
 
 partialclean::
-	rm -rf boot_build
-
-
-byte:
-	mkdir byte
-
-byte/tools: | byte
-	mkdir byte/tools
-
-byte/utils: | byte
-	mkdir byte/utils
-
-byte/parsing: | byte
-	mkdir byte/parsing
-
-byte/typing: | byte
-	mkdir byte/typing
-
-byte/driver: | byte
-	mkdir byte/driver
-
-byte/bytecomp: | byte
-	mkdir byte/bytecomp
-
-byte/asmcomp: | byte
-	mkdir byte/asmcomp
-
-byte/toplevel: | byte
-	mkdir byte/toplevel
-
-byte/compilerlibs: | byte
-	mkdir byte/compilerlibs
-
-partialclean::
-	rm -rf byte
-
-
-opt:
-	mkdir opt
-
-opt/tools: | opt
-	mkdir opt/tools
-
-opt/utils: | opt
-	mkdir opt/utils
-
-opt/parsing: | opt
-	mkdir opt/parsing
-
-opt/typing: | opt
-	mkdir opt/typing
-
-opt/driver: | opt
-	mkdir opt/driver
-
-opt/bytecomp: | opt
-	mkdir opt/bytecomp
-
-opt/asmcomp: | opt
-	mkdir opt/asmcomp
-
-opt/toplevel: | opt
-	mkdir opt/toplevel
-
-opt/compilerlibs: | opt
-	mkdir opt/compilerlibs
-
-partialclean::
-	rm -rf opt
-
+	rm -rf boot_build byte opt
 
 #################
 
