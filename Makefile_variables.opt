@@ -51,20 +51,20 @@ OPT_BYTECOMP= \
   opt/driver/errors.cmo opt/driver/compile.cmo
 
 OPT_ASMCOMP= \
-  opt/asmcomp/boot/arch.cmo opt/asmcomp/debuginfo.cmo \
+  opt/asmcomp/opt/arch.cmo opt/asmcomp/debuginfo.cmo \
   opt/asmcomp/cmm.cmo opt/asmcomp/printcmm.cmo \
   opt/asmcomp/reg.cmo opt/asmcomp/mach.cmo \
-  opt/asmcomp/boot/proc.cmo opt/asmcomp/clambda.cmo \
+  opt/asmcomp/opt/proc.cmo opt/asmcomp/clambda.cmo \
   opt/asmcomp/printclambda.cmo opt/asmcomp/compilenv.cmo \
   opt/asmcomp/closure.cmo opt/asmcomp/cmmgen.cmo \
   opt/asmcomp/printmach.cmo opt/asmcomp/selectgen.cmo \
-  opt/asmcomp/boot/selection.cmo \
+  opt/asmcomp/opt/selection.cmo \
   opt/asmcomp/comballoc.cmo opt/asmcomp/liveness.cmo \
   opt/asmcomp/spill.cmo opt/asmcomp/split.cmo \
   opt/asmcomp/interf.cmo opt/asmcomp/coloring.cmo \
-  opt/asmcomp/reloadgen.cmo opt/asmcomp/boot/reload.cmo \
+  opt/asmcomp/reloadgen.cmo opt/asmcomp/opt/reload.cmo \
   opt/asmcomp/printlinear.cmo opt/asmcomp/linearize.cmo \
-  opt/asmcomp/schedgen.cmo opt/asmcomp/boot/scheduling.cmo \
+  opt/asmcomp/schedgen.cmo opt/asmcomp/opt/scheduling.cmo \
   opt/asmcomp/emitaux.cmo opt/asmcomp/emit.cmo \
   opt/asmcomp/asmgen.cmo opt/asmcomp/asmlink.cmo \
   opt/asmcomp/asmlibrarian.cmo opt/asmcomp/asmpackager.cmo \
@@ -112,3 +112,7 @@ OPT_ALL= \
            $(OPT_BYTECOMP) $(OPT_COMMON) \
            $(OPT_CVT_EMIT) $(OPT_CAMLDEP_OBJ) \
            $(OPT_MKLIB))
+
+OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing \
+	      -I opt/bytecomp -I opt/asmcomp -I opt/driver \
+	      -I opt/toplevel -I opt/tools -I opt/asmcomp/opt

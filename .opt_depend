@@ -1076,6 +1076,8 @@ opt/tools/eqparsetree.cmo : opt/parsing/parsetree.cmi opt/parsing/longident.cmi 
     opt/parsing/location.cmi opt/parsing/asttypes.cmi
 opt/tools/eqparsetree.cmx : opt/parsing/parsetree.cmi opt/parsing/longident.cmx \
     opt/parsing/location.cmx opt/parsing/asttypes.cmi
+opt/tools/make_templater.cmo :
+opt/tools/make_templater.cmx :
 opt/tools/objinfo.cmo : opt/utils/misc.cmi opt/utils/config.cmi opt/asmcomp/cmx_format.cmi \
     opt/bytecomp/cmo_format.cmi opt/typing/cmi_format.cmi opt/asmcomp/clambda.cmi \
     opt/bytecomp/bytesections.cmi

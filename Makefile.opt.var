@@ -1,3 +1,4 @@
+NAME=opt
 PREFIX=opt
 STDLIB_PREFIX=opt
 OCAMLC_DEP=byte/ocamlc.opt

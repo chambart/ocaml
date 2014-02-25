@@ -1076,6 +1076,8 @@ boot_build/tools/eqparsetree.cmo : boot_build/parsing/parsetree.cmi boot_build/p
     boot_build/parsing/location.cmi boot_build/parsing/asttypes.cmi
 boot_build/tools/eqparsetree.cmx : boot_build/parsing/parsetree.cmi boot_build/parsing/longident.cmx \
     boot_build/parsing/location.cmx boot_build/parsing/asttypes.cmi
+boot_build/tools/make_templater.cmo :
+boot_build/tools/make_templater.cmx :
 boot_build/tools/objinfo.cmo : boot_build/utils/misc.cmi boot_build/utils/config.cmi boot_build/asmcomp/cmx_format.cmi \
     boot_build/bytecomp/cmo_format.cmi boot_build/typing/cmi_format.cmi boot_build/asmcomp/clambda.cmi \
     boot_build/bytecomp/bytesections.cmi

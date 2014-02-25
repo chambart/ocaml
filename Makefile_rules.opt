@@ -95,3 +95,10 @@ stdlib/opt/std_exit.cmx: byte/ocamlopt.opt
 stdlib/opt/libasmrun.a: asmrun/libasmrun.a
 	$(MAKE) -C stdlib opt
 	cp asmrun/libasmrun.a stdlib/opt/libasmrun.a
+
+
+opt_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp \
+	          asmcomp/opt driver toplevel tools; \
+	 do $(CAMLDEP) -prefix opt $(DEPFLAGS) -I asmcomp/opt $$d/*.mli $$d/*.ml; \
+	 done) > .opt_depend

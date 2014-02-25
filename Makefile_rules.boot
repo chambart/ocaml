@@ -95,3 +95,10 @@ stdlib/boot/std_exit.cmx: no_ocamlopt_for_boot
 stdlib/boot/libasmrun.a: asmrun/libasmrun.a
 	$(MAKE) -C stdlib boot
 	cp asmrun/libasmrun.a stdlib/boot/libasmrun.a
+
+
+boot_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp \
+	          asmcomp/boot driver toplevel tools; \
+	 do $(CAMLDEP) -prefix boot_build $(DEPFLAGS) -I asmcomp/boot $$d/*.mli $$d/*.ml; \
+	 done) > .boot_depend

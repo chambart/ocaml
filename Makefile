@@ -15,6 +15,13 @@
 include config/Makefile
 include stdlib/StdlibModules
 
+include Makefile_variables.boot
+include Makefile_variables.byte
+include Makefile_variables.opt
+include Makefile_rules.boot
+include Makefile_rules.byte
+include Makefile_rules.opt
+
 COMMON_COMPFLAGS=-strict-sequence -w +33..39 -warn-error A
 
 # CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I stdlib
@@ -38,7 +45,6 @@ YACCFLAGS=-v
 CAMLLEX=boot/ocamlrun boot/ocamllex
 CAMLDEP=boot/ocamlrun tools/ocamldep
 TEMPLATER=boot/ocamlrun tools/make_templater
-DEPFLAGS=$(INCLUDES)
 CAMLRUN=byterun/ocamlrun
 SHELL=/bin/sh
 MKDIR=mkdir -p
@@ -48,20 +54,20 @@ OCAMLBUILDNATIVE=$(WITH_OCAMLBUILD:=.native)
 
 OCAMLDOC_OPT=$(WITH_OCAMLDOC:=.opt)
 
-INCLUDES=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
+DEPFLAGS=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
 	 -I toplevel -I tools
 
-BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
-	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
-	      -I boot_build/toplevel -I boot_build/tools -I boot_build/asmcomp/boot
+# BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
+# 	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
+# 	      -I boot_build/toplevel -I boot_build/tools -I boot_build/asmcomp/boot
 
-BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
-	      -I byte/asmcomp -I byte/driver -I byte/toplevel -I byte/tools \
-	      -I byte/asmcomp/byte
+# BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
+# 	      -I byte/asmcomp -I byte/driver -I byte/toplevel -I byte/tools \
+# 	      -I byte/asmcomp/byte
 
-OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing -I opt/bytecomp \
-	     -I opt/asmcomp -I opt/driver -I opt/toplevel -I opt/tools \
-	     -I opt/asmcomp/opt
+# OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing -I opt/bytecomp \
+# 	     -I opt/asmcomp -I opt/driver -I opt/toplevel -I opt/tools \
+# 	     -I opt/asmcomp/opt
 
 PERVASIVES=$(STDLIB_MODULES) outcometree topdirs toploop
 
@@ -725,23 +731,23 @@ boot_build/asmcomp/boot: | asmcomp/boot
 byte/asmcomp/byte: | asmcomp/byte
 opt/asmcomp/opt: | asmcomp/opt
 
-ALL= $(sort $(BOOT_ALL) $(BYTE_all) $(OPT_all))
+ALL= $(sort $(BOOT_ALL) $(BYTE_ALL) $(OPT_ALL))
 
 # depend on directory
 .SECONDEXPANSION:
 $(sort $(ALL:.cmo=.cmx) $(ALL) $(ALL:.cmo=.cmi)): | $$(@D)
 
-$(sort $(ALL) $(ALL:.cmo=.cmi)): stdlib/$$(STDLIB_DIR)/stdlib.cma
-$(sort $(ALL:.cmo=.cmx)): stdlib/$$(STDLIB_DIR)/stdlib.cmxa
+# $(sort $(ALL) $(ALL:.cmo=.cmi)): stdlib/$$(STDLIB_DIR)/stdlib.cma
+# $(sort $(ALL:.cmo=.cmx)): stdlib/$$(STDLIB_DIR)/stdlib.cmxa
 
-$(sort $(BOOT_ALL) $(BOOT_ALL:.cmo=.cmi)): boot/ocamlc
-$(sort $(BOOT_ALL:.cmo=.cmx)): impossible_to_build
+# $(sort $(BOOT_ALL) $(BOOT_ALL:.cmo=.cmi)): boot/ocamlc
+# $(sort $(BOOT_ALL:.cmo=.cmx)): impossible_to_build
 
-$(sort $(BYTE_ALL) $(BYTE_ALL:.cmo=.cmi)): boot_build/ocamlc
-$(sort $(BYTE_ALL:.cmo=.cmx)): boot_build/ocamlopt
+# $(sort $(BYTE_ALL) $(BYTE_ALL:.cmo=.cmi)): boot_build/ocamlc
+# $(sort $(BYTE_ALL:.cmo=.cmx)): boot_build/ocamlopt
 
-$(sort $(OPT_ALL) $(OPT_ALL:.cmo=.cmi)): byte/ocamlc.opt
-$(sort $(OPT_ALL:.cmo=.cmx)): byte/ocamlopt.opt
+# $(sort $(OPT_ALL) $(OPT_ALL:.cmo=.cmi)): byte/ocamlc.opt
+# $(sort $(OPT_ALL:.cmo=.cmx)): byte/ocamlopt.opt
 
 DIR_PREFIXES=boot_build byte opt
 
@@ -788,21 +794,6 @@ partialclean::
 	for d in utils parsing typing bytecomp asmcomp driver toplevel tools; \
 	  do rm -f $$d/*.cm[iox] $$d/*.annot $$d/*.[so] $$d/*~; done
 	rm -f *~
-
-boot_depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp asmcomp/boot driver toplevel tools; \
-	 do $(CAMLDEP) -prefix boot_build $(DEPFLAGS) -I asmcomp/boot $$d/*.mli $$d/*.ml; \
-	 done) > .boot_depend
-
-byte_depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp asmcomp/byte driver toplevel tools; \
-	 do $(CAMLDEP) -prefix byte $(DEPFLAGS) -I asmcomp/byte $$d/*.mli $$d/*.ml; \
-	 done) > .byte_depend
-
-opt_depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp asmcomp/opt driver toplevel tools; \
-	 do $(CAMLDEP) -prefix opt $(DEPFLAGS) -I asmcomp/opt $$d/*.mli $$d/*.ml; \
-	 done) > .opt_depend
 
 depend: boot_depend byte_depend opt_depend
 
@@ -865,10 +856,3 @@ distclean:
 include .boot_depend
 include .byte_depend
 include .opt_depend
-
-include Makefile_variables.boot
-include Makefile_variables.byte
-include Makefile_variables.opt
-include Makefile_rules.boot
-include Makefile_rules.byte
-include Makefile_rules.opt

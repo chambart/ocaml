@@ -51,20 +51,20 @@ BYTE_BYTECOMP= \
   byte/driver/errors.cmo byte/driver/compile.cmo
 
 BYTE_ASMCOMP= \
-  byte/asmcomp/boot/arch.cmo byte/asmcomp/debuginfo.cmo \
+  byte/asmcomp/byte/arch.cmo byte/asmcomp/debuginfo.cmo \
   byte/asmcomp/cmm.cmo byte/asmcomp/printcmm.cmo \
   byte/asmcomp/reg.cmo byte/asmcomp/mach.cmo \
-  byte/asmcomp/boot/proc.cmo byte/asmcomp/clambda.cmo \
+  byte/asmcomp/byte/proc.cmo byte/asmcomp/clambda.cmo \
   byte/asmcomp/printclambda.cmo byte/asmcomp/compilenv.cmo \
   byte/asmcomp/closure.cmo byte/asmcomp/cmmgen.cmo \
   byte/asmcomp/printmach.cmo byte/asmcomp/selectgen.cmo \
-  byte/asmcomp/boot/selection.cmo \
+  byte/asmcomp/byte/selection.cmo \
   byte/asmcomp/comballoc.cmo byte/asmcomp/liveness.cmo \
   byte/asmcomp/spill.cmo byte/asmcomp/split.cmo \
   byte/asmcomp/interf.cmo byte/asmcomp/coloring.cmo \
-  byte/asmcomp/reloadgen.cmo byte/asmcomp/boot/reload.cmo \
+  byte/asmcomp/reloadgen.cmo byte/asmcomp/byte/reload.cmo \
   byte/asmcomp/printlinear.cmo byte/asmcomp/linearize.cmo \
-  byte/asmcomp/schedgen.cmo byte/asmcomp/boot/scheduling.cmo \
+  byte/asmcomp/schedgen.cmo byte/asmcomp/byte/scheduling.cmo \
   byte/asmcomp/emitaux.cmo byte/asmcomp/emit.cmo \
   byte/asmcomp/asmgen.cmo byte/asmcomp/asmlink.cmo \
   byte/asmcomp/asmlibrarian.cmo byte/asmcomp/asmpackager.cmo \
@@ -112,3 +112,7 @@ BYTE_ALL= \
            $(BYTE_BYTECOMP) $(BYTE_COMMON) \
            $(BYTE_CVT_EMIT) $(BYTE_CAMLDEP_OBJ) \
            $(BYTE_MKLIB))
+
+BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing \
+	      -I byte/bytecomp -I byte/asmcomp -I byte/driver \
+	      -I byte/toplevel -I byte/tools -I byte/asmcomp/byte

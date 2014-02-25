@@ -95,3 +95,10 @@ stdlib/!!STDLIB_PREFIX!!/std_exit.cmx: !!OCAMLOPT_DEP!!
 stdlib/!!STDLIB_PREFIX!!/libasmrun.a: asmrun/libasmrun.a
 	$(MAKE) -C stdlib !!STDLIB_PREFIX!!
 	cp asmrun/libasmrun.a stdlib/!!STDLIB_PREFIX!!/libasmrun.a
+
+
+!!NAME!!_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp \
+	          asmcomp/!!NAME!! driver toplevel tools; \
+	 do $(CAMLDEP) -prefix !!PREFIX!! $(DEPFLAGS) -I asmcomp/!!NAME!! $$d/*.mli $$d/*.ml; \
+	 done) > .!!NAME!!_depend

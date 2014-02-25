@@ -95,3 +95,10 @@ stdlib/byte/std_exit.cmx: $(CAMLRUN) boot_build/ocamlopt
 stdlib/byte/libasmrun.a: asmrun/libasmrun.a
 	$(MAKE) -C stdlib byte
 	cp asmrun/libasmrun.a stdlib/byte/libasmrun.a
+
+
+byte_depend: beforedepend
+	(for d in utils parsing typing bytecomp asmcomp \
+	          asmcomp/byte driver toplevel tools; \
+	 do $(CAMLDEP) -prefix byte $(DEPFLAGS) -I asmcomp/byte $$d/*.mli $$d/*.ml; \
+	 done) > .byte_depend

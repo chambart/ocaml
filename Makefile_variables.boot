@@ -112,3 +112,7 @@ BOOT_ALL= \
            $(BOOT_BYTECOMP) $(BOOT_COMMON) \
            $(BOOT_CVT_EMIT) $(BOOT_CAMLDEP_OBJ) \
            $(BOOT_MKLIB))
+
+BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
+	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
+	      -I boot_build/toplevel -I boot_build/tools -I boot_build/asmcomp/boot

@@ -51,20 +51,20 @@
   !!PREFIX!!/driver/errors.cmo !!PREFIX!!/driver/compile.cmo
 
 !!VAR_PREFIX!!_ASMCOMP= \
-  !!PREFIX!!/asmcomp/boot/arch.cmo !!PREFIX!!/asmcomp/debuginfo.cmo \
+  !!PREFIX!!/asmcomp/!!NAME!!/arch.cmo !!PREFIX!!/asmcomp/debuginfo.cmo \
   !!PREFIX!!/asmcomp/cmm.cmo !!PREFIX!!/asmcomp/printcmm.cmo \
   !!PREFIX!!/asmcomp/reg.cmo !!PREFIX!!/asmcomp/mach.cmo \
-  !!PREFIX!!/asmcomp/boot/proc.cmo !!PREFIX!!/asmcomp/clambda.cmo \
+  !!PREFIX!!/asmcomp/!!NAME!!/proc.cmo !!PREFIX!!/asmcomp/clambda.cmo \
   !!PREFIX!!/asmcomp/printclambda.cmo !!PREFIX!!/asmcomp/compilenv.cmo \
   !!PREFIX!!/asmcomp/closure.cmo !!PREFIX!!/asmcomp/cmmgen.cmo \
   !!PREFIX!!/asmcomp/printmach.cmo !!PREFIX!!/asmcomp/selectgen.cmo \
-  !!PREFIX!!/asmcomp/boot/selection.cmo \
+  !!PREFIX!!/asmcomp/!!NAME!!/selection.cmo \
   !!PREFIX!!/asmcomp/comballoc.cmo !!PREFIX!!/asmcomp/liveness.cmo \
   !!PREFIX!!/asmcomp/spill.cmo !!PREFIX!!/asmcomp/split.cmo \
   !!PREFIX!!/asmcomp/interf.cmo !!PREFIX!!/asmcomp/coloring.cmo \
-  !!PREFIX!!/asmcomp/reloadgen.cmo !!PREFIX!!/asmcomp/boot/reload.cmo \
+  !!PREFIX!!/asmcomp/reloadgen.cmo !!PREFIX!!/asmcomp/!!NAME!!/reload.cmo \
   !!PREFIX!!/asmcomp/printlinear.cmo !!PREFIX!!/asmcomp/linearize.cmo \
-  !!PREFIX!!/asmcomp/schedgen.cmo !!PREFIX!!/asmcomp/boot/scheduling.cmo \
+  !!PREFIX!!/asmcomp/schedgen.cmo !!PREFIX!!/asmcomp/!!NAME!!/scheduling.cmo \
   !!PREFIX!!/asmcomp/emitaux.cmo !!PREFIX!!/asmcomp/emit.cmo \
   !!PREFIX!!/asmcomp/asmgen.cmo !!PREFIX!!/asmcomp/asmlink.cmo \
   !!PREFIX!!/asmcomp/asmlibrarian.cmo !!PREFIX!!/asmcomp/asmpackager.cmo \
@@ -112,3 +112,7 @@
            $(!!VAR_PREFIX!!_BYTECOMP) $(!!VAR_PREFIX!!_COMMON) \
            $(!!VAR_PREFIX!!_CVT_EMIT) $(!!VAR_PREFIX!!_CAMLDEP_OBJ) \
            $(!!VAR_PREFIX!!_MKLIB))
+
+!!VAR_PREFIX!!_INCLUDES=-I !!PREFIX!!/utils -I !!PREFIX!!/parsing -I !!PREFIX!!/typing \
+	      -I !!PREFIX!!/bytecomp -I !!PREFIX!!/asmcomp -I !!PREFIX!!/driver \
+	      -I !!PREFIX!!/toplevel -I !!PREFIX!!/tools -I !!PREFIX!!/asmcomp/!!NAME!!
