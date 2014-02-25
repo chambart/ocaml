@@ -103,3 +103,11 @@ OPT_CAMLDEP_IMPORTS= \
   opt/driver/compenv.cmo
 
 OPT_MKLIB=opt/tools/ocamlmklibconfig.cmo opt/tools/ocamlmklib.cmo
+
+OPT_ALL= \
+         $(OPT_NATTOPOBJS) $(OPT_TOPLEVELSTART) \
+         $(OPT_OPTSTART) $(OPT_BYTESTART) \
+         $(OPT_TOPLEVEL) $(OPT_ASMCOMP) \
+	 $(OPT_BYTECOMP) $(OPT_COMMON) \
+         $(OPT_CVT_EMIT) $(OPT_CAMLDEP_OBJ) \
+	 $(OPT_MKLIB)

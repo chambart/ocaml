@@ -103,3 +103,11 @@ BYTE_CAMLDEP_IMPORTS= \
   byte/driver/compenv.cmo
 
 BYTE_MKLIB=byte/tools/ocamlmklibconfig.cmo byte/tools/ocamlmklib.cmo
+
+BYTE_ALL= \
+         $(BYTE_NATTOPOBJS) $(BYTE_TOPLEVELSTART) \
+         $(BYTE_OPTSTART) $(BYTE_BYTESTART) \
+         $(BYTE_TOPLEVEL) $(BYTE_ASMCOMP) \
+	 $(BYTE_BYTECOMP) $(BYTE_COMMON) \
+         $(BYTE_CVT_EMIT) $(BYTE_CAMLDEP_OBJ) \
+	 $(BYTE_MKLIB)

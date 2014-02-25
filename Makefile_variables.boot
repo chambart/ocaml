@@ -103,3 +103,11 @@ BOOT_CAMLDEP_IMPORTS= \
   boot_build/driver/compenv.cmo
 
 BOOT_MKLIB=boot_build/tools/ocamlmklibconfig.cmo boot_build/tools/ocamlmklib.cmo
+
+BOOT_ALL= \
+         $(BOOT_NATTOPOBJS) $(BOOT_TOPLEVELSTART) \
+         $(BOOT_OPTSTART) $(BOOT_BYTESTART) \
+         $(BOOT_TOPLEVEL) $(BOOT_ASMCOMP) \
+	 $(BOOT_BYTECOMP) $(BOOT_COMMON) \
+         $(BOOT_CVT_EMIT) $(BOOT_CAMLDEP_OBJ) \
+	 $(BOOT_MKLIB)
