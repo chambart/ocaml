@@ -158,54 +158,6 @@ asmrun/libasmrun.a:
 byterun/ocamlrun:
 	$(MAKE) -C byterun ocamlrun
 
-
-stdlib/boot/stdlib.cma: byterun/ocamlrun
-	$(MAKE) -C stdlib boot/stdlib.cma
-
-stdlib/boot/std_exit.cmo: byterun/ocamlrun
-	$(MAKE) -C stdlib boot/std_exit.cmo
-
-stdlib/boot/stdlib.cmxa stdlib/boot/std_exit.cmx: impossible_to_build
-
-stdlib/byte/stdlib.cma: byterun/ocamlrun boot_build/ocamlc
-	$(MAKE) -C stdlib byte/stdlib.cma
-
-# Depends on stdlib.cma because .cmi are build using ocamlc maybe add a
-# stdlib/all_cmi target that would also allow allow more parallelism
-stdlib/byte/stdlib.cmxa: byterun/ocamlrun boot_build/ocamlopt stdlib/byte/libasmrun.a stdlib/byte/stdlib.cma
-	$(MAKE) -C stdlib byte/stdlib.cmxa
-
-stdlib/byte/std_exit.cmo: byterun/ocamlrun boot_build/ocamlc
-	$(MAKE) -C stdlib byte/std_exit.cmo
-
-stdlib/byte/std_exit.cmx: byterun/ocamlrun boot_build/ocamlopt
-	$(MAKE) -C stdlib byte/std_exit.cmx
-
-stdlib/byte/libasmrun.a: asmrun/libasmrun.a
-	$(MAKE) -C stdlib byte
-	cp asmrun/libasmrun.a stdlib/byte/libasmrun.a
-
-
-stdlib/opt/stdlib.cma: byte/ocamlc.opt
-	$(MAKE) -C stdlib opt/stdlib.cma
-
-stdlib/opt/stdlib.cmxa: byte/ocamlopt.opt stdlib/opt/libasmrun.a stdlib/opt/stdlib.cma
-	$(MAKE) -C stdlib opt/stdlib.cmxa
-
-stdlib/opt/std_exit.cmo: byte/ocamlc.opt
-	$(MAKE) -C stdlib opt/std_exit.cmo
-
-stdlib/opt/std_exit.cmx: byte/ocamlopt.opt
-	$(MAKE) -C stdlib opt/std_exit.cmx
-
-stdlib/opt/libasmrun.a: asmrun/libasmrun.a
-	$(MAKE) -C stdlib opt
-	cp asmrun/libasmrun.a stdlib/opt/libasmrun.a
-
-
-
-demarage: stdlib/boot/stdlib.cma stdlib/boot/std_exit.cmo
-
 # Build the core system: the minimum needed to make depend and bootstrap
 # core:
 # 	$(MAKE) coldstart
@@ -769,30 +721,11 @@ clean::
 
 # per directory variables
 
-boot_build/%: CAMLC=$(BOOT_CAMLC)
-# boot_build/%.cmx: CAMLOPT=$(BOOT_CAMLOPT)
-boot_build/%: COMPFLAGS=$(BOOT_COMPFLAGS)
-boot_build/%: STDLIB_DIR=boot
-boot_build/%: PREF=boot_build
-boot_build/%: ARCH_DIR=boot
-
-byte/%: CAMLC=$(BYTE_CAMLC)
-byte/%: CAMLOPT=$(BYTE_CAMLOPT)
-byte/%: COMPFLAGS=$(BYTE_COMPFLAGS)
-byte/%: STDLIB_DIR=byte
-byte/%: PREF=byte
-byte/%: ARCH_DIR=byte
-
-opt/%: CAMLC=$(OPT_CAMLC)
-opt/%: CAMLOPT=$(OPT_CAMLOPT)
-opt/%: COMPFLAGS=$(OPT_COMPFLAGS)
-opt/%: STDLIB_DIR=opt
-opt/%: PREF=opt
-opt/%: ARCH_DIR=opt
-
 boot_build/asmcomp/boot: | asmcomp/boot
 byte/asmcomp/byte: | asmcomp/byte
 opt/asmcomp/opt: | asmcomp/opt
+
+ALL= $(sort $(BOOT_ALL) $(BYTE_all) $(OPT_all))
 
 # depend on directory
 .SECONDEXPANSION:
@@ -877,22 +810,22 @@ alldepend:: depend
 
 #################
 
-Makefile_variables.boot: tools/make_templater Makefile.boot.var Makefile_variables.tmpl
+Makefile_variables.boot: Makefile.boot.var Makefile_variables.tmpl
 	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > $@
 
-Makefile_rules.boot: tools/make_templater Makefile.boot.var Makefile_rules.tmpl
+Makefile_rules.boot: Makefile.boot.var Makefile_rules.tmpl
 	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > $@
 
-Makefile_variables.byte: tools/make_templater Makefile.byte.var Makefile_variables.tmpl
+Makefile_variables.byte: Makefile.byte.var Makefile_variables.tmpl
 	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > $@
 
-Makefile_rules.byte: tools/make_templater Makefile.byte.var Makefile_rules.tmpl
+Makefile_rules.byte: Makefile.byte.var Makefile_rules.tmpl
 	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > $@
 
-Makefile_variables.opt: tools/make_templater Makefile.opt.var Makefile_variables.tmpl
+Makefile_variables.opt: Makefile.opt.var Makefile_variables.tmpl
 	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > $@
 
-Makefile_rules.opt: tools/make_templater Makefile.opt.var Makefile_rules.tmpl
+Makefile_rules.opt: Makefile.opt.var Makefile_rules.tmpl
 	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > $@
 
 make_includes: Makefile_variables.boot Makefile_variables.byte Makefile_variables.opt \

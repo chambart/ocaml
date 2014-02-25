@@ -1,2 +1,5 @@
 PREFIX=boot_build
+STDLIB_PREFIX=boot
+OCAMLC_DEP= $(CAMLRUN)
+OCAMLOPT_DEP= no_ocamlopt_for_boot
 VAR_PREFIX=BOOT

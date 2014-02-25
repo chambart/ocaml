@@ -1,2 +1,5 @@
 PREFIX=byte
+STDLIB_PREFIX=byte
+OCAMLC_DEP= $(CAMLRUN) boot_build/ocamlc
+OCAMLOPT_DEP= $(CAMLRUN) boot_build/ocamlopt
 VAR_PREFIX=BYTE

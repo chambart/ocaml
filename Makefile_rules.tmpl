@@ -1,3 +1,4 @@
+
 !!PREFIX!!/%.cmi: %.mli
 	$(!!VAR_PREFIX!!_CAMLC) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
 
@@ -7,6 +8,9 @@
 !!PREFIX!!/%.cmx: %.ml
 	$(!!VAR_PREFIX!!_CAMLOPT) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
 
+
+$(!!VAR_PREFIX!!_ALL) $(!!VAR_PREFIX!!_ALL:.cmo=.cmi): stdlib/!!STDLIB_PREFIX!!/stdlib.cma
+$(!!VAR_PREFIX!!_ALL:.cmo=.cmx): stdlib/!!STDLIB_PREFIX!!/stdlib.cmxa
 
 !!PREFIX!!/compilerlibs/ocamlcommon.cma: $(!!VAR_PREFIX!!_COMMON) | !!PREFIX!!/compilerlibs
 	$(!!VAR_PREFIX!!_CAMLC) -a -o $@ $(!!VAR_PREFIX!!_COMMON)
@@ -38,7 +42,7 @@
 
 !!PREFIX!!/ocamlc.opt: !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
 	         !!PREFIX!!/compilerlibs/ocamlbytecomp.cmxa \
-	         $(!!VAR_PREFIX!!_BYTESTART:.cmo=.cmx) stdlib/!!PREFIX!!/std_exit.cmx \
+	         $(!!VAR_PREFIX!!_BYTESTART:.cmo=.cmx) stdlib/!!STDLIB_PREFIX!!/std_exit.cmx \
 	         asmrun/libasmrun.a
 	$(!!VAR_PREFIX!!_CAMLOPT) $(LINKFLAGS) -o $@ \
 	   !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
@@ -47,7 +51,7 @@
 
 !!PREFIX!!/ocamlopt.opt: !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
 	           !!PREFIX!!/compilerlibs/ocamloptcomp.cmxa \
-	           $(!!VAR_PREFIX!!_OPTSTART:.cmo=.cmx) stdlib/!!PREFIX!!/std_exit.cmx \
+	           $(!!VAR_PREFIX!!_OPTSTART:.cmo=.cmx) stdlib/!!STDLIB_PREFIX!!/std_exit.cmx \
 	           asmrun/libasmrun.a
 	$(!!VAR_PREFIX!!_CAMLOPT) $(LINKFLAGS) -o $@ \
 	   !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
@@ -56,7 +60,7 @@
 
 !!PREFIX!!/ocamlc: !!PREFIX!!/compilerlibs/ocamlcommon.cma \
 	           !!PREFIX!!/compilerlibs/ocamlbytecomp.cma \
-	           $(!!VAR_PREFIX!!_BYTESTART) stdlib/!!PREFIX!!/std_exit.cmo
+	           $(!!VAR_PREFIX!!_BYTESTART) stdlib/!!STDLIB_PREFIX!!/std_exit.cmo
 	$(!!VAR_PREFIX!!_CAMLC) $(LINKFLAGS) -compat-32 -o $@ \
 	   !!PREFIX!!/compilerlibs/ocamlcommon.cma \
 	   !!PREFIX!!/compilerlibs/ocamlbytecomp.cma \
@@ -65,8 +69,29 @@
 #FIXME: missing -compat-32
 !!PREFIX!!/ocamlopt: !!PREFIX!!/compilerlibs/ocamlcommon.cma \
 	             !!PREFIX!!/compilerlibs/ocamloptcomp.cma \
-	             $(!!VAR_PREFIX!!_OPTSTART) stdlib/!!PREFIX!!/std_exit.cmo
+	             $(!!VAR_PREFIX!!_OPTSTART) stdlib/!!STDLIB_PREFIX!!/std_exit.cmo
 	$(!!VAR_PREFIX!!_CAMLC) $(LINKFLAGS) -o $@ \
 	   !!PREFIX!!/compilerlibs/ocamlcommon.cma \
 	   !!PREFIX!!/compilerlibs/ocamloptcomp.cma \
 	   $(!!VAR_PREFIX!!_OPTSTART)
+
+
+stdlib/!!STDLIB_PREFIX!!/stdlib.cma: !!OCAMLC_DEP!!
+	$(MAKE) -C stdlib !!STDLIB_PREFIX!!/stdlib.cma
+
+# Depends on stdlib.cma because .cmi are build using ocamlc maybe add a
+# stdlib/all_cmi target that would also allow allow more parallelism
+stdlib/!!STDLIB_PREFIX!!/stdlib.cmxa: !!OCAMLOPT_DEP!! \
+                                      stdlib/!!STDLIB_PREFIX!!/libasmrun.a \
+                                      stdlib/!!STDLIB_PREFIX!!/stdlib.cma
+	$(MAKE) -C stdlib !!STDLIB_PREFIX!!/stdlib.cmxa
+
+stdlib/!!STDLIB_PREFIX!!/std_exit.cmo: !!OCAMLC_DEP!!
+	$(MAKE) -C stdlib !!STDLIB_PREFIX!!/std_exit.cmo
+
+stdlib/!!STDLIB_PREFIX!!/std_exit.cmx: !!OCAMLOPT_DEP!!
+	$(MAKE) -C stdlib !!STDLIB_PREFIX!!/std_exit.cmx
+
+stdlib/!!STDLIB_PREFIX!!/libasmrun.a: asmrun/libasmrun.a
+	$(MAKE) -C stdlib !!STDLIB_PREFIX!!
+	cp asmrun/libasmrun.a stdlib/!!STDLIB_PREFIX!!/libasmrun.a

@@ -1,2 +1,5 @@
 PREFIX=opt
+STDLIB_PREFIX=opt
+OCAMLC_DEP=byte/ocamlc.opt
+OCAMLOPT_DEP=byte/ocamlopt.opt
 VAR_PREFIX=OPT
