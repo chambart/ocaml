@@ -748,8 +748,8 @@ DIR_PREFIXES=boot_build byte opt
 boot_build/tools/cvt_emit: $(BOOT_CVT_EMIT) stdlib/boot/std_exit.cmo
 	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_CVT_EMIT)
 
-boot_build/tools/make_templater: $(addprefix boot_build/,$(MAKE_TEMPLATER)) stdlib/boot/std_exit.cmo
-	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(addprefix boot_build/,$(MAKE_TEMPLATER))
+boot_build/tools/make_templater: $(BOOT_MAKE_TEMPLATER) stdlib/boot/std_exit.cmo | boot_build/tools
+	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_MAKE_TEMPLATER)
 
 boot_build/tools/ocamlmklib: $(BOOT_MKLIB) stdlib/boot/std_exit.cmo
 	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_MKLIB)
@@ -759,7 +759,7 @@ boot_build/tools/ocamldep: $(BOOT_CAMLDEP_IMPORTS) $(BOOT_CAMLDEP_OBJ) stdlib/bo
 	              $(BOOT_CAMLDEP_IMPORTS) $(BOOT_CAMLDEP_OBJ)
 
 tools/make_templater: boot_build/tools/make_templater
-	ln -s ../boot_build/tools/make_templater tools/make_templater
+	cp boot_build/tools/make_templater $@
 
 tools/ocamldep: boot_build/tools/ocamldep
 	ln -s ../boot_build/tools/ocamldep tools/ocamldep
@@ -810,26 +810,34 @@ alldepend:: depend
 
 #################
 
-Makefile_variables.boot: Makefile.boot.var Makefile_variables.tmpl
-	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > $@
+# Makefile_variables.boot: Makefile.boot.var Makefile_variables.tmpl
+# 	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > $@
 
-Makefile_rules.boot: Makefile.boot.var Makefile_rules.tmpl
-	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > $@
+# Makefile_rules.boot: Makefile.boot.var Makefile_rules.tmpl
+# 	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > $@
 
-Makefile_variables.byte: Makefile.byte.var Makefile_variables.tmpl
-	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > $@
+# Makefile_variables.byte: Makefile.byte.var Makefile_variables.tmpl
+# 	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > $@
 
-Makefile_rules.byte: Makefile.byte.var Makefile_rules.tmpl
-	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > $@
+# Makefile_rules.byte: Makefile.byte.var Makefile_rules.tmpl
+# 	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > $@
 
-Makefile_variables.opt: Makefile.opt.var Makefile_variables.tmpl
-	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > $@
+# Makefile_variables.opt: Makefile.opt.var Makefile_variables.tmpl
+# 	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > $@
 
-Makefile_rules.opt: Makefile.opt.var Makefile_rules.tmpl
-	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > $@
+# Makefile_rules.opt: Makefile.opt.var Makefile_rules.tmpl
+# 	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > $@
 
-make_includes: Makefile_variables.boot Makefile_variables.byte Makefile_variables.opt \
-	       Makefile_rules.boot Makefile_rules.byte Makefile_rules.opt
+# make_includes: Makefile_variables.boot Makefile_variables.byte Makefile_variables.opt \
+# 	       Makefile_rules.boot Makefile_rules.byte Makefile_rules.opt
+
+make_includes:
+	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > Makefile_variables.boot
+	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > Makefile_rules.boot
+	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > Makefile_variables.byte
+	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > Makefile_rules.byte
+	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > Makefile_variables.opt
+	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > Makefile_rules.opt
 
 #################
 

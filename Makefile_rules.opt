@@ -1,3 +1,4 @@
+
 opt/%.cmi: %.mli
 	$(OPT_CAMLC) $(OPT_COMPFLAGS) -o $@ -c $<
 
@@ -7,6 +8,9 @@ opt/%.cmo: %.ml
 opt/%.cmx: %.ml
 	$(OPT_CAMLOPT) $(OPT_COMPFLAGS) -o $@ -c $<
 
+
+$(OPT_ALL) $(OPT_ALL:.cmo=.cmi): stdlib/opt/stdlib.cma
+$(OPT_ALL:.cmo=.cmx): stdlib/opt/stdlib.cmxa
 
 opt/compilerlibs/ocamlcommon.cma: $(OPT_COMMON) | opt/compilerlibs
 	$(OPT_CAMLC) -a -o $@ $(OPT_COMMON)
@@ -70,3 +74,24 @@ opt/ocamlopt: opt/compilerlibs/ocamlcommon.cma \
 	   opt/compilerlibs/ocamlcommon.cma \
 	   opt/compilerlibs/ocamloptcomp.cma \
 	   $(OPT_OPTSTART)
+
+
+stdlib/opt/stdlib.cma: byte/ocamlc.opt
+	$(MAKE) -C stdlib opt/stdlib.cma
+
+# Depends on stdlib.cma because .cmi are build using ocamlc maybe add a
+# stdlib/all_cmi target that would also allow allow more parallelism
+stdlib/opt/stdlib.cmxa: byte/ocamlopt.opt \
+                                      stdlib/opt/libasmrun.a \
+                                      stdlib/opt/stdlib.cma
+	$(MAKE) -C stdlib opt/stdlib.cmxa
+
+stdlib/opt/std_exit.cmo: byte/ocamlc.opt
+	$(MAKE) -C stdlib opt/std_exit.cmo
+
+stdlib/opt/std_exit.cmx: byte/ocamlopt.opt
+	$(MAKE) -C stdlib opt/std_exit.cmx
+
+stdlib/opt/libasmrun.a: asmrun/libasmrun.a
+	$(MAKE) -C stdlib opt
+	cp asmrun/libasmrun.a stdlib/opt/libasmrun.a
