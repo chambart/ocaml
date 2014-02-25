@@ -54,18 +54,6 @@ OCAMLDOC_OPT=$(WITH_OCAMLDOC:=.opt)
 DEPFLAGS=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
 	 -I toplevel -I tools
 
-# BOOT_INCLUDES=-I boot_build/utils -I boot_build/parsing -I boot_build/typing \
-# 	      -I boot_build/bytecomp -I boot_build/asmcomp -I boot_build/driver \
-# 	      -I boot_build/toplevel -I boot_build/tools -I boot_build/asmcomp/boot
-
-# BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing -I byte/bytecomp \
-# 	      -I byte/asmcomp -I byte/driver -I byte/toplevel -I byte/tools \
-# 	      -I byte/asmcomp/byte
-
-# OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing -I opt/bytecomp \
-# 	     -I opt/asmcomp -I opt/driver -I opt/toplevel -I opt/tools \
-# 	     -I opt/asmcomp/opt
-
 PERVASIVES=$(STDLIB_MODULES) outcometree topdirs toploop
 
 # For users who don't read the INSTALL file
@@ -452,77 +440,6 @@ include Makefile_rules.boot
 include Makefile_rules.byte
 include Makefile_rules.opt
 
-# asmcomp/boot:
-# 	ln -s $(BOOT_ARCH) $@
-
-# asmcomp/byte:
-# 	ln -s $(BYTE_ARCH) $@
-
-# asmcomp/opt:
-# 	ln -s $(OPT_ARCH) $@
-
-# partialclean::
-# 	rm -rf asmcomp/boot asmcomp/byte asmcomp/opt
-
-# beforedepend:: asmcomp/boot asmcomp/byte asmcomp/opt
-
-# asmcomp/arch.ml: asmcomp/$(ARCH)/arch.ml
-# 	ln -s $(ARCH)/arch.ml asmcomp/arch.ml
-
-# partialclean::
-# 	rm -f asmcomp/arch.ml
-
-# beforedepend:: asmcomp/arch.ml
-
-# asmcomp/proc.ml: asmcomp/$(ARCH)/proc.ml
-# 	ln -s $(ARCH)/proc.ml asmcomp/proc.ml
-
-# partialclean::
-# 	rm -f asmcomp/proc.ml
-
-# beforedepend:: asmcomp/proc.ml
-
-# asmcomp/selection.ml: asmcomp/$(ARCH)/selection.ml
-# 	ln -s $(ARCH)/selection.ml asmcomp/selection.ml
-
-# partialclean::
-# 	rm -f asmcomp/selection.ml
-
-# beforedepend:: asmcomp/selection.ml
-
-# asmcomp/reload.ml: asmcomp/$(ARCH)/reload.ml
-# 	ln -s $(ARCH)/reload.ml asmcomp/reload.ml
-
-# partialclean::
-# 	rm -f asmcomp/reload.ml
-
-# beforedepend:: asmcomp/reload.ml
-
-# asmcomp/scheduling.ml: asmcomp/$(ARCH)/scheduling.ml
-# 	ln -s $(ARCH)/scheduling.ml asmcomp/scheduling.ml
-
-# partialclean::
-# 	rm -f asmcomp/scheduling.ml
-
-# beforedepend:: asmcomp/scheduling.ml
-
-# Preprocess the code emitters
-
-
-
-# asmcomp/emit.ml: asmcomp/$(ARCH)/emit.mlp boot_build/tools/cvt_emit
-# 	$(CAMLRUN) boot_build/tools/cvt_emit < asmcomp/$(ARCH)/emit.mlp > asmcomp/emit.ml \
-# 	|| { rm -f asmcomp/emit.ml; exit 2; }
-
-
-
-
-
-# partialclean::
-# 	rm -f asmcomp/emit.ml
-
-# beforedepend:: asmcomp/emit.ml
-
 # cvt_emit
 
 # The lexer
@@ -801,27 +718,6 @@ depend: boot_depend byte_depend opt_depend
 alldepend:: depend
 
 #################
-
-# Makefile_variables.boot: Makefile.boot.var Makefile_variables.tmpl
-# 	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > $@
-
-# Makefile_rules.boot: Makefile.boot.var Makefile_rules.tmpl
-# 	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > $@
-
-# Makefile_variables.byte: Makefile.byte.var Makefile_variables.tmpl
-# 	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > $@
-
-# Makefile_rules.byte: Makefile.byte.var Makefile_rules.tmpl
-# 	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > $@
-
-# Makefile_variables.opt: Makefile.opt.var Makefile_variables.tmpl
-# 	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > $@
-
-# Makefile_rules.opt: Makefile.opt.var Makefile_rules.tmpl
-# 	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > $@
-
-# make_includes: Makefile_variables.boot Makefile_variables.byte Makefile_variables.opt \
-# 	       Makefile_rules.boot Makefile_rules.byte Makefile_rules.opt
 
 make_includes:
 	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > Makefile_variables.boot

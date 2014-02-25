@@ -104,7 +104,7 @@ boot/stdlib.cma: $(BOOT_OBJS)
 	$(BOOT_CAMLC) -a -o boot/stdlib.cma $(BOOT_OBJS)
 
 boot:
-	mkdir boot
+	mkdir -p boot
 
 BYTE_OBJS=$(addprefix byte/,$(OBJS))
 BYTE_OTHERS=$(addprefix byte/,$(OTHERS))
@@ -128,7 +128,7 @@ byte/stdlib.cmxa: $(BYTE_OBJS:.cmo=.cmx) byte
 	$(BYTE_CAMLOPT) -a -o byte/stdlib.cmxa $(BYTE_OBJS:.cmo=.cmx)
 
 byte:
-	mkdir byte
+	mkdir -p byte
 
 OPT_OBJS=$(addprefix opt/,$(OBJS))
 OPT_OTHERS=$(addprefix opt/,$(OTHERS))
@@ -152,7 +152,7 @@ opt/stdlib.cmxa: $(OPT_OBJS:.cmo=.cmx) | opt
 	$(OPT_CAMLOPT) -a -o opt/stdlib.cmxa $(OPT_OBJS:.cmo=.cmx)
 
 opt:
-	mkdir opt
+	mkdir -p opt
 
 # Dependencies on the compiler
 $(OBJS) std_exit.cmo: $(COMPILER)
