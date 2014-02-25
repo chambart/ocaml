@@ -8,6 +8,32 @@ boot_build/%.cmo: %.ml
 boot_build/%.cmx: %.ml
 	$(BOOT_CAMLOPT) $(BOOT_COMPFLAGS) -o $@ -c $<
 
+asmcomp/boot:
+	mkdir -p $@
+
+asmcomp/boot/%.ml: asmcomp/$(BOOT_ARCH)/%.ml | asmcomp/boot
+	cp $< $@
+
+asmcomp/boot/%.mli: asmcomp/%.mli | asmcomp/boot
+	cp $< $@
+
+asmcomp/boot/%.mlp: asmcomp/$(BOOT_ARCH)/%.mlp | asmcomp/boot
+	cp $< $@
+
+asmcomp/boot/emit.ml: asmcomp/boot/emit.mlp boot_build/tools/cvt_emit
+	$(CAMLRUN) boot_build/tools/cvt_emit < $< > $@ \
+	|| { rm -f $@; exit 2; }
+
+boot_arch: $(addprefix asmcomp/boot/, \
+	arch.ml emit.ml emit.mli proc.ml proc.mli selection.ml selection.mli \
+	reload.ml reload.mli scheduling.ml scheduling.mli )
+
+partialclean::
+	rm -rf asmcomp/boot
+
+beforedepend:: boot_arch
+
+.PHONY: boot_arch
 
 $(BOOT_ALL) $(BOOT_ALL:.cmo=.cmi): stdlib/boot/stdlib.cma
 $(BOOT_ALL:.cmo=.cmx): stdlib/boot/stdlib.cmxa

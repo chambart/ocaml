@@ -8,6 +8,32 @@
 !!PREFIX!!/%.cmx: %.ml
 	$(!!VAR_PREFIX!!_CAMLOPT) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
 
+asmcomp/!!NAME!!:
+	mkdir -p $@
+
+asmcomp/!!NAME!!/%.ml: asmcomp/$(!!VAR_PREFIX!!_ARCH)/%.ml | asmcomp/!!NAME!!
+	cp $< $@
+
+asmcomp/!!NAME!!/%.mli: asmcomp/%.mli | asmcomp/!!NAME!!
+	cp $< $@
+
+asmcomp/!!NAME!!/%.mlp: asmcomp/$(!!VAR_PREFIX!!_ARCH)/%.mlp | asmcomp/!!NAME!!
+	cp $< $@
+
+asmcomp/!!NAME!!/emit.ml: asmcomp/!!NAME!!/emit.mlp boot_build/tools/cvt_emit
+	$(CAMLRUN) boot_build/tools/cvt_emit < $< > $@ \
+	|| { rm -f $@; exit 2; }
+
+!!NAME!!_arch: $(addprefix asmcomp/!!NAME!!/, \
+	arch.ml emit.ml emit.mli proc.ml proc.mli selection.ml selection.mli \
+	reload.ml reload.mli scheduling.ml scheduling.mli )
+
+partialclean::
+	rm -rf asmcomp/!!NAME!!
+
+beforedepend:: !!NAME!!_arch
+
+.PHONY: !!NAME!!_arch
 
 $(!!VAR_PREFIX!!_ALL) $(!!VAR_PREFIX!!_ALL:.cmo=.cmi): stdlib/!!STDLIB_PREFIX!!/stdlib.cma
 $(!!VAR_PREFIX!!_ALL:.cmo=.cmx): stdlib/!!STDLIB_PREFIX!!/stdlib.cmxa

@@ -633,7 +633,7 @@ opt/asmcomp/asmgen.cmx : opt/bytecomp/translmod.cmx opt/asmcomp/split.cmx \
     opt/asmcomp/printlinear.cmx opt/asmcomp/printcmm.cmx opt/asmcomp/printclambda.cmx \
     opt/typing/primitive.cmx opt/utils/misc.cmx opt/asmcomp/mach.cmx opt/parsing/location.cmx \
     opt/asmcomp/liveness.cmx opt/asmcomp/linearize.cmx opt/asmcomp/interf.cmx \
-    opt/asmcomp/emitaux.cmx opt/asmcomp/emit.cmx opt/utils/config.cmx \
+    opt/asmcomp/emitaux.cmx opt/asmcomp/emit.cmi opt/utils/config.cmx \
     opt/asmcomp/compilenv.cmx opt/asmcomp/comballoc.cmx opt/asmcomp/coloring.cmx \
     opt/asmcomp/cmmgen.cmx opt/asmcomp/cmm.cmx opt/asmcomp/closure.cmx opt/utils/clflags.cmx \
     opt/asmcomp/asmgen.cmi
@@ -651,7 +651,7 @@ opt/asmcomp/asmlink.cmo : opt/bytecomp/runtimedef.cmi opt/asmcomp/proc.cmi \
     opt/asmcomp/cmx_format.cmi opt/asmcomp/cmmgen.cmi opt/utils/clflags.cmi \
     opt/utils/ccomp.cmi opt/asmcomp/asmgen.cmi opt/asmcomp/asmlink.cmi
 opt/asmcomp/asmlink.cmx : opt/bytecomp/runtimedef.cmx opt/asmcomp/proc.cmi \
-    opt/utils/misc.cmx opt/parsing/location.cmx opt/asmcomp/emitaux.cmx opt/asmcomp/emit.cmx \
+    opt/utils/misc.cmx opt/parsing/location.cmx opt/asmcomp/emitaux.cmx opt/asmcomp/emit.cmi \
     opt/utils/consistbl.cmx opt/utils/config.cmx opt/asmcomp/compilenv.cmx \
     opt/asmcomp/cmx_format.cmi opt/asmcomp/cmmgen.cmx opt/utils/clflags.cmx \
     opt/utils/ccomp.cmx opt/asmcomp/asmgen.cmx opt/asmcomp/asmlink.cmi
@@ -701,7 +701,7 @@ opt/asmcomp/codegen.cmo : opt/asmcomp/split.cmi opt/asmcomp/spill.cmi opt/asmcom
 opt/asmcomp/codegen.cmx : opt/asmcomp/split.cmx opt/asmcomp/spill.cmx opt/asmcomp/reload.cmi \
     opt/asmcomp/reg.cmx opt/asmcomp/printmach.cmx opt/asmcomp/printlinear.cmx \
     opt/asmcomp/printcmm.cmx opt/asmcomp/liveness.cmx opt/asmcomp/linearize.cmx \
-    opt/asmcomp/interf.cmx opt/asmcomp/emit.cmx opt/asmcomp/coloring.cmx opt/asmcomp/cmm.cmx \
+    opt/asmcomp/interf.cmx opt/asmcomp/emit.cmi opt/asmcomp/coloring.cmx opt/asmcomp/cmm.cmx \
     opt/asmcomp/codegen.cmi
 opt/asmcomp/coloring.cmo : opt/asmcomp/reg.cmi opt/asmcomp/proc.cmi opt/asmcomp/coloring.cmi
 opt/asmcomp/coloring.cmx : opt/asmcomp/reg.cmx opt/asmcomp/proc.cmi opt/asmcomp/coloring.cmi
@@ -725,16 +725,6 @@ opt/asmcomp/emitaux.cmo : opt/asmcomp/linearize.cmi opt/asmcomp/debuginfo.cmi \
 opt/asmcomp/emitaux.cmx : opt/asmcomp/linearize.cmx opt/asmcomp/debuginfo.cmx \
     opt/utils/config.cmx opt/utils/clflags.cmx opt/asmcomp/opt/arch.cmx \
     opt/asmcomp/emitaux.cmi
-opt/asmcomp/emit.cmo : opt/asmcomp/reg.cmi opt/asmcomp/proc.cmi opt/utils/misc.cmi \
-    opt/asmcomp/mach.cmi opt/asmcomp/linearize.cmi opt/bytecomp/lambda.cmi \
-    opt/asmcomp/emitaux.cmi opt/asmcomp/debuginfo.cmi opt/utils/config.cmi \
-    opt/asmcomp/compilenv.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi \
-    opt/asmcomp/opt/arch.cmo opt/asmcomp/emit.cmi
-opt/asmcomp/emit.cmx : opt/asmcomp/reg.cmx opt/asmcomp/proc.cmi opt/utils/misc.cmx \
-    opt/asmcomp/mach.cmx opt/asmcomp/linearize.cmx opt/bytecomp/lambda.cmx \
-    opt/asmcomp/emitaux.cmx opt/asmcomp/debuginfo.cmx opt/utils/config.cmx \
-    opt/asmcomp/compilenv.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx \
-    opt/asmcomp/opt/arch.cmx opt/asmcomp/emit.cmi
 opt/asmcomp/interf.cmo : opt/asmcomp/reg.cmi opt/asmcomp/proc.cmi opt/asmcomp/mach.cmi \
     opt/asmcomp/interf.cmi
 opt/asmcomp/interf.cmx : opt/asmcomp/reg.cmx opt/asmcomp/proc.cmi opt/asmcomp/mach.cmx \
@@ -807,24 +797,43 @@ opt/asmcomp/split.cmo : opt/asmcomp/reg.cmi opt/utils/misc.cmi opt/asmcomp/mach.
     opt/asmcomp/split.cmi
 opt/asmcomp/split.cmx : opt/asmcomp/reg.cmx opt/utils/misc.cmx opt/asmcomp/mach.cmx \
     opt/asmcomp/split.cmi
+opt/asmcomp/opt/emit.cmi : opt/asmcomp/linearize.cmi opt/asmcomp/cmm.cmi
+opt/asmcomp/opt/proc.cmi : opt/asmcomp/reg.cmi opt/asmcomp/mach.cmi
+opt/asmcomp/opt/reload.cmi : opt/asmcomp/mach.cmi
+opt/asmcomp/opt/scheduling.cmi : opt/asmcomp/linearize.cmi
+opt/asmcomp/opt/selection.cmi : opt/asmcomp/mach.cmi opt/asmcomp/cmm.cmi
 opt/asmcomp/opt/arch.cmo :
 opt/asmcomp/opt/arch.cmx :
+opt/asmcomp/opt/emit.cmo : opt/asmcomp/reg.cmi opt/asmcomp/proc.cmi opt/utils/misc.cmi \
+    opt/asmcomp/mach.cmi opt/asmcomp/linearize.cmi opt/bytecomp/lambda.cmi \
+    opt/asmcomp/emitaux.cmi opt/asmcomp/debuginfo.cmi opt/utils/config.cmi \
+    opt/asmcomp/compilenv.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi \
+    opt/asmcomp/opt/arch.cmo opt/asmcomp/opt/emit.cmi
+opt/asmcomp/opt/emit.cmx : opt/asmcomp/reg.cmx opt/asmcomp/proc.cmi opt/utils/misc.cmx \
+    opt/asmcomp/mach.cmx opt/asmcomp/linearize.cmx opt/bytecomp/lambda.cmx \
+    opt/asmcomp/emitaux.cmx opt/asmcomp/debuginfo.cmx opt/utils/config.cmx \
+    opt/asmcomp/compilenv.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx \
+    opt/asmcomp/opt/arch.cmx opt/asmcomp/opt/emit.cmi
 opt/asmcomp/opt/proc.cmo : opt/asmcomp/reg.cmi opt/utils/misc.cmi opt/asmcomp/mach.cmi \
     opt/utils/config.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi opt/utils/ccomp.cmi \
-    opt/asmcomp/opt/arch.cmo
+    opt/asmcomp/opt/arch.cmo opt/asmcomp/opt/proc.cmi
 opt/asmcomp/opt/proc.cmx : opt/asmcomp/reg.cmx opt/utils/misc.cmx opt/asmcomp/mach.cmx \
     opt/utils/config.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx opt/utils/ccomp.cmx \
-    opt/asmcomp/opt/arch.cmx
+    opt/asmcomp/opt/arch.cmx opt/asmcomp/opt/proc.cmi
 opt/asmcomp/opt/reload.cmo : opt/asmcomp/reloadgen.cmi opt/asmcomp/reg.cmi \
-    opt/asmcomp/mach.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi opt/asmcomp/opt/arch.cmo
+    opt/asmcomp/mach.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi opt/asmcomp/opt/arch.cmo \
+    opt/asmcomp/opt/reload.cmi
 opt/asmcomp/opt/reload.cmx : opt/asmcomp/reloadgen.cmx opt/asmcomp/reg.cmx \
-    opt/asmcomp/mach.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx opt/asmcomp/opt/arch.cmx
-opt/asmcomp/opt/scheduling.cmo : opt/asmcomp/schedgen.cmi
-opt/asmcomp/opt/scheduling.cmx : opt/asmcomp/schedgen.cmx
+    opt/asmcomp/mach.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx opt/asmcomp/opt/arch.cmx \
+    opt/asmcomp/opt/reload.cmi
+opt/asmcomp/opt/scheduling.cmo : opt/asmcomp/schedgen.cmi opt/asmcomp/opt/scheduling.cmi
+opt/asmcomp/opt/scheduling.cmx : opt/asmcomp/schedgen.cmx opt/asmcomp/opt/scheduling.cmi
 opt/asmcomp/opt/selection.cmo : opt/asmcomp/selectgen.cmi opt/asmcomp/proc.cmi \
-    opt/asmcomp/mach.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi opt/asmcomp/opt/arch.cmo
+    opt/asmcomp/mach.cmi opt/asmcomp/cmm.cmi opt/utils/clflags.cmi opt/asmcomp/opt/arch.cmo \
+    opt/asmcomp/opt/selection.cmi
 opt/asmcomp/opt/selection.cmx : opt/asmcomp/selectgen.cmx opt/asmcomp/proc.cmi \
-    opt/asmcomp/mach.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx opt/asmcomp/opt/arch.cmx
+    opt/asmcomp/mach.cmx opt/asmcomp/cmm.cmx opt/utils/clflags.cmx opt/asmcomp/opt/arch.cmx \
+    opt/asmcomp/opt/selection.cmi
 opt/driver/compenv.cmi :
 opt/driver/compile.cmi :
 opt/driver/compmisc.cmi : opt/typing/env.cmi

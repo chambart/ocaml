@@ -633,7 +633,7 @@ byte/asmcomp/asmgen.cmx : byte/bytecomp/translmod.cmx byte/asmcomp/split.cmx \
     byte/asmcomp/printlinear.cmx byte/asmcomp/printcmm.cmx byte/asmcomp/printclambda.cmx \
     byte/typing/primitive.cmx byte/utils/misc.cmx byte/asmcomp/mach.cmx byte/parsing/location.cmx \
     byte/asmcomp/liveness.cmx byte/asmcomp/linearize.cmx byte/asmcomp/interf.cmx \
-    byte/asmcomp/emitaux.cmx byte/asmcomp/emit.cmx byte/utils/config.cmx \
+    byte/asmcomp/emitaux.cmx byte/asmcomp/emit.cmi byte/utils/config.cmx \
     byte/asmcomp/compilenv.cmx byte/asmcomp/comballoc.cmx byte/asmcomp/coloring.cmx \
     byte/asmcomp/cmmgen.cmx byte/asmcomp/cmm.cmx byte/asmcomp/closure.cmx byte/utils/clflags.cmx \
     byte/asmcomp/asmgen.cmi
@@ -651,7 +651,7 @@ byte/asmcomp/asmlink.cmo : byte/bytecomp/runtimedef.cmi byte/asmcomp/proc.cmi \
     byte/asmcomp/cmx_format.cmi byte/asmcomp/cmmgen.cmi byte/utils/clflags.cmi \
     byte/utils/ccomp.cmi byte/asmcomp/asmgen.cmi byte/asmcomp/asmlink.cmi
 byte/asmcomp/asmlink.cmx : byte/bytecomp/runtimedef.cmx byte/asmcomp/proc.cmi \
-    byte/utils/misc.cmx byte/parsing/location.cmx byte/asmcomp/emitaux.cmx byte/asmcomp/emit.cmx \
+    byte/utils/misc.cmx byte/parsing/location.cmx byte/asmcomp/emitaux.cmx byte/asmcomp/emit.cmi \
     byte/utils/consistbl.cmx byte/utils/config.cmx byte/asmcomp/compilenv.cmx \
     byte/asmcomp/cmx_format.cmi byte/asmcomp/cmmgen.cmx byte/utils/clflags.cmx \
     byte/utils/ccomp.cmx byte/asmcomp/asmgen.cmx byte/asmcomp/asmlink.cmi
@@ -701,7 +701,7 @@ byte/asmcomp/codegen.cmo : byte/asmcomp/split.cmi byte/asmcomp/spill.cmi byte/as
 byte/asmcomp/codegen.cmx : byte/asmcomp/split.cmx byte/asmcomp/spill.cmx byte/asmcomp/reload.cmi \
     byte/asmcomp/reg.cmx byte/asmcomp/printmach.cmx byte/asmcomp/printlinear.cmx \
     byte/asmcomp/printcmm.cmx byte/asmcomp/liveness.cmx byte/asmcomp/linearize.cmx \
-    byte/asmcomp/interf.cmx byte/asmcomp/emit.cmx byte/asmcomp/coloring.cmx byte/asmcomp/cmm.cmx \
+    byte/asmcomp/interf.cmx byte/asmcomp/emit.cmi byte/asmcomp/coloring.cmx byte/asmcomp/cmm.cmx \
     byte/asmcomp/codegen.cmi
 byte/asmcomp/coloring.cmo : byte/asmcomp/reg.cmi byte/asmcomp/proc.cmi byte/asmcomp/coloring.cmi
 byte/asmcomp/coloring.cmx : byte/asmcomp/reg.cmx byte/asmcomp/proc.cmi byte/asmcomp/coloring.cmi
@@ -725,16 +725,6 @@ byte/asmcomp/emitaux.cmo : byte/asmcomp/linearize.cmi byte/asmcomp/debuginfo.cmi
 byte/asmcomp/emitaux.cmx : byte/asmcomp/linearize.cmx byte/asmcomp/debuginfo.cmx \
     byte/utils/config.cmx byte/utils/clflags.cmx byte/asmcomp/byte/arch.cmx \
     byte/asmcomp/emitaux.cmi
-byte/asmcomp/emit.cmo : byte/asmcomp/reg.cmi byte/asmcomp/proc.cmi byte/utils/misc.cmi \
-    byte/asmcomp/mach.cmi byte/asmcomp/linearize.cmi byte/bytecomp/lambda.cmi \
-    byte/asmcomp/emitaux.cmi byte/asmcomp/debuginfo.cmi byte/utils/config.cmi \
-    byte/asmcomp/compilenv.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi \
-    byte/asmcomp/byte/arch.cmo byte/asmcomp/emit.cmi
-byte/asmcomp/emit.cmx : byte/asmcomp/reg.cmx byte/asmcomp/proc.cmi byte/utils/misc.cmx \
-    byte/asmcomp/mach.cmx byte/asmcomp/linearize.cmx byte/bytecomp/lambda.cmx \
-    byte/asmcomp/emitaux.cmx byte/asmcomp/debuginfo.cmx byte/utils/config.cmx \
-    byte/asmcomp/compilenv.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx \
-    byte/asmcomp/byte/arch.cmx byte/asmcomp/emit.cmi
 byte/asmcomp/interf.cmo : byte/asmcomp/reg.cmi byte/asmcomp/proc.cmi byte/asmcomp/mach.cmi \
     byte/asmcomp/interf.cmi
 byte/asmcomp/interf.cmx : byte/asmcomp/reg.cmx byte/asmcomp/proc.cmi byte/asmcomp/mach.cmx \
@@ -807,24 +797,45 @@ byte/asmcomp/split.cmo : byte/asmcomp/reg.cmi byte/utils/misc.cmi byte/asmcomp/m
     byte/asmcomp/split.cmi
 byte/asmcomp/split.cmx : byte/asmcomp/reg.cmx byte/utils/misc.cmx byte/asmcomp/mach.cmx \
     byte/asmcomp/split.cmi
+byte/asmcomp/byte/emit.cmi : byte/asmcomp/linearize.cmi byte/asmcomp/cmm.cmi
+byte/asmcomp/byte/proc.cmi : byte/asmcomp/reg.cmi byte/asmcomp/mach.cmi
+byte/asmcomp/byte/reload.cmi : byte/asmcomp/mach.cmi
+byte/asmcomp/byte/scheduling.cmi : byte/asmcomp/linearize.cmi
+byte/asmcomp/byte/selection.cmi : byte/asmcomp/mach.cmi byte/asmcomp/cmm.cmi
 byte/asmcomp/byte/arch.cmo :
 byte/asmcomp/byte/arch.cmx :
+byte/asmcomp/byte/emit.cmo : byte/asmcomp/reg.cmi byte/asmcomp/proc.cmi byte/utils/misc.cmi \
+    byte/asmcomp/mach.cmi byte/asmcomp/linearize.cmi byte/bytecomp/lambda.cmi \
+    byte/asmcomp/emitaux.cmi byte/asmcomp/debuginfo.cmi byte/utils/config.cmi \
+    byte/asmcomp/compilenv.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi \
+    byte/asmcomp/byte/arch.cmo byte/asmcomp/byte/emit.cmi
+byte/asmcomp/byte/emit.cmx : byte/asmcomp/reg.cmx byte/asmcomp/proc.cmi byte/utils/misc.cmx \
+    byte/asmcomp/mach.cmx byte/asmcomp/linearize.cmx byte/bytecomp/lambda.cmx \
+    byte/asmcomp/emitaux.cmx byte/asmcomp/debuginfo.cmx byte/utils/config.cmx \
+    byte/asmcomp/compilenv.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx \
+    byte/asmcomp/byte/arch.cmx byte/asmcomp/byte/emit.cmi
 byte/asmcomp/byte/proc.cmo : byte/asmcomp/reg.cmi byte/utils/misc.cmi byte/asmcomp/mach.cmi \
     byte/utils/config.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi byte/utils/ccomp.cmi \
-    byte/asmcomp/byte/arch.cmo
+    byte/asmcomp/byte/arch.cmo byte/asmcomp/byte/proc.cmi
 byte/asmcomp/byte/proc.cmx : byte/asmcomp/reg.cmx byte/utils/misc.cmx byte/asmcomp/mach.cmx \
     byte/utils/config.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx byte/utils/ccomp.cmx \
-    byte/asmcomp/byte/arch.cmx
+    byte/asmcomp/byte/arch.cmx byte/asmcomp/byte/proc.cmi
 byte/asmcomp/byte/reload.cmo : byte/asmcomp/reloadgen.cmi byte/asmcomp/reg.cmi \
-    byte/asmcomp/mach.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi byte/asmcomp/byte/arch.cmo
+    byte/asmcomp/mach.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi byte/asmcomp/byte/arch.cmo \
+    byte/asmcomp/byte/reload.cmi
 byte/asmcomp/byte/reload.cmx : byte/asmcomp/reloadgen.cmx byte/asmcomp/reg.cmx \
-    byte/asmcomp/mach.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx byte/asmcomp/byte/arch.cmx
-byte/asmcomp/byte/scheduling.cmo : byte/asmcomp/schedgen.cmi
-byte/asmcomp/byte/scheduling.cmx : byte/asmcomp/schedgen.cmx
+    byte/asmcomp/mach.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx byte/asmcomp/byte/arch.cmx \
+    byte/asmcomp/byte/reload.cmi
+byte/asmcomp/byte/scheduling.cmo : byte/asmcomp/schedgen.cmi \
+    byte/asmcomp/byte/scheduling.cmi
+byte/asmcomp/byte/scheduling.cmx : byte/asmcomp/schedgen.cmx \
+    byte/asmcomp/byte/scheduling.cmi
 byte/asmcomp/byte/selection.cmo : byte/asmcomp/selectgen.cmi byte/asmcomp/proc.cmi \
-    byte/asmcomp/mach.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi byte/asmcomp/byte/arch.cmo
+    byte/asmcomp/mach.cmi byte/asmcomp/cmm.cmi byte/utils/clflags.cmi byte/asmcomp/byte/arch.cmo \
+    byte/asmcomp/byte/selection.cmi
 byte/asmcomp/byte/selection.cmx : byte/asmcomp/selectgen.cmx byte/asmcomp/proc.cmi \
-    byte/asmcomp/mach.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx byte/asmcomp/byte/arch.cmx
+    byte/asmcomp/mach.cmx byte/asmcomp/cmm.cmx byte/utils/clflags.cmx byte/asmcomp/byte/arch.cmx \
+    byte/asmcomp/byte/selection.cmi
 byte/driver/compenv.cmi :
 byte/driver/compile.cmi :
 byte/driver/compmisc.cmi : byte/typing/env.cmi

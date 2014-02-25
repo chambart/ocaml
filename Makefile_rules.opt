@@ -8,6 +8,32 @@ opt/%.cmo: %.ml
 opt/%.cmx: %.ml
 	$(OPT_CAMLOPT) $(OPT_COMPFLAGS) -o $@ -c $<
 
+asmcomp/opt:
+	mkdir -p $@
+
+asmcomp/opt/%.ml: asmcomp/$(OPT_ARCH)/%.ml | asmcomp/opt
+	cp $< $@
+
+asmcomp/opt/%.mli: asmcomp/%.mli | asmcomp/opt
+	cp $< $@
+
+asmcomp/opt/%.mlp: asmcomp/$(OPT_ARCH)/%.mlp | asmcomp/opt
+	cp $< $@
+
+asmcomp/opt/emit.ml: asmcomp/opt/emit.mlp boot_build/tools/cvt_emit
+	$(CAMLRUN) boot_build/tools/cvt_emit < $< > $@ \
+	|| { rm -f $@; exit 2; }
+
+opt_arch: $(addprefix asmcomp/opt/, \
+	arch.ml emit.ml emit.mli proc.ml proc.mli selection.ml selection.mli \
+	reload.ml reload.mli scheduling.ml scheduling.mli )
+
+partialclean::
+	rm -rf asmcomp/opt
+
+beforedepend:: opt_arch
+
+.PHONY: opt_arch
 
 $(OPT_ALL) $(OPT_ALL:.cmo=.cmi): stdlib/opt/stdlib.cma
 $(OPT_ALL:.cmo=.cmx): stdlib/opt/stdlib.cmxa

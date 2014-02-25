@@ -8,6 +8,32 @@ byte/%.cmo: %.ml
 byte/%.cmx: %.ml
 	$(BYTE_CAMLOPT) $(BYTE_COMPFLAGS) -o $@ -c $<
 
+asmcomp/byte:
+	mkdir -p $@
+
+asmcomp/byte/%.ml: asmcomp/$(BYTE_ARCH)/%.ml | asmcomp/byte
+	cp $< $@
+
+asmcomp/byte/%.mli: asmcomp/%.mli | asmcomp/byte
+	cp $< $@
+
+asmcomp/byte/%.mlp: asmcomp/$(BYTE_ARCH)/%.mlp | asmcomp/byte
+	cp $< $@
+
+asmcomp/byte/emit.ml: asmcomp/byte/emit.mlp boot_build/tools/cvt_emit
+	$(CAMLRUN) boot_build/tools/cvt_emit < $< > $@ \
+	|| { rm -f $@; exit 2; }
+
+byte_arch: $(addprefix asmcomp/byte/, \
+	arch.ml emit.ml emit.mli proc.ml proc.mli selection.ml selection.mli \
+	reload.ml reload.mli scheduling.ml scheduling.mli )
+
+partialclean::
+	rm -rf asmcomp/byte
+
+beforedepend:: byte_arch
+
+.PHONY: byte_arch
 
 $(BYTE_ALL) $(BYTE_ALL:.cmo=.cmi): stdlib/byte/stdlib.cma
 $(BYTE_ALL:.cmo=.cmx): stdlib/byte/stdlib.cmxa

@@ -65,7 +65,7 @@ OPT_ASMCOMP= \
   opt/asmcomp/reloadgen.cmo opt/asmcomp/opt/reload.cmo \
   opt/asmcomp/printlinear.cmo opt/asmcomp/linearize.cmo \
   opt/asmcomp/schedgen.cmo opt/asmcomp/opt/scheduling.cmo \
-  opt/asmcomp/emitaux.cmo opt/asmcomp/emit.cmo \
+  opt/asmcomp/emitaux.cmo opt/asmcomp/opt/emit.cmo \
   opt/asmcomp/asmgen.cmo opt/asmcomp/asmlink.cmo \
   opt/asmcomp/asmlibrarian.cmo opt/asmcomp/asmpackager.cmo \
   opt/driver/opterrors.cmo opt/driver/optcompile.cmo

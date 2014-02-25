@@ -18,9 +18,6 @@ include stdlib/StdlibModules
 include Makefile_variables.boot
 include Makefile_variables.byte
 include Makefile_variables.opt
-include Makefile_rules.boot
-include Makefile_rules.byte
-include Makefile_rules.opt
 
 COMMON_COMPFLAGS=-strict-sequence -w +33..39 -warn-error A
 
@@ -451,70 +448,80 @@ BOOT_ARCH=$(ARCH)
 BYTE_ARCH=$(ARCH)
 OPT_ARCH=$(ARCH)
 
-asmcomp/boot:
-	ln -s $(BOOT_ARCH) $@
+include Makefile_rules.boot
+include Makefile_rules.byte
+include Makefile_rules.opt
 
-asmcomp/byte:
-	ln -s $(BYTE_ARCH) $@
+# asmcomp/boot:
+# 	ln -s $(BOOT_ARCH) $@
 
-asmcomp/opt:
-	ln -s $(OPT_ARCH) $@
+# asmcomp/byte:
+# 	ln -s $(BYTE_ARCH) $@
 
-partialclean::
-	rm -f asmcomp/boot asmcomp/byte asmcomp/opt
+# asmcomp/opt:
+# 	ln -s $(OPT_ARCH) $@
 
-beforedepend:: asmcomp/boot asmcomp/byte asmcomp/opt
+# partialclean::
+# 	rm -rf asmcomp/boot asmcomp/byte asmcomp/opt
+
+# beforedepend:: asmcomp/boot asmcomp/byte asmcomp/opt
 
 # asmcomp/arch.ml: asmcomp/$(ARCH)/arch.ml
 # 	ln -s $(ARCH)/arch.ml asmcomp/arch.ml
 
-partialclean::
-	rm -f asmcomp/arch.ml
+# partialclean::
+# 	rm -f asmcomp/arch.ml
 
 # beforedepend:: asmcomp/arch.ml
 
 # asmcomp/proc.ml: asmcomp/$(ARCH)/proc.ml
 # 	ln -s $(ARCH)/proc.ml asmcomp/proc.ml
 
-partialclean::
-	rm -f asmcomp/proc.ml
+# partialclean::
+# 	rm -f asmcomp/proc.ml
 
 # beforedepend:: asmcomp/proc.ml
 
 # asmcomp/selection.ml: asmcomp/$(ARCH)/selection.ml
 # 	ln -s $(ARCH)/selection.ml asmcomp/selection.ml
 
-partialclean::
-	rm -f asmcomp/selection.ml
+# partialclean::
+# 	rm -f asmcomp/selection.ml
 
 # beforedepend:: asmcomp/selection.ml
 
 # asmcomp/reload.ml: asmcomp/$(ARCH)/reload.ml
 # 	ln -s $(ARCH)/reload.ml asmcomp/reload.ml
 
-partialclean::
-	rm -f asmcomp/reload.ml
+# partialclean::
+# 	rm -f asmcomp/reload.ml
 
 # beforedepend:: asmcomp/reload.ml
 
 # asmcomp/scheduling.ml: asmcomp/$(ARCH)/scheduling.ml
 # 	ln -s $(ARCH)/scheduling.ml asmcomp/scheduling.ml
 
-partialclean::
-	rm -f asmcomp/scheduling.ml
+# partialclean::
+# 	rm -f asmcomp/scheduling.ml
 
 # beforedepend:: asmcomp/scheduling.ml
 
 # Preprocess the code emitters
 
-asmcomp/emit.ml: asmcomp/$(ARCH)/emit.mlp boot_build/tools/cvt_emit
-	$(CAMLRUN) boot_build/tools/cvt_emit < asmcomp/$(ARCH)/emit.mlp > asmcomp/emit.ml \
-	|| { rm -f asmcomp/emit.ml; exit 2; }
 
-partialclean::
-	rm -f asmcomp/emit.ml
 
-beforedepend:: asmcomp/emit.ml
+# asmcomp/emit.ml: asmcomp/$(ARCH)/emit.mlp boot_build/tools/cvt_emit
+# 	$(CAMLRUN) boot_build/tools/cvt_emit < asmcomp/$(ARCH)/emit.mlp > asmcomp/emit.ml \
+# 	|| { rm -f asmcomp/emit.ml; exit 2; }
+
+
+
+
+
+# partialclean::
+# 	rm -f asmcomp/emit.ml
+
+# beforedepend:: asmcomp/emit.ml
 
 # cvt_emit
 
@@ -733,10 +740,6 @@ opt/asmcomp/opt: | asmcomp/opt
 
 ALL= $(sort $(BOOT_ALL) $(BYTE_ALL) $(OPT_ALL))
 
-# depend on directory
-.SECONDEXPANSION:
-$(sort $(ALL:.cmo=.cmx) $(ALL) $(ALL:.cmo=.cmi)): | $$(@D)
-
 # $(sort $(ALL) $(ALL:.cmo=.cmi)): stdlib/$$(STDLIB_DIR)/stdlib.cma
 # $(sort $(ALL:.cmo=.cmx)): stdlib/$$(STDLIB_DIR)/stdlib.cmxa
 
@@ -748,8 +751,6 @@ $(sort $(ALL:.cmo=.cmx) $(ALL) $(ALL:.cmo=.cmi)): | $$(@D)
 
 # $(sort $(OPT_ALL) $(OPT_ALL:.cmo=.cmi)): byte/ocamlc.opt
 # $(sort $(OPT_ALL:.cmo=.cmx)): byte/ocamlopt.opt
-
-DIR_PREFIXES=boot_build byte opt
 
 boot_build/tools/cvt_emit: $(BOOT_CVT_EMIT) stdlib/boot/std_exit.cmo
 	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_CVT_EMIT)
@@ -856,3 +857,7 @@ distclean:
 include .boot_depend
 include .byte_depend
 include .opt_depend
+
+#depend on directory
+.SECONDEXPANSION:
+$(sort $(ALL:.cmo=.cmx) $(ALL) $(ALL:.cmo=.cmi)): | $$(@D)

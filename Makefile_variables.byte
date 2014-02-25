@@ -65,7 +65,7 @@ BYTE_ASMCOMP= \
   byte/asmcomp/reloadgen.cmo byte/asmcomp/byte/reload.cmo \
   byte/asmcomp/printlinear.cmo byte/asmcomp/linearize.cmo \
   byte/asmcomp/schedgen.cmo byte/asmcomp/byte/scheduling.cmo \
-  byte/asmcomp/emitaux.cmo byte/asmcomp/emit.cmo \
+  byte/asmcomp/emitaux.cmo byte/asmcomp/byte/emit.cmo \
   byte/asmcomp/asmgen.cmo byte/asmcomp/asmlink.cmo \
   byte/asmcomp/asmlibrarian.cmo byte/asmcomp/asmpackager.cmo \
   byte/driver/opterrors.cmo byte/driver/optcompile.cmo

@@ -65,7 +65,7 @@ BOOT_ASMCOMP= \
   boot_build/asmcomp/reloadgen.cmo boot_build/asmcomp/boot/reload.cmo \
   boot_build/asmcomp/printlinear.cmo boot_build/asmcomp/linearize.cmo \
   boot_build/asmcomp/schedgen.cmo boot_build/asmcomp/boot/scheduling.cmo \
-  boot_build/asmcomp/emitaux.cmo boot_build/asmcomp/emit.cmo \
+  boot_build/asmcomp/emitaux.cmo boot_build/asmcomp/boot/emit.cmo \
   boot_build/asmcomp/asmgen.cmo boot_build/asmcomp/asmlink.cmo \
   boot_build/asmcomp/asmlibrarian.cmo boot_build/asmcomp/asmpackager.cmo \
   boot_build/driver/opterrors.cmo boot_build/driver/optcompile.cmo

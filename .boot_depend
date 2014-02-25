@@ -633,7 +633,7 @@ boot_build/asmcomp/asmgen.cmx : boot_build/bytecomp/translmod.cmx boot_build/asm
     boot_build/asmcomp/printlinear.cmx boot_build/asmcomp/printcmm.cmx boot_build/asmcomp/printclambda.cmx \
     boot_build/typing/primitive.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx boot_build/parsing/location.cmx \
     boot_build/asmcomp/liveness.cmx boot_build/asmcomp/linearize.cmx boot_build/asmcomp/interf.cmx \
-    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmi boot_build/utils/config.cmx \
     boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/comballoc.cmx boot_build/asmcomp/coloring.cmx \
     boot_build/asmcomp/cmmgen.cmx boot_build/asmcomp/cmm.cmx boot_build/asmcomp/closure.cmx boot_build/utils/clflags.cmx \
     boot_build/asmcomp/asmgen.cmi
@@ -651,7 +651,7 @@ boot_build/asmcomp/asmlink.cmo : boot_build/bytecomp/runtimedef.cmi boot_build/a
     boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmmgen.cmi boot_build/utils/clflags.cmi \
     boot_build/utils/ccomp.cmi boot_build/asmcomp/asmgen.cmi boot_build/asmcomp/asmlink.cmi
 boot_build/asmcomp/asmlink.cmx : boot_build/bytecomp/runtimedef.cmx boot_build/asmcomp/proc.cmi \
-    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmx \
+    boot_build/utils/misc.cmx boot_build/parsing/location.cmx boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/emit.cmi \
     boot_build/utils/consistbl.cmx boot_build/utils/config.cmx boot_build/asmcomp/compilenv.cmx \
     boot_build/asmcomp/cmx_format.cmi boot_build/asmcomp/cmmgen.cmx boot_build/utils/clflags.cmx \
     boot_build/utils/ccomp.cmx boot_build/asmcomp/asmgen.cmx boot_build/asmcomp/asmlink.cmi
@@ -701,7 +701,7 @@ boot_build/asmcomp/codegen.cmo : boot_build/asmcomp/split.cmi boot_build/asmcomp
 boot_build/asmcomp/codegen.cmx : boot_build/asmcomp/split.cmx boot_build/asmcomp/spill.cmx boot_build/asmcomp/reload.cmi \
     boot_build/asmcomp/reg.cmx boot_build/asmcomp/printmach.cmx boot_build/asmcomp/printlinear.cmx \
     boot_build/asmcomp/printcmm.cmx boot_build/asmcomp/liveness.cmx boot_build/asmcomp/linearize.cmx \
-    boot_build/asmcomp/interf.cmx boot_build/asmcomp/emit.cmx boot_build/asmcomp/coloring.cmx boot_build/asmcomp/cmm.cmx \
+    boot_build/asmcomp/interf.cmx boot_build/asmcomp/emit.cmi boot_build/asmcomp/coloring.cmx boot_build/asmcomp/cmm.cmx \
     boot_build/asmcomp/codegen.cmi
 boot_build/asmcomp/coloring.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/coloring.cmi
 boot_build/asmcomp/coloring.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/coloring.cmi
@@ -725,16 +725,6 @@ boot_build/asmcomp/emitaux.cmo : boot_build/asmcomp/linearize.cmi boot_build/asm
 boot_build/asmcomp/emitaux.cmx : boot_build/asmcomp/linearize.cmx boot_build/asmcomp/debuginfo.cmx \
     boot_build/utils/config.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx \
     boot_build/asmcomp/emitaux.cmi
-boot_build/asmcomp/emit.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi \
-    boot_build/asmcomp/mach.cmi boot_build/asmcomp/linearize.cmi boot_build/bytecomp/lambda.cmi \
-    boot_build/asmcomp/emitaux.cmi boot_build/asmcomp/debuginfo.cmi boot_build/utils/config.cmi \
-    boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi \
-    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/emit.cmi
-boot_build/asmcomp/emit.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx \
-    boot_build/asmcomp/mach.cmx boot_build/asmcomp/linearize.cmx boot_build/bytecomp/lambda.cmx \
-    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/debuginfo.cmx boot_build/utils/config.cmx \
-    boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx \
-    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/emit.cmi
 boot_build/asmcomp/interf.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmi \
     boot_build/asmcomp/interf.cmi
 boot_build/asmcomp/interf.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/asmcomp/mach.cmx \
@@ -807,24 +797,45 @@ boot_build/asmcomp/split.cmo : boot_build/asmcomp/reg.cmi boot_build/utils/misc.
     boot_build/asmcomp/split.cmi
 boot_build/asmcomp/split.cmx : boot_build/asmcomp/reg.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
     boot_build/asmcomp/split.cmi
+boot_build/asmcomp/boot/emit.cmi : boot_build/asmcomp/linearize.cmi boot_build/asmcomp/cmm.cmi
+boot_build/asmcomp/boot/proc.cmi : boot_build/asmcomp/reg.cmi boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/boot/reload.cmi : boot_build/asmcomp/mach.cmi
+boot_build/asmcomp/boot/scheduling.cmi : boot_build/asmcomp/linearize.cmi
+boot_build/asmcomp/boot/selection.cmi : boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi
 boot_build/asmcomp/boot/arch.cmo :
 boot_build/asmcomp/boot/arch.cmx :
+boot_build/asmcomp/boot/emit.cmo : boot_build/asmcomp/reg.cmi boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmi \
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/linearize.cmi boot_build/bytecomp/lambda.cmi \
+    boot_build/asmcomp/emitaux.cmi boot_build/asmcomp/debuginfo.cmi boot_build/utils/config.cmi \
+    boot_build/asmcomp/compilenv.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi \
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/boot/emit.cmi
+boot_build/asmcomp/boot/emit.cmx : boot_build/asmcomp/reg.cmx boot_build/asmcomp/proc.cmi boot_build/utils/misc.cmx \
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/linearize.cmx boot_build/bytecomp/lambda.cmx \
+    boot_build/asmcomp/emitaux.cmx boot_build/asmcomp/debuginfo.cmx boot_build/utils/config.cmx \
+    boot_build/asmcomp/compilenv.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx \
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/boot/emit.cmi
 boot_build/asmcomp/boot/proc.cmo : boot_build/asmcomp/reg.cmi boot_build/utils/misc.cmi boot_build/asmcomp/mach.cmi \
     boot_build/utils/config.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/utils/ccomp.cmi \
-    boot_build/asmcomp/boot/arch.cmo
+    boot_build/asmcomp/boot/arch.cmo boot_build/asmcomp/boot/proc.cmi
 boot_build/asmcomp/boot/proc.cmx : boot_build/asmcomp/reg.cmx boot_build/utils/misc.cmx boot_build/asmcomp/mach.cmx \
     boot_build/utils/config.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/utils/ccomp.cmx \
-    boot_build/asmcomp/boot/arch.cmx
+    boot_build/asmcomp/boot/arch.cmx boot_build/asmcomp/boot/proc.cmi
 boot_build/asmcomp/boot/reload.cmo : boot_build/asmcomp/reloadgen.cmi boot_build/asmcomp/reg.cmi \
-    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/boot/reload.cmi
 boot_build/asmcomp/boot/reload.cmx : boot_build/asmcomp/reloadgen.cmx boot_build/asmcomp/reg.cmx \
-    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx
-boot_build/asmcomp/boot/scheduling.cmo : boot_build/asmcomp/schedgen.cmi
-boot_build/asmcomp/boot/scheduling.cmx : boot_build/asmcomp/schedgen.cmx
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/boot/reload.cmi
+boot_build/asmcomp/boot/scheduling.cmo : boot_build/asmcomp/schedgen.cmi \
+    boot_build/asmcomp/boot/scheduling.cmi
+boot_build/asmcomp/boot/scheduling.cmx : boot_build/asmcomp/schedgen.cmx \
+    boot_build/asmcomp/boot/scheduling.cmi
 boot_build/asmcomp/boot/selection.cmo : boot_build/asmcomp/selectgen.cmi boot_build/asmcomp/proc.cmi \
-    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo
+    boot_build/asmcomp/mach.cmi boot_build/asmcomp/cmm.cmi boot_build/utils/clflags.cmi boot_build/asmcomp/boot/arch.cmo \
+    boot_build/asmcomp/boot/selection.cmi
 boot_build/asmcomp/boot/selection.cmx : boot_build/asmcomp/selectgen.cmx boot_build/asmcomp/proc.cmi \
-    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx
+    boot_build/asmcomp/mach.cmx boot_build/asmcomp/cmm.cmx boot_build/utils/clflags.cmx boot_build/asmcomp/boot/arch.cmx \
+    boot_build/asmcomp/boot/selection.cmi
 boot_build/driver/compenv.cmi :
 boot_build/driver/compile.cmi :
 boot_build/driver/compmisc.cmi : boot_build/typing/env.cmi
