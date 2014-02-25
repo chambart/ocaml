@@ -104,18 +104,18 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
 
-ASMCOMP=asmcomp/$$(ARCH_DIR)/arch.cmo asmcomp/debuginfo.cmo \
+ASMCOMP=asmcomp/boot/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
-  asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/$$(ARCH_DIR)/proc.cmo \
+  asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/boot/proc.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
   asmcomp/closure.cmo asmcomp/cmmgen.cmo \
-  asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/$$(ARCH_DIR)/selection.cmo \
+  asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/boot/selection.cmo \
   asmcomp/comballoc.cmo asmcomp/liveness.cmo \
   asmcomp/spill.cmo asmcomp/split.cmo \
   asmcomp/interf.cmo asmcomp/coloring.cmo \
-  asmcomp/reloadgen.cmo asmcomp/$$(ARCH_DIR)/reload.cmo \
+  asmcomp/reloadgen.cmo asmcomp/boot/reload.cmo \
   asmcomp/printlinear.cmo asmcomp/linearize.cmo \
-  asmcomp/schedgen.cmo asmcomp/$$(ARCH_DIR)/scheduling.cmo \
+  asmcomp/schedgen.cmo asmcomp/boot/scheduling.cmo \
   asmcomp/emitaux.cmo asmcomp/emit.cmo asmcomp/asmgen.cmo \
   asmcomp/asmlink.cmo asmcomp/asmlibrarian.cmo asmcomp/asmpackager.cmo \
   driver/opterrors.cmo driver/optcompile.cmo
@@ -134,6 +134,7 @@ NATTOPOBJS=$(UTILS) $(PARSING) $(TYPING) $(COMP) $(ASMCOMP) \
   toplevel/opttopmain.cmo toplevel/opttopstart.cmo
 
 CVT_EMIT=tools/cvt_emit.cmo
+MAKE_TEMPLATER=tools/make_templater.cmo
 
 CAMLDEP_OBJ=tools/depend.cmo tools/ocamldep.cmo
 CAMLDEP_IMPORTS=utils/misc.cmo utils/config.cmo utils/clflags.cmo utils/terminfo.cmo \
@@ -716,6 +717,17 @@ partialclean::
 
 beforedepend:: tools/cvt_emit.ml
 
+# make templater
+
+tools/make_templater.ml: tools/make_templater.mll
+	$(CAMLLEX) tools/make_templater.mll
+
+partialclean::
+	rm -f tools/make_templater.ml
+
+beforedepend:: tools/make_templater.ml
+
+
 # The "expunge" utility
 
 expunge: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma \
@@ -1016,6 +1028,9 @@ $(addsuffix /ocamlopt.opt, $(DIR_PREFIXES)): $$(PREF)/compilerlibs/ocamlcommon.c
 
 boot_build/tools/cvt_emit: $(BOOT_CVT_EMIT) stdlib/boot/std_exit.cmo
 	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_CVT_EMIT)
+
+boot_build/tools/make_templater: $(addprefix boot_build/,$(MAKE_TEMPLATER)) stdlib/boot/std_exit.cmo
+	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(addprefix boot_build/,$(MAKE_TEMPLATER))
 
 boot_build/tools/ocamlmklib: $(BOOT_MKLIB) stdlib/boot/std_exit.cmo
 	$(BOOT_CAMLC) $(LINKFLAGS) -o $@ $(BOOT_MKLIB)
