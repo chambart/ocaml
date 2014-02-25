@@ -111,7 +111,7 @@ BYTE_ALL= \
            $(BYTE_TOPLEVEL) $(BYTE_ASMCOMP) \
            $(BYTE_BYTECOMP) $(BYTE_COMMON) \
            $(BYTE_CVT_EMIT) $(BYTE_CAMLDEP_OBJ) \
-           $(BYTE_MKLIB))
+           $(BYTE_MAKE_TEMPLATER) $(BYTE_MKLIB))
 
 BYTE_INCLUDES=-I byte/utils -I byte/parsing -I byte/typing \
 	      -I byte/bytecomp -I byte/asmcomp -I byte/driver \

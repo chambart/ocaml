@@ -111,7 +111,7 @@ OPT_ALL= \
            $(OPT_TOPLEVEL) $(OPT_ASMCOMP) \
            $(OPT_BYTECOMP) $(OPT_COMMON) \
            $(OPT_CVT_EMIT) $(OPT_CAMLDEP_OBJ) \
-           $(OPT_MKLIB))
+           $(OPT_MAKE_TEMPLATER) $(OPT_MKLIB))
 
 OPT_INCLUDES=-I opt/utils -I opt/parsing -I opt/typing \
 	      -I opt/bytecomp -I opt/asmcomp -I opt/driver \
