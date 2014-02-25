@@ -1,0 +1,72 @@
+!!PREFIX!!/%.cmi: %.mli
+	$(!!VAR_PREFIX!!_CAMLC) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
+
+!!PREFIX!!/%.cmo: %.ml
+	$(!!VAR_PREFIX!!_CAMLC) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
+
+!!PREFIX!!/%.cmx: %.ml
+	$(!!VAR_PREFIX!!_CAMLOPT) $(!!VAR_PREFIX!!_COMPFLAGS) -o $@ -c $<
+
+
+!!PREFIX!!/compilerlibs/ocamlcommon.cma: $(!!VAR_PREFIX!!_COMMON) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLC) -a -o $@ $(!!VAR_PREFIX!!_COMMON)
+
+!!PREFIX!!/compilerlibs/ocamlcommon.cmxa: $(!!VAR_PREFIX!!_COMMON:.cmo=.cmx) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLOPT) -a -o $@ $(!!VAR_PREFIX!!_COMMON:.cmo=.cmx)
+
+
+!!PREFIX!!/compilerlibs/ocamlbytecomp.cma: $(!!VAR_PREFIX!!_BYTECOMP) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLC) -a -o $@ $(!!VAR_PREFIX!!_BYTECOMP)
+
+!!PREFIX!!/compilerlibs/ocamlbytecomp.cmxa: $(!!VAR_PREFIX!!_BYTECOMP:.cmo=.cmx) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLOPT) -a -o $@ $(!!VAR_PREFIX!!_BYTECOMP:.cmo=.cmx)
+
+
+!!PREFIX!!/compilerlibs/ocamltoplevel.cma: $(!!VAR_PREFIX!!_TOPLEVEL) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLC) -a -o $@ $(!!VAR_PREFIX!!_TOPLEVEL)
+
+!!PREFIX!!/compilerlibs/ocamltoplevel.cmxa: $(!!VAR_PREFIX!!_TOPLEVEL:.cmo=.cmx) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLOPT) -a -o $@ $(!!VAR_PREFIX!!_TOPLEVEL:.cmo=.cmx)
+
+
+!!PREFIX!!/compilerlibs/ocamloptcomp.cma: $(!!VAR_PREFIX!!_ASMCOMP) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLC) -a -o $@ $(!!VAR_PREFIX!!_ASMCOMP)
+
+!!PREFIX!!/compilerlibs/ocamloptcomp.cmxa: $(!!VAR_PREFIX!!_ASMCOMP:.cmo=.cmx) | !!PREFIX!!/compilerlibs
+	$(!!VAR_PREFIX!!_CAMLOPT) -a -o $@ $(!!VAR_PREFIX!!_ASMCOMP:.cmo=.cmx)
+
+
+!!PREFIX!!/ocamlc.opt: !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
+	         !!PREFIX!!/compilerlibs/ocamlbytecomp.cmxa \
+	         $(!!VAR_PREFIX!!_BYTESTART:.cmo=.cmx) stdlib/!!PREFIX!!/std_exit.cmx \
+	         asmrun/libasmrun.a
+	$(!!VAR_PREFIX!!_CAMLOPT) $(LINKFLAGS) -o $@ \
+	   !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
+	   !!PREFIX!!/compilerlibs/ocamlbytecomp.cmxa \
+	   $(!!VAR_PREFIX!!_BYTESTART:.cmo=.cmx)
+
+!!PREFIX!!/ocamlopt.opt: !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
+	           !!PREFIX!!/compilerlibs/ocamloptcomp.cmxa \
+	           $(!!VAR_PREFIX!!_OPTSTART:.cmo=.cmx) stdlib/!!PREFIX!!/std_exit.cmx \
+	           asmrun/libasmrun.a
+	$(!!VAR_PREFIX!!_CAMLOPT) $(LINKFLAGS) -o $@ \
+	   !!PREFIX!!/compilerlibs/ocamlcommon.cmxa \
+	   !!PREFIX!!/compilerlibs/ocamloptcomp.cmxa \
+	   $(!!VAR_PREFIX!!_OPTSTART:.cmo=.cmx)
+
+!!PREFIX!!/ocamlc: !!PREFIX!!/compilerlibs/ocamlcommon.cma \
+	           !!PREFIX!!/compilerlibs/ocamlbytecomp.cma \
+	           $(!!VAR_PREFIX!!_BYTESTART) stdlib/!!PREFIX!!/std_exit.cmo
+	$(!!VAR_PREFIX!!_CAMLC) $(LINKFLAGS) -compat-32 -o $@ \
+	   !!PREFIX!!/compilerlibs/ocamlcommon.cma \
+	   !!PREFIX!!/compilerlibs/ocamlbytecomp.cma \
+	   $(!!VAR_PREFIX!!_BYTESTART)
+
+#FIXME: missing -compat-32
+!!PREFIX!!/ocamlopt: !!PREFIX!!/compilerlibs/ocamlcommon.cma \
+	             !!PREFIX!!/compilerlibs/ocamloptcomp.cma \
+	             $(!!VAR_PREFIX!!_OPTSTART) stdlib/!!PREFIX!!/std_exit.cmo
+	$(!!VAR_PREFIX!!_CAMLC) $(LINKFLAGS) -o $@ \
+	   !!PREFIX!!/compilerlibs/ocamlcommon.cma \
+	   !!PREFIX!!/compilerlibs/ocamloptcomp.cma \
+	   $(!!VAR_PREFIX!!_OPTSTART)

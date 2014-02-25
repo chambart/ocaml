@@ -1,0 +1,105 @@
+
+BYTE_UTILS= \
+  byte/utils/misc.cmo byte/utils/tbl.cmo \
+  byte/utils/config.cmo byte/utils/clflags.cmo \
+  byte/utils/terminfo.cmo byte/utils/ccomp.cmo \
+  byte/utils/warnings.cmo byte/utils/consistbl.cmo
+
+BYTE_PARSING= \
+  byte/parsing/location.cmo byte/parsing/longident.cmo \
+  byte/parsing/ast_helper.cmo byte/parsing/syntaxerr.cmo \
+  byte/parsing/parser.cmo byte/parsing/lexer.cmo \
+  byte/parsing/parse.cmo byte/parsing/printast.cmo \
+  byte/parsing/pprintast.cmo byte/parsing/ast_mapper.cmo
+
+BYTE_TYPING= \
+  byte/typing/ident.cmo byte/typing/path.cmo \
+  byte/typing/primitive.cmo byte/typing/types.cmo \
+  byte/typing/btype.cmo byte/typing/oprint.cmo \
+  byte/typing/subst.cmo byte/typing/predef.cmo \
+  byte/typing/datarepr.cmo byte/typing/cmi_format.cmo \
+  byte/typing/env.cmo byte/typing/typedtree.cmo \
+  byte/typing/printtyped.cmo byte/typing/ctype.cmo \
+  byte/typing/printtyp.cmo byte/typing/includeclass.cmo \
+  byte/typing/mtype.cmo byte/typing/envaux.cmo \
+  byte/typing/includecore.cmo byte/typing/typedtreeIter.cmo \
+  byte/typing/typedtreeMap.cmo byte/typing/cmt_format.cmo \
+  byte/typing/includemod.cmo byte/typing/typetexp.cmo \
+  byte/typing/parmatch.cmo byte/typing/stypes.cmo \
+  byte/typing/typecore.cmo byte/typing/typedecl.cmo \
+  byte/typing/typeclass.cmo byte/typing/typemod.cmo
+
+BYTE_COMP= \
+  byte/bytecomp/lambda.cmo byte/bytecomp/printlambda.cmo \
+  byte/bytecomp/typeopt.cmo byte/bytecomp/switch.cmo \
+  byte/bytecomp/matching.cmo \
+  byte/bytecomp/translobj.cmo byte/bytecomp/translcore.cmo \
+  byte/bytecomp/translclass.cmo byte/bytecomp/translmod.cmo \
+  byte/bytecomp/simplif.cmo byte/bytecomp/runtimedef.cmo \
+  byte/driver/pparse.cmo byte/driver/main_args.cmo \
+  byte/driver/compenv.cmo byte/driver/compmisc.cmo
+
+BYTE_COMMON=$(BYTE_UTILS) $(BYTE_PARSING) $(BYTE_TYPING) $(BYTE_COMP)
+
+BYTE_BYTECOMP= \
+  byte/bytecomp/meta.cmo byte/bytecomp/instruct.cmo \
+  byte/bytecomp/bytegen.cmo byte/bytecomp/printinstr.cmo \
+  byte/bytecomp/opcodes.cmo byte/bytecomp/emitcode.cmo \
+  byte/bytecomp/bytesections.cmo byte/bytecomp/dll.cmo \
+  byte/bytecomp/symtable.cmo byte/bytecomp/bytelink.cmo \
+  byte/bytecomp/bytelibrarian.cmo byte/bytecomp/bytepackager.cmo \
+  byte/driver/errors.cmo byte/driver/compile.cmo
+
+BYTE_ASMCOMP= \
+  byte/asmcomp/boot/arch.cmo byte/asmcomp/debuginfo.cmo \
+  byte/asmcomp/cmm.cmo byte/asmcomp/printcmm.cmo \
+  byte/asmcomp/reg.cmo byte/asmcomp/mach.cmo \
+  byte/asmcomp/boot/proc.cmo byte/asmcomp/clambda.cmo \
+  byte/asmcomp/printclambda.cmo byte/asmcomp/compilenv.cmo \
+  byte/asmcomp/closure.cmo byte/asmcomp/cmmgen.cmo \
+  byte/asmcomp/printmach.cmo byte/asmcomp/selectgen.cmo \
+  byte/asmcomp/boot/selection.cmo \
+  byte/asmcomp/comballoc.cmo byte/asmcomp/liveness.cmo \
+  byte/asmcomp/spill.cmo byte/asmcomp/split.cmo \
+  byte/asmcomp/interf.cmo byte/asmcomp/coloring.cmo \
+  byte/asmcomp/reloadgen.cmo byte/asmcomp/boot/reload.cmo \
+  byte/asmcomp/printlinear.cmo byte/asmcomp/linearize.cmo \
+  byte/asmcomp/schedgen.cmo byte/asmcomp/boot/scheduling.cmo \
+  byte/asmcomp/emitaux.cmo byte/asmcomp/emit.cmo \
+  byte/asmcomp/asmgen.cmo byte/asmcomp/asmlink.cmo \
+  byte/asmcomp/asmlibrarian.cmo byte/asmcomp/asmpackager.cmo \
+  byte/driver/opterrors.cmo byte/driver/optcompile.cmo
+
+BYTE_TOPLEVEL= \
+  byte/toplevel/genprintval.cmo byte/toplevel/toploop.cmo \
+  byte/toplevel/trace.cmo byte/toplevel/topdirs.cmo \
+  byte/toplevel/topmain.cmo
+
+BYTE_BYTESTART=byte/driver/main.cmo
+
+BYTE_OPTSTART=byte/driver/optmain.cmo
+
+BYTE_TOPLEVELSTART=byte/toplevel/topstart.cmo
+
+BYTE_NATTOPOBJS=$(BYTE_UTILS) \
+  $(BYTE_PARSING) $(BYTE_TYPING) \
+  $(BYTE_COMP) $(BYTE_ASMCOMP) \
+  byte/toplevel/genprintval.cmo byte/toplevel/opttoploop.cmo \
+  byte/toplevel/opttopdirs.cmo byte/toplevel/opttopmain.cmo \
+  byte/toplevel/opttopstart.cmo
+
+BYTE_CVT_EMIT=byte/tools/cvt_emit.cmo
+BYTE_MAKE_TEMPLATER=byte/tools/make_templater.cmo
+
+BYTE_CAMLDEP_OBJ=byte/tools/depend.cmo byte/tools/ocamldep.cmo
+BYTE_CAMLDEP_IMPORTS= \
+  byte/utils/misc.cmo byte/utils/config.cmo \
+  byte/utils/clflags.cmo byte/utils/terminfo.cmo \
+  byte/utils/warnings.cmo byte/parsing/location.cmo \
+  byte/parsing/longident.cmo byte/parsing/syntaxerr.cmo \
+  byte/parsing/ast_helper.cmo byte/parsing/parser.cmo \
+  byte/parsing/lexer.cmo byte/parsing/parse.cmo \
+  byte/utils/ccomp.cmo byte/driver/pparse.cmo \
+  byte/driver/compenv.cmo
+
+BYTE_MKLIB=byte/tools/ocamlmklibconfig.cmo byte/tools/ocamlmklib.cmo

@@ -1,0 +1,72 @@
+byte/%.cmi: %.mli
+	$(BYTE_CAMLC) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+byte/%.cmo: %.ml
+	$(BYTE_CAMLC) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+byte/%.cmx: %.ml
+	$(BYTE_CAMLOPT) $(BYTE_COMPFLAGS) -o $@ -c $<
+
+
+byte/compilerlibs/ocamlcommon.cma: $(BYTE_COMMON) | byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_COMMON)
+
+byte/compilerlibs/ocamlcommon.cmxa: $(BYTE_COMMON:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_COMMON:.cmo=.cmx)
+
+
+byte/compilerlibs/ocamlbytecomp.cma: $(BYTE_BYTECOMP) | byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_BYTECOMP)
+
+byte/compilerlibs/ocamlbytecomp.cmxa: $(BYTE_BYTECOMP:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_BYTECOMP:.cmo=.cmx)
+
+
+byte/compilerlibs/ocamltoplevel.cma: $(BYTE_TOPLEVEL) | byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_TOPLEVEL)
+
+byte/compilerlibs/ocamltoplevel.cmxa: $(BYTE_TOPLEVEL:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_TOPLEVEL:.cmo=.cmx)
+
+
+byte/compilerlibs/ocamloptcomp.cma: $(BYTE_ASMCOMP) | byte/compilerlibs
+	$(BYTE_CAMLC) -a -o $@ $(BYTE_ASMCOMP)
+
+byte/compilerlibs/ocamloptcomp.cmxa: $(BYTE_ASMCOMP:.cmo=.cmx) | byte/compilerlibs
+	$(BYTE_CAMLOPT) -a -o $@ $(BYTE_ASMCOMP:.cmo=.cmx)
+
+
+byte/ocamlc.opt: byte/compilerlibs/ocamlcommon.cmxa \
+	         byte/compilerlibs/ocamlbytecomp.cmxa \
+	         $(BYTE_BYTESTART:.cmo=.cmx) stdlib/byte/std_exit.cmx \
+	         asmrun/libasmrun.a
+	$(BYTE_CAMLOPT) $(LINKFLAGS) -o $@ \
+	   byte/compilerlibs/ocamlcommon.cmxa \
+	   byte/compilerlibs/ocamlbytecomp.cmxa \
+	   $(BYTE_BYTESTART:.cmo=.cmx)
+
+byte/ocamlopt.opt: byte/compilerlibs/ocamlcommon.cmxa \
+	           byte/compilerlibs/ocamloptcomp.cmxa \
+	           $(BYTE_OPTSTART:.cmo=.cmx) stdlib/byte/std_exit.cmx \
+	           asmrun/libasmrun.a
+	$(BYTE_CAMLOPT) $(LINKFLAGS) -o $@ \
+	   byte/compilerlibs/ocamlcommon.cmxa \
+	   byte/compilerlibs/ocamloptcomp.cmxa \
+	   $(BYTE_OPTSTART:.cmo=.cmx)
+
+byte/ocamlc: byte/compilerlibs/ocamlcommon.cma \
+	           byte/compilerlibs/ocamlbytecomp.cma \
+	           $(BYTE_BYTESTART) stdlib/byte/std_exit.cmo
+	$(BYTE_CAMLC) $(LINKFLAGS) -compat-32 -o $@ \
+	   byte/compilerlibs/ocamlcommon.cma \
+	   byte/compilerlibs/ocamlbytecomp.cma \
+	   $(BYTE_BYTESTART)
+
+#FIXME: missing -compat-32
+byte/ocamlopt: byte/compilerlibs/ocamlcommon.cma \
+	             byte/compilerlibs/ocamloptcomp.cma \
+	             $(BYTE_OPTSTART) stdlib/byte/std_exit.cmo
+	$(BYTE_CAMLC) $(LINKFLAGS) -o $@ \
+	   byte/compilerlibs/ocamlcommon.cma \
+	   byte/compilerlibs/ocamloptcomp.cma \
+	   $(BYTE_OPTSTART)

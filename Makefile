@@ -37,6 +37,7 @@ CAMLYACC=boot/ocamlyacc
 YACCFLAGS=-v
 CAMLLEX=boot/ocamlrun boot/ocamllex
 CAMLDEP=boot/ocamlrun tools/ocamldep
+TEMPLATER=boot/ocamlrun tools/make_templater
 DEPFLAGS=$(INCLUDES)
 CAMLRUN=byterun/ocamlrun
 SHELL=/bin/sh
@@ -1039,6 +1040,9 @@ boot_build/tools/ocamldep: $(BOOT_CAMLDEP_IMPORTS) $(BOOT_CAMLDEP_OBJ) stdlib/bo
 	$(BOOT_CAMLC) $(LINKFLAGS) -compat-32 -o $@ \
 	              $(BOOT_CAMLDEP_IMPORTS) $(BOOT_CAMLDEP_OBJ)
 
+tools/make_templater: boot_build/tools/make_templater
+	ln -s ../boot_build/tools/make_templater tools/make_templater
+
 tools/ocamldep: boot_build/tools/ocamldep
 	ln -s ../boot_build/tools/ocamldep tools/ocamldep
 
@@ -1086,6 +1090,31 @@ depend: boot_depend byte_depend opt_depend
 
 alldepend:: depend
 
+#################
+
+Makefile_variables.boot: tools/make_templater Makefile.boot.var Makefile_variables.tmpl
+	$(TEMPLATER) Makefile.boot.var Makefile_variables.tmpl > $@
+
+Makefile_rules.boot: tools/make_templater Makefile.boot.var Makefile_rules.tmpl
+	$(TEMPLATER) Makefile.boot.var Makefile_rules.tmpl > $@
+
+Makefile_variables.byte: tools/make_templater Makefile.byte.var Makefile_variables.tmpl
+	$(TEMPLATER) Makefile.byte.var Makefile_variables.tmpl > $@
+
+Makefile_rules.byte: tools/make_templater Makefile.byte.var Makefile_rules.tmpl
+	$(TEMPLATER) Makefile.byte.var Makefile_rules.tmpl > $@
+
+Makefile_variables.opt: tools/make_templater Makefile.opt.var Makefile_variables.tmpl
+	$(TEMPLATER) Makefile.opt.var Makefile_variables.tmpl > $@
+
+Makefile_rules.opt: tools/make_templater Makefile.opt.var Makefile_rules.tmpl
+	$(TEMPLATER) Makefile.opt.var Makefile_rules.tmpl > $@
+
+make_includes: Makefile_variables.boot Makefile_variables.byte Makefile_variables.opt \
+	       Makefile_rules.boot Makefile_rules.byte Makefile_rules.opt
+
+#################
+
 distclean:
 	$(MAKE) clean
 	rm -f boot/ocamlrun boot/ocamlrun.exe boot/camlheader boot/ocamlyacc \
@@ -1095,7 +1124,7 @@ distclean:
 	rm -f ocaml ocamlc ocamlcomp.sh
 	rm -f testsuite/_log
 
-.PHONY: all backup bootstrap checkstack clean
+.PHONY: all backup bootstrap checkstack clean make_includes
 .PHONY: partialclean beforedepend alldepend cleanboot coldstart
 .PHONY: compare core coreall
 .PHONY: boot_depend byte_depend opt_depend
@@ -1110,3 +1139,10 @@ distclean:
 include .boot_depend
 include .byte_depend
 include .opt_depend
+
+include Makefile_variables.boot
+include Makefile_variables.byte
+include Makefile_variables.opt
+include Makefile_rules.boot
+include Makefile_rules.byte
+include Makefile_rules.opt

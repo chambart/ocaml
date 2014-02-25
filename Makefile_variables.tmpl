@@ -1,0 +1,105 @@
+
+!!VAR_PREFIX!!_UTILS= \
+  !!PREFIX!!/utils/misc.cmo !!PREFIX!!/utils/tbl.cmo \
+  !!PREFIX!!/utils/config.cmo !!PREFIX!!/utils/clflags.cmo \
+  !!PREFIX!!/utils/terminfo.cmo !!PREFIX!!/utils/ccomp.cmo \
+  !!PREFIX!!/utils/warnings.cmo !!PREFIX!!/utils/consistbl.cmo
+
+!!VAR_PREFIX!!_PARSING= \
+  !!PREFIX!!/parsing/location.cmo !!PREFIX!!/parsing/longident.cmo \
+  !!PREFIX!!/parsing/ast_helper.cmo !!PREFIX!!/parsing/syntaxerr.cmo \
+  !!PREFIX!!/parsing/parser.cmo !!PREFIX!!/parsing/lexer.cmo \
+  !!PREFIX!!/parsing/parse.cmo !!PREFIX!!/parsing/printast.cmo \
+  !!PREFIX!!/parsing/pprintast.cmo !!PREFIX!!/parsing/ast_mapper.cmo
+
+!!VAR_PREFIX!!_TYPING= \
+  !!PREFIX!!/typing/ident.cmo !!PREFIX!!/typing/path.cmo \
+  !!PREFIX!!/typing/primitive.cmo !!PREFIX!!/typing/types.cmo \
+  !!PREFIX!!/typing/btype.cmo !!PREFIX!!/typing/oprint.cmo \
+  !!PREFIX!!/typing/subst.cmo !!PREFIX!!/typing/predef.cmo \
+  !!PREFIX!!/typing/datarepr.cmo !!PREFIX!!/typing/cmi_format.cmo \
+  !!PREFIX!!/typing/env.cmo !!PREFIX!!/typing/typedtree.cmo \
+  !!PREFIX!!/typing/printtyped.cmo !!PREFIX!!/typing/ctype.cmo \
+  !!PREFIX!!/typing/printtyp.cmo !!PREFIX!!/typing/includeclass.cmo \
+  !!PREFIX!!/typing/mtype.cmo !!PREFIX!!/typing/envaux.cmo \
+  !!PREFIX!!/typing/includecore.cmo !!PREFIX!!/typing/typedtreeIter.cmo \
+  !!PREFIX!!/typing/typedtreeMap.cmo !!PREFIX!!/typing/cmt_format.cmo \
+  !!PREFIX!!/typing/includemod.cmo !!PREFIX!!/typing/typetexp.cmo \
+  !!PREFIX!!/typing/parmatch.cmo !!PREFIX!!/typing/stypes.cmo \
+  !!PREFIX!!/typing/typecore.cmo !!PREFIX!!/typing/typedecl.cmo \
+  !!PREFIX!!/typing/typeclass.cmo !!PREFIX!!/typing/typemod.cmo
+
+!!VAR_PREFIX!!_COMP= \
+  !!PREFIX!!/bytecomp/lambda.cmo !!PREFIX!!/bytecomp/printlambda.cmo \
+  !!PREFIX!!/bytecomp/typeopt.cmo !!PREFIX!!/bytecomp/switch.cmo \
+  !!PREFIX!!/bytecomp/matching.cmo \
+  !!PREFIX!!/bytecomp/translobj.cmo !!PREFIX!!/bytecomp/translcore.cmo \
+  !!PREFIX!!/bytecomp/translclass.cmo !!PREFIX!!/bytecomp/translmod.cmo \
+  !!PREFIX!!/bytecomp/simplif.cmo !!PREFIX!!/bytecomp/runtimedef.cmo \
+  !!PREFIX!!/driver/pparse.cmo !!PREFIX!!/driver/main_args.cmo \
+  !!PREFIX!!/driver/compenv.cmo !!PREFIX!!/driver/compmisc.cmo
+
+!!VAR_PREFIX!!_COMMON=$(!!VAR_PREFIX!!_UTILS) $(!!VAR_PREFIX!!_PARSING) $(!!VAR_PREFIX!!_TYPING) $(!!VAR_PREFIX!!_COMP)
+
+!!VAR_PREFIX!!_BYTECOMP= \
+  !!PREFIX!!/bytecomp/meta.cmo !!PREFIX!!/bytecomp/instruct.cmo \
+  !!PREFIX!!/bytecomp/bytegen.cmo !!PREFIX!!/bytecomp/printinstr.cmo \
+  !!PREFIX!!/bytecomp/opcodes.cmo !!PREFIX!!/bytecomp/emitcode.cmo \
+  !!PREFIX!!/bytecomp/bytesections.cmo !!PREFIX!!/bytecomp/dll.cmo \
+  !!PREFIX!!/bytecomp/symtable.cmo !!PREFIX!!/bytecomp/bytelink.cmo \
+  !!PREFIX!!/bytecomp/bytelibrarian.cmo !!PREFIX!!/bytecomp/bytepackager.cmo \
+  !!PREFIX!!/driver/errors.cmo !!PREFIX!!/driver/compile.cmo
+
+!!VAR_PREFIX!!_ASMCOMP= \
+  !!PREFIX!!/asmcomp/boot/arch.cmo !!PREFIX!!/asmcomp/debuginfo.cmo \
+  !!PREFIX!!/asmcomp/cmm.cmo !!PREFIX!!/asmcomp/printcmm.cmo \
+  !!PREFIX!!/asmcomp/reg.cmo !!PREFIX!!/asmcomp/mach.cmo \
+  !!PREFIX!!/asmcomp/boot/proc.cmo !!PREFIX!!/asmcomp/clambda.cmo \
+  !!PREFIX!!/asmcomp/printclambda.cmo !!PREFIX!!/asmcomp/compilenv.cmo \
+  !!PREFIX!!/asmcomp/closure.cmo !!PREFIX!!/asmcomp/cmmgen.cmo \
+  !!PREFIX!!/asmcomp/printmach.cmo !!PREFIX!!/asmcomp/selectgen.cmo \
+  !!PREFIX!!/asmcomp/boot/selection.cmo \
+  !!PREFIX!!/asmcomp/comballoc.cmo !!PREFIX!!/asmcomp/liveness.cmo \
+  !!PREFIX!!/asmcomp/spill.cmo !!PREFIX!!/asmcomp/split.cmo \
+  !!PREFIX!!/asmcomp/interf.cmo !!PREFIX!!/asmcomp/coloring.cmo \
+  !!PREFIX!!/asmcomp/reloadgen.cmo !!PREFIX!!/asmcomp/boot/reload.cmo \
+  !!PREFIX!!/asmcomp/printlinear.cmo !!PREFIX!!/asmcomp/linearize.cmo \
+  !!PREFIX!!/asmcomp/schedgen.cmo !!PREFIX!!/asmcomp/boot/scheduling.cmo \
+  !!PREFIX!!/asmcomp/emitaux.cmo !!PREFIX!!/asmcomp/emit.cmo \
+  !!PREFIX!!/asmcomp/asmgen.cmo !!PREFIX!!/asmcomp/asmlink.cmo \
+  !!PREFIX!!/asmcomp/asmlibrarian.cmo !!PREFIX!!/asmcomp/asmpackager.cmo \
+  !!PREFIX!!/driver/opterrors.cmo !!PREFIX!!/driver/optcompile.cmo
+
+!!VAR_PREFIX!!_TOPLEVEL= \
+  !!PREFIX!!/toplevel/genprintval.cmo !!PREFIX!!/toplevel/toploop.cmo \
+  !!PREFIX!!/toplevel/trace.cmo !!PREFIX!!/toplevel/topdirs.cmo \
+  !!PREFIX!!/toplevel/topmain.cmo
+
+!!VAR_PREFIX!!_BYTESTART=!!PREFIX!!/driver/main.cmo
+
+!!VAR_PREFIX!!_OPTSTART=!!PREFIX!!/driver/optmain.cmo
+
+!!VAR_PREFIX!!_TOPLEVELSTART=!!PREFIX!!/toplevel/topstart.cmo
+
+!!VAR_PREFIX!!_NATTOPOBJS=$(!!VAR_PREFIX!!_UTILS) \
+  $(!!VAR_PREFIX!!_PARSING) $(!!VAR_PREFIX!!_TYPING) \
+  $(!!VAR_PREFIX!!_COMP) $(!!VAR_PREFIX!!_ASMCOMP) \
+  !!PREFIX!!/toplevel/genprintval.cmo !!PREFIX!!/toplevel/opttoploop.cmo \
+  !!PREFIX!!/toplevel/opttopdirs.cmo !!PREFIX!!/toplevel/opttopmain.cmo \
+  !!PREFIX!!/toplevel/opttopstart.cmo
+
+!!VAR_PREFIX!!_CVT_EMIT=!!PREFIX!!/tools/cvt_emit.cmo
+!!VAR_PREFIX!!_MAKE_TEMPLATER=!!PREFIX!!/tools/make_templater.cmo
+
+!!VAR_PREFIX!!_CAMLDEP_OBJ=!!PREFIX!!/tools/depend.cmo !!PREFIX!!/tools/ocamldep.cmo
+!!VAR_PREFIX!!_CAMLDEP_IMPORTS= \
+  !!PREFIX!!/utils/misc.cmo !!PREFIX!!/utils/config.cmo \
+  !!PREFIX!!/utils/clflags.cmo !!PREFIX!!/utils/terminfo.cmo \
+  !!PREFIX!!/utils/warnings.cmo !!PREFIX!!/parsing/location.cmo \
+  !!PREFIX!!/parsing/longident.cmo !!PREFIX!!/parsing/syntaxerr.cmo \
+  !!PREFIX!!/parsing/ast_helper.cmo !!PREFIX!!/parsing/parser.cmo \
+  !!PREFIX!!/parsing/lexer.cmo !!PREFIX!!/parsing/parse.cmo \
+  !!PREFIX!!/utils/ccomp.cmo !!PREFIX!!/driver/pparse.cmo \
+  !!PREFIX!!/driver/compenv.cmo
+
+!!VAR_PREFIX!!_MKLIB=!!PREFIX!!/tools/ocamlmklibconfig.cmo !!PREFIX!!/tools/ocamlmklib.cmo

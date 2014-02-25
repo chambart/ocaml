@@ -1,0 +1,105 @@
+
+OPT_UTILS= \
+  opt/utils/misc.cmo opt/utils/tbl.cmo \
+  opt/utils/config.cmo opt/utils/clflags.cmo \
+  opt/utils/terminfo.cmo opt/utils/ccomp.cmo \
+  opt/utils/warnings.cmo opt/utils/consistbl.cmo
+
+OPT_PARSING= \
+  opt/parsing/location.cmo opt/parsing/longident.cmo \
+  opt/parsing/ast_helper.cmo opt/parsing/syntaxerr.cmo \
+  opt/parsing/parser.cmo opt/parsing/lexer.cmo \
+  opt/parsing/parse.cmo opt/parsing/printast.cmo \
+  opt/parsing/pprintast.cmo opt/parsing/ast_mapper.cmo
+
+OPT_TYPING= \
+  opt/typing/ident.cmo opt/typing/path.cmo \
+  opt/typing/primitive.cmo opt/typing/types.cmo \
+  opt/typing/btype.cmo opt/typing/oprint.cmo \
+  opt/typing/subst.cmo opt/typing/predef.cmo \
+  opt/typing/datarepr.cmo opt/typing/cmi_format.cmo \
+  opt/typing/env.cmo opt/typing/typedtree.cmo \
+  opt/typing/printtyped.cmo opt/typing/ctype.cmo \
+  opt/typing/printtyp.cmo opt/typing/includeclass.cmo \
+  opt/typing/mtype.cmo opt/typing/envaux.cmo \
+  opt/typing/includecore.cmo opt/typing/typedtreeIter.cmo \
+  opt/typing/typedtreeMap.cmo opt/typing/cmt_format.cmo \
+  opt/typing/includemod.cmo opt/typing/typetexp.cmo \
+  opt/typing/parmatch.cmo opt/typing/stypes.cmo \
+  opt/typing/typecore.cmo opt/typing/typedecl.cmo \
+  opt/typing/typeclass.cmo opt/typing/typemod.cmo
+
+OPT_COMP= \
+  opt/bytecomp/lambda.cmo opt/bytecomp/printlambda.cmo \
+  opt/bytecomp/typeopt.cmo opt/bytecomp/switch.cmo \
+  opt/bytecomp/matching.cmo \
+  opt/bytecomp/translobj.cmo opt/bytecomp/translcore.cmo \
+  opt/bytecomp/translclass.cmo opt/bytecomp/translmod.cmo \
+  opt/bytecomp/simplif.cmo opt/bytecomp/runtimedef.cmo \
+  opt/driver/pparse.cmo opt/driver/main_args.cmo \
+  opt/driver/compenv.cmo opt/driver/compmisc.cmo
+
+OPT_COMMON=$(OPT_UTILS) $(OPT_PARSING) $(OPT_TYPING) $(OPT_COMP)
+
+OPT_BYTECOMP= \
+  opt/bytecomp/meta.cmo opt/bytecomp/instruct.cmo \
+  opt/bytecomp/bytegen.cmo opt/bytecomp/printinstr.cmo \
+  opt/bytecomp/opcodes.cmo opt/bytecomp/emitcode.cmo \
+  opt/bytecomp/bytesections.cmo opt/bytecomp/dll.cmo \
+  opt/bytecomp/symtable.cmo opt/bytecomp/bytelink.cmo \
+  opt/bytecomp/bytelibrarian.cmo opt/bytecomp/bytepackager.cmo \
+  opt/driver/errors.cmo opt/driver/compile.cmo
+
+OPT_ASMCOMP= \
+  opt/asmcomp/boot/arch.cmo opt/asmcomp/debuginfo.cmo \
+  opt/asmcomp/cmm.cmo opt/asmcomp/printcmm.cmo \
+  opt/asmcomp/reg.cmo opt/asmcomp/mach.cmo \
+  opt/asmcomp/boot/proc.cmo opt/asmcomp/clambda.cmo \
+  opt/asmcomp/printclambda.cmo opt/asmcomp/compilenv.cmo \
+  opt/asmcomp/closure.cmo opt/asmcomp/cmmgen.cmo \
+  opt/asmcomp/printmach.cmo opt/asmcomp/selectgen.cmo \
+  opt/asmcomp/boot/selection.cmo \
+  opt/asmcomp/comballoc.cmo opt/asmcomp/liveness.cmo \
+  opt/asmcomp/spill.cmo opt/asmcomp/split.cmo \
+  opt/asmcomp/interf.cmo opt/asmcomp/coloring.cmo \
+  opt/asmcomp/reloadgen.cmo opt/asmcomp/boot/reload.cmo \
+  opt/asmcomp/printlinear.cmo opt/asmcomp/linearize.cmo \
+  opt/asmcomp/schedgen.cmo opt/asmcomp/boot/scheduling.cmo \
+  opt/asmcomp/emitaux.cmo opt/asmcomp/emit.cmo \
+  opt/asmcomp/asmgen.cmo opt/asmcomp/asmlink.cmo \
+  opt/asmcomp/asmlibrarian.cmo opt/asmcomp/asmpackager.cmo \
+  opt/driver/opterrors.cmo opt/driver/optcompile.cmo
+
+OPT_TOPLEVEL= \
+  opt/toplevel/genprintval.cmo opt/toplevel/toploop.cmo \
+  opt/toplevel/trace.cmo opt/toplevel/topdirs.cmo \
+  opt/toplevel/topmain.cmo
+
+OPT_BYTESTART=opt/driver/main.cmo
+
+OPT_OPTSTART=opt/driver/optmain.cmo
+
+OPT_TOPLEVELSTART=opt/toplevel/topstart.cmo
+
+OPT_NATTOPOBJS=$(OPT_UTILS) \
+  $(OPT_PARSING) $(OPT_TYPING) \
+  $(OPT_COMP) $(OPT_ASMCOMP) \
+  opt/toplevel/genprintval.cmo opt/toplevel/opttoploop.cmo \
+  opt/toplevel/opttopdirs.cmo opt/toplevel/opttopmain.cmo \
+  opt/toplevel/opttopstart.cmo
+
+OPT_CVT_EMIT=opt/tools/cvt_emit.cmo
+OPT_MAKE_TEMPLATER=opt/tools/make_templater.cmo
+
+OPT_CAMLDEP_OBJ=opt/tools/depend.cmo opt/tools/ocamldep.cmo
+OPT_CAMLDEP_IMPORTS= \
+  opt/utils/misc.cmo opt/utils/config.cmo \
+  opt/utils/clflags.cmo opt/utils/terminfo.cmo \
+  opt/utils/warnings.cmo opt/parsing/location.cmo \
+  opt/parsing/longident.cmo opt/parsing/syntaxerr.cmo \
+  opt/parsing/ast_helper.cmo opt/parsing/parser.cmo \
+  opt/parsing/lexer.cmo opt/parsing/parse.cmo \
+  opt/utils/ccomp.cmo opt/driver/pparse.cmo \
+  opt/driver/compenv.cmo
+
+OPT_MKLIB=opt/tools/ocamlmklibconfig.cmo opt/tools/ocamlmklib.cmo

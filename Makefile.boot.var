@@ -1,0 +1,2 @@
+PREFIX=boot_build
+VAR_PREFIX=BOOT
