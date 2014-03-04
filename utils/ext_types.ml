@@ -28,7 +28,7 @@ module type ExtMap = sig
   val map_option : (key -> 'a -> 'b option) -> 'a t -> 'b t
   val of_list : (key * 'a) list -> 'a t
   val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
-  val last_union : 'a t -> 'a t -> 'a t
+  val union_right : 'a t -> 'a t -> 'a t
   val rename : key t -> key -> key
   val map_keys : (key -> key) -> 'a t -> 'a t
   val keys : 'a t -> Set.Make(M).t
@@ -80,7 +80,7 @@ struct
               fatal_error err
             else Some v1) m1 m2
 
-  let last_union m1 m2 =
+  let union_right m1 m2 =
     merge (fun id x y -> match x, y with
         | None, None -> None
         | None, Some v

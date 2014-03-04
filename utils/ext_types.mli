@@ -28,7 +28,12 @@ module type ExtMap = sig
   val map_option : (key -> 'a -> 'b option) -> 'a t -> 'b t
   val of_list : (key * 'a) list -> 'a t
   val disjoint_union : ?eq:('a -> 'a -> bool) -> 'a t -> 'a t -> 'a t
-  val last_union : 'a t -> 'a t -> 'a t
+  (** [disjoint_union m1 m2] contains all bindings from [m1] and
+      [m2]. If some binding is present in both and the associated
+      value is not equal, a Fatal_error is raised *)
+  val union_right : 'a t -> 'a t -> 'a t
+  (** [union_right m1 m2] contains all bindings from [m1] and [m2]. If
+      some binding is present in both, the one from [m2] is taken *)
   val rename : key t -> key -> key
   val map_keys : (key -> key) -> 'a t -> 'a t
   val keys : 'a t -> Set.Make(M).t
