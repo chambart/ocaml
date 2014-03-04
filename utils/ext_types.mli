@@ -85,33 +85,21 @@ end
 
 module type Id =
 sig
-  type t
-  val equal : t -> t -> bool
-  val compare : t -> t -> int
-  val hash : t -> int
-  val name : t -> string option
-  val to_string : t -> string
-  val output : out_channel -> t -> unit
-  val print : Format.formatter -> t -> unit
+  include BaseId
   val create : ?name:string -> unit -> t
 end
 
 module type UnitId =
 sig
   module Compilation_unit : PrintableHashOrdered
-  type t
-  val equal : t -> t -> bool
-  val compare : t -> t -> int
-  val hash : t -> int
-  val name : t -> string option
-  val to_string : t -> string
-  val output : out_channel -> t -> unit
-  val print : Format.formatter -> t -> unit
+  include BaseId
   val create : ?name:string -> Compilation_unit.t -> t
   val unit : t -> Compilation_unit.t
 end
 
 module Id : functor (E : Empty) -> Id
+(** If applied generatively, i.e. [Id(struct end)], creates a new type
+    of identifiers. *)
 module UnitId :
   functor (Id : Id) ->
   functor (Compilation_unit : PrintableHashOrdered) ->
