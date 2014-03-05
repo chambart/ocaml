@@ -29,7 +29,13 @@ let every_used_identifier_is_bound flam =
     | Fvar(id,_) -> test id env
     | Fclosure({cl_specialised_arg},_) ->
         VarMap.iter (fun _ id -> test id env) cl_specialised_arg
-    | _ -> ()
+
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _ | Flet _ | Fletrec _
+    | Fprim _ | Fswitch _ | Fstaticfail _ | Fcatch _
+    | Ftrywith _ | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Ffor _ | Fsend _ | Funreachable _
+      -> ()
   in
   let rec loop env = function
     | Flet(_,id,def,body,_) ->
@@ -54,7 +60,14 @@ let every_used_identifier_is_bound flam =
     | Ftrywith(body, id, handler,_) ->
         loop env body;
         loop (VarSet.add id env) handler
-    | exp ->
+
+    | Fassign _ | Fvar _
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _
+    | Fprim _ | Fswitch _ | Fstaticfail _
+    | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Fsend _ | Funreachable _
+      as exp ->
         check env exp;
         Flambdaiter.apply_on_subexpressions (loop env) exp
   in
@@ -68,26 +81,24 @@ let every_used_identifier_is_bound flam =
 exception Counter_example_varset of VarSet.t
 
 let function_free_variables_are_bound_in_the_closure_and_parameters flam =
-  let f = function
-    | Fclosure ({cl_fun;cl_free_var},_) ->
-        let variables_in_closure = VarMap.keys cl_free_var in
-        let functions_in_closure =
-          VarMap.fold (fun id _ env -> VarSet.add id env)
-            cl_fun.funs VarSet.empty in
-        VarMap.iter (fun _ { params; free_variables } ->
-            let acceptable_free_variables =
-              VarSet.union
-                (VarSet.union variables_in_closure functions_in_closure)
-                (VarSet.of_list params) in
-            let counter_examples =
-              VarSet.diff free_variables acceptable_free_variables in
-            if not (VarSet.is_empty counter_examples)
-            then raise (Counter_example_varset counter_examples))
-          cl_fun.funs
-    | _ -> ()
+  let f {cl_fun;cl_free_var} _ =
+    let variables_in_closure = VarMap.keys cl_free_var in
+    let functions_in_closure =
+      VarMap.fold (fun id _ env -> VarSet.add id env)
+        cl_fun.funs VarSet.empty in
+    VarMap.iter (fun _ { params; free_variables } ->
+        let acceptable_free_variables =
+          VarSet.union
+            (VarSet.union variables_in_closure functions_in_closure)
+            (VarSet.of_list params) in
+        let counter_examples =
+          VarSet.diff free_variables acceptable_free_variables in
+        if not (VarSet.is_empty counter_examples)
+        then raise (Counter_example_varset counter_examples))
+      cl_fun.funs
   in
   try
-    Flambdaiter.iter f flam;
+    Flambdaiter.iter_on_closures f flam;
     No_counter_example
   with Counter_example_varset set ->
     Counter_example set
@@ -114,7 +125,14 @@ let no_identifier_bound_multiple_times flam =
         List.iter add_and_check vars
     | Ftrywith(_, id,_,_) ->
         add_and_check id
-    | _ -> ()
+
+    | Fassign _ | Fvar _
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _
+    | Fprim _ | Fswitch _ | Fstaticfail _
+    | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Fsend _ | Funreachable _
+      -> ()
   in
   try
     Flambdaiter.iter f flam;
@@ -145,7 +163,14 @@ let every_bound_variable_is_from_current_compilation_unit
         List.iter check vars
     | Ftrywith(_, id,_,_) ->
         check id
-    | _ -> ()
+
+    | Fassign _ | Fvar _
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _
+    | Fprim _ | Fswitch _ | Fstaticfail _
+    | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Fsend _ | Funreachable _
+      -> ()
   in
   try
     Flambdaiter.iter f flam;
@@ -169,7 +194,15 @@ let no_assign_on_variable_of_kind_strict flam =
         VarMap.iter (fun _ v -> loop env v) cl_free_var;
         let env = VarSet.empty in
         VarMap.iter (fun _ { body } -> loop env body) cl_fun.funs
-    | exp ->
+
+    | Flet (Not_assigned, _, _, _, _)
+    | Fassign _ | Fvar _
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _ | Fletrec _
+    | Fprim _ | Fswitch _ | Fstaticfail _ | Fcatch _
+    | Ftrywith _ | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Ffor _ | Fsend _ | Funreachable _
+      as exp ->
         check env exp;
         Flambdaiter.apply_on_subexpressions (loop env) exp
   in
@@ -188,14 +221,12 @@ let declared_variable_within_closure flam =
     then bound_multiple_times := Some var;
     bound := ClosureVariableSet.add var !bound
   in
-  let f = function
-    | Fclosure ({cl_fun;cl_free_var},_) ->
-        VarMap.iter (fun id _ ->
-            let var = Closure_variable.create id in
-            add_and_check var) cl_free_var
-    | _ -> ()
+  let f {cl_fun;cl_free_var} _ =
+    VarMap.iter (fun id _ ->
+        let var = Closure_variable.create id in
+        add_and_check var) cl_free_var
   in
-  Flambdaiter.iter f flam;
+  Flambdaiter.iter_on_closures f flam;
   !bound, !bound_multiple_times
 
 let no_variable_within_closure_is_bound_multiple_times flam =
@@ -207,14 +238,12 @@ exception Counter_example_cu of compilation_unit
 
 let every_declared_closure_is_from_current_compilation_unit
     ~current_compilation_unit flam =
-  let f = function
-    | Fclosure ({cl_fun = { compilation_unit }},_) ->
-        if not (Compilation_unit.equal compilation_unit current_compilation_unit)
-        then raise (Counter_example_cu compilation_unit)
-    | _ -> ()
+  let f {cl_fun = { compilation_unit }} _ =
+    if not (Compilation_unit.equal compilation_unit current_compilation_unit)
+    then raise (Counter_example_cu compilation_unit)
   in
   try
-    Flambdaiter.iter f flam;
+    Flambdaiter.iter_on_closures f flam;
     No_counter_example
   with Counter_example_cu cu ->
     Counter_example cu
@@ -253,7 +282,14 @@ let used_function_within_closure flam =
              used := ClosureFunctionSet.add fu_fun !used)
     | Fvariable_in_closure ({vc_fun},_) ->
         used := ClosureFunctionSet.add vc_fun !used
-    | _ -> ()
+
+    | Fassign _ | Fvar _ | Fclosure _
+    | Fsymbol _ | Fconst _ | Fapply _
+    | Flet _ | Fletrec _
+    | Fprim _ | Fswitch _ | Fstaticfail _ | Fcatch _
+    | Ftrywith _ | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Ffor _ | Fsend _ | Funreachable _
+      -> ()
   in
   Flambdaiter.iter f flam;
   !used

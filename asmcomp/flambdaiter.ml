@@ -107,3 +107,17 @@ let iter f t =
 
   and iter_list l = List.iter aux l in
   aux t
+
+let iter_on_closures f t =
+  let aux = function
+    | Fclosure (clos,data) ->
+        f clos data
+    | Fassign _ | Fvar _
+    | Fsymbol _ | Fconst _ | Fapply _ | Ffunction _
+    | Fvariable_in_closure _ | Flet _ | Fletrec _
+    | Fprim _ | Fswitch _ | Fstaticfail _ | Fcatch _
+    | Ftrywith _ | Fifthenelse _ | Fsequence _
+    | Fwhile _ | Ffor _ | Fsend _ | Funreachable _
+      -> ()
+  in
+  iter aux t
