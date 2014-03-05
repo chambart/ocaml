@@ -130,6 +130,10 @@ type 'a flambda =
               Flet( g, Ffunction { fu_closure = closure; fu_fun = g }, ...)))]}
   *)
   | Ffunction of 'a funct * 'a
+  (** [ Ffunction { fu_closure; fu_fun; fu_relatives_to } ]
+      Transforms the closure fu_closure in a specified closure. fu_fun must
+      be part of the closure. If closure already specified to 'g' then
+      fu_relatives_to must be [ Some g ]. *)
   | Fvariable_in_closure of 'a variable_in_closure * 'a
   | Flet of let_kind * variable * 'a flambda * 'a flambda * 'a
   | Fletrec of (variable * 'a flambda) list * 'a flambda * 'a
