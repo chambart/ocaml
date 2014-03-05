@@ -177,11 +177,11 @@ and 'a apply =
     ap_dbg: Debuginfo.t }
 
 and 'a closure =
-  { cl_fun : 'a ffunctions;
+  { cl_fun : 'a function_declarations;
     cl_free_var : 'a flambda VarMap.t;
     cl_specialised_arg : variable VarMap.t }
 
-and 'a ffunction = {
+and 'a function_declaration = {
   stub   : bool;
   params : variable list;
   free_variables : VarSet.t;
@@ -189,9 +189,9 @@ and 'a ffunction = {
   dbg    : Debuginfo.t;
 }
 
-and 'a ffunctions = {
+and 'a function_declarations = {
   ident  : FunId.t;
-  funs   : 'a ffunction VarMap.t;
+  funs   : 'a function_declaration VarMap.t;
   compilation_unit : symbol;
   closed : bool;
 }

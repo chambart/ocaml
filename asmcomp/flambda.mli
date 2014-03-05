@@ -168,11 +168,11 @@ and 'a apply =
     ap_dbg: Debuginfo.t }
 
 and 'a closure =
-  { cl_fun : 'a ffunctions;
+  { cl_fun : 'a function_declarations;
     cl_free_var : 'a flambda VarMap.t;
     cl_specialised_arg : variable VarMap.t }
 
-and 'a ffunction = {
+and 'a function_declaration = {
   stub : bool;
   (** A stub function is a generated function used to prepare
       arguments or return value to allow indirect calls to function
@@ -188,9 +188,9 @@ and 'a ffunction = {
   dbg : Debuginfo.t;
 }
 
-and 'a ffunctions = {
+and 'a function_declarations = {
   ident : FunId.t;
-  funs : 'a ffunction VarMap.t;
+  funs : 'a function_declaration VarMap.t;
   (** The ident key correspond to off_id of offset type *)
   compilation_unit : compilation_unit;
   closed : bool;
@@ -212,7 +212,7 @@ and 'a variable_in_closure = {
 
 (* utility functions *)
 
-val function_arity : 'a ffunction -> int
+val function_arity : 'a function_declaration -> int
 
 val can_be_merged : 'a flambda -> 'a flambda -> bool
 (** If [can_be_merged f1 f2] is true, it is safe to merge switch
