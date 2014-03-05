@@ -128,24 +128,39 @@ type 'a flambda =
   | Fconst of const * 'a
   | Fapply of 'a apply * 'a
   | Fclosure of 'a closure * 'a
-  (** This represents an unspecified closure: multiple function can be
-      present in a closure, to call a function in the closure, we must
-      first select a function using Ffunction.
+  (** There are 2 kind of closures: specified and unspecified ones.
+      A closure is first build as unspecified using the Fclosure constructor.
+      It represents a block containing code pointers and values (the free
+      variables).
+
+      Since a closure can contain multiple functions, an unspecified
+      closure can't be directly used, we first need to select (specify)
+      which function the closure represents using Ffunction. The 2
+      constructors that can be applied on specified closures are
+      - Fapply: call the selected function
+      - Fvariable_in_closure: access the free variables
 
       Typical usage when compiling
       {[let rec f x = ...
         and g x = ... ]}
 
       is to represent it as:
-      {[Flet( closure, Fclosure { f -> ...; g -> ... },
-              Flet( f, Ffunction { fu_closure = closure; fu_fun = f },
-              Flet( g, Ffunction { fu_closure = closure; fu_fun = g }, ...)))]}
+      {[Flet( closure, Fclosure { id_f -> ...; id_g -> ... },
+              Flet( f, Ffunction { fu_closure = closure; fu_fun = id_f },
+              Flet( g, Ffunction { fu_closure = closure; fu_fun = id_g }, ...)))]}
+
+      Accessing a variable from a closure is done
+      - with Fvar inside a function declared in the closure
+      - with Fvariable_in_closure from outside.
+        This kind of access is generated when inlining a function.
+
+      It is possible to specify an already specified closure. This can happen
+      when inlining a function that access other functions from the same closure:
+      For instance, if f from the previous example access g and is inlined, calling
+      g will use the closure:
+      {[ Ffunction { fu_closure = f; fu_fun = id_g; fu_relative_to = Some id_f } ]}
   *)
   | Ffunction of 'a funct * 'a
-  (** [ Ffunction { fu_closure; fu_fun; fu_relatives_to } ]
-      Transforms the closure fu_closure in a specified closure. fu_fun must
-      be part of the closure. If closure already specified to 'g' then
-      fu_relatives_to must be [ Some g ]. *)
   | Fvariable_in_closure of 'a variable_in_closure * 'a
   | Flet of let_kind * variable * 'a flambda * 'a flambda * 'a
   | Fletrec of (variable * 'a flambda) list * 'a flambda * 'a
