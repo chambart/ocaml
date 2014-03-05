@@ -116,7 +116,17 @@ type 'a flambda =
   | Fclosure of 'a closure * 'a
   (** This represents an unspecified closure: multiple function can be
       present in a closure, to call a function in the closure, we must
-      first select a function using Ffunction. *)
+      first select a function using Ffunction.
+
+      Typical usage when compiling
+      {[let rec f x = ...
+        and g x = ... ]}
+
+      is to represent it as:
+      {[Flet( closure, Fclosure { f -> ...; g -> ... },
+              Flet( f, Ffunction { fu_closure = closure; fu_fun = f },
+              Flet( g, Ffunction { fu_closure = closure; fu_fun = g }, ...)))]}
+  *)
   | Ffunction of 'a funct * 'a
   | Fvariable_in_closure of 'a variable_in_closure * 'a
   | Flet of let_kind * variable * 'a flambda * 'a flambda * 'a
