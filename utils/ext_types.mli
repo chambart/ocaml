@@ -73,6 +73,7 @@ module ExtHashtbl :
 
 module type Empty = sig end
 
+(** Generic identifier type *)
 module type BaseId =
 sig
   type t
@@ -91,6 +92,7 @@ sig
   val create : ?name:string -> unit -> t
 end
 
+(** Fully qualified identifiers *)
 module type UnitId =
 sig
   module Compilation_unit : PrintableHashOrdered
