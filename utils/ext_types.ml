@@ -136,8 +136,6 @@ struct
         r
 end
 
-module type Empty = sig end
-
 module type BaseId = sig
   type t
   val equal : t -> t -> bool
@@ -161,7 +159,7 @@ module type UnitId = sig
   val unit : t -> Compilation_unit.t
 end
 
-module Id(E:Empty) : Id = struct
+module Id(E:sig end) : Id = struct
   type t = int * string
   let empty_string = ""
   let create = let r = ref 0 in

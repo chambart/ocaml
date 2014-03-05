@@ -71,8 +71,6 @@ module ExtSet :
 module ExtHashtbl :
   functor (M : PrintableHashOrdered) -> ExtHashtbl with module M := M
 
-module type Empty = sig end
-
 (** Generic identifier type *)
 module type BaseId =
 sig
@@ -101,7 +99,7 @@ sig
   val unit : t -> Compilation_unit.t
 end
 
-module Id : functor (E : Empty) -> Id
+module Id : functor (E : sig end) -> Id
 (** If applied generatively, i.e. [Id(struct end)], creates a new type
     of identifiers. *)
 module UnitId :
