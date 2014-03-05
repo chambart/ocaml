@@ -60,8 +60,8 @@ let to_flambda ~compilation_unit lam =
     | Llet(str, id, lam, body) ->
         let str =
           match str with
-          | Variable -> Variable
-          | _ -> Strict in
+          | Variable -> Assigned
+          | _ -> Not_assigned in
         let var = make_var id in
         Flet(str, var,
              close_named var sb lam,
@@ -99,7 +99,7 @@ let to_flambda ~compilation_unit lam =
             let clos = close_functions sb function_declarations in
             let clos_var = Variable.make ~compilation_unit "clos" in
             let body = List.fold_left (fun body decl ->
-                Flet(Strict, decl.let_bound_var,
+                Flet(Not_assigned, decl.let_bound_var,
                      Ffunction(
                        { fu_closure = Fvar (clos_var, nid ());
                          fu_fun = Closure_function.create decl.closure_bound_var;
@@ -107,7 +107,7 @@ let to_flambda ~compilation_unit lam =
                        nid ()),
                      body, nid ()))
                 (close sb body) function_declarations in
-            Flet(Strict, clos_var, clos, body, nid ~name:"closure_letrec" ())
+            Flet(Not_assigned, clos_var, clos, body, nid ~name:"closure_letrec" ())
         | None ->
             let fdefs = List.map
                 (fun (var,def) -> var, close_named var sb def) defs in
@@ -262,7 +262,7 @@ let to_flambda ~compilation_unit lam =
           let lam = Fprim(Pfield pos, [Fvar(tuple_param, nid ())],
                           Debuginfo.none, nid ()) in
           pos+1,
-          Flet(Strict,param,lam,body,nid ()))
+          Flet(Not_assigned,param,lam,body,nid ()))
         (0,call) params in
     { stub = true;
       params = [tuple_param];

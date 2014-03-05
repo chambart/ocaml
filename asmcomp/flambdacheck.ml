@@ -163,7 +163,7 @@ let no_assign_on_variable_of_kind_strict flam =
     | _ -> ()
   in
   let rec loop env = function
-    | Flet(Variable,id,def,body,_) ->
+    | Flet(Assigned,id,def,body,_) ->
         loop env def;
         loop (VarSet.add id env) body
     | Fclosure ({cl_fun;cl_free_var},_) ->

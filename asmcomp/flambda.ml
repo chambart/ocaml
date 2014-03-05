@@ -128,7 +128,9 @@ module ClosureVariableMap = ExtMap(Closure_variable)
 module ClosureVariableSet = ExtSet(Closure_variable)
 module ClosureVariableTbl = ExtHashtbl(Closure_variable)
 
-type let_kind = Strict | Variable
+type let_kind =
+  | Not_assigned
+  | Assigned
 
 type call_kind =
   | Indirect

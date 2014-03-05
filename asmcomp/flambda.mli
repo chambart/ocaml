@@ -100,7 +100,9 @@ module ClosureVariableSet : ExtSet with module M := Closure_variable
 module ClosureVariableMap : ExtMap with module M := Closure_variable
 module ClosureVariableTbl : ExtHashtbl with module M := Closure_variable
 
-type let_kind = Strict | Variable (** See Lambda.let_kind *)
+type let_kind =
+  | Not_assigned
+  | Assigned
 
 type call_kind =
   | Indirect
