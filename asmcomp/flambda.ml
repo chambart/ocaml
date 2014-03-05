@@ -14,6 +14,8 @@ open Ext_types
 
 type linkage_name = string
 
+type static_exception = int
+
 type symbol = { sym_unit : Ident.t; sym_label : linkage_name }
 
 type compilation_unit = symbol
@@ -89,6 +91,12 @@ module FunMap = ExtMap(FunId)
 module FunSet = ExtSet(FunId)
 module FunTbl = ExtHashtbl(FunId)
 
+module Static_exception = struct
+  include Int
+  let of_int x = x
+  let to_int x = x
+end
+
 type closure_element = {
   ce_id : Ident.t;
   ce_unit : symbol;
@@ -127,6 +135,11 @@ module ClosureFunctionTbl = ExtHashtbl(Closure_function)
 module ClosureVariableMap = ExtMap(Closure_variable)
 module ClosureVariableSet = ExtSet(Closure_variable)
 module ClosureVariableTbl = ExtHashtbl(Closure_variable)
+
+module StaticExceptionSet = ExtSet(Static_exception)
+module StaticExceptionMap = ExtMap(Static_exception)
+module StaticExceptionTbl = ExtHashtbl(Static_exception)
+
 
 type let_kind =
   | Not_assigned

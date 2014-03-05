@@ -43,6 +43,8 @@ type compilation_unit
 type function_within_closure
 type variable_within_closure
 
+type static_exception
+
 val linkage_name : string -> linkage_name
 
 module Variable : sig
@@ -73,6 +75,12 @@ end
 module ExprId : Id
 module FunId : UnitId with module Compilation_unit := Compilation_unit
 
+module Static_exception : sig
+  include PrintableHashOrdered with type t = static_exception
+  val of_int : int -> static_exception
+  val to_int : static_exception -> int
+end
+
 module VarSet : sig
   include ExtSet with module M := Variable
   val of_ident_set : compilation_unit:compilation_unit -> Lambda.IdentSet.t -> t
@@ -99,6 +107,10 @@ module ClosureFunctionTbl : ExtHashtbl with module M := Closure_function
 module ClosureVariableSet : ExtSet with module M := Closure_variable
 module ClosureVariableMap : ExtMap with module M := Closure_variable
 module ClosureVariableTbl : ExtHashtbl with module M := Closure_variable
+
+module StaticExceptionSet : ExtSet with module M := Static_exception
+module StaticExceptionMap : ExtMap with module M := Static_exception
+module StaticExceptionTbl : ExtHashtbl with module M := Static_exception
 
 type let_kind =
   | Not_assigned
@@ -139,8 +151,8 @@ type 'a flambda =
   | Fletrec of (variable * 'a flambda) list * 'a flambda * 'a
   | Fprim of Lambda.primitive * 'a flambda list * Debuginfo.t * 'a
   | Fswitch of 'a flambda * 'a flambda_switch * 'a
-  | Fstaticfail of int * 'a flambda list * 'a
-  | Fcatch of int * variable list * 'a flambda * 'a flambda * 'a
+  | Fstaticfail of static_exception * 'a flambda list * 'a
+  | Fcatch of static_exception * variable list * 'a flambda * 'a flambda * 'a
   | Ftrywith of 'a flambda * variable * 'a flambda * 'a
   | Fifthenelse of 'a flambda * 'a flambda * 'a flambda * 'a
   | Fsequence of 'a flambda * 'a flambda * 'a

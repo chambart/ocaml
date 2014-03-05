@@ -53,7 +53,7 @@ val every_used_variable_in_closure_from_current_compilation_unit_is_declared :
   Flambda.ClosureVariableSet.t counter_example
 
 val every_static_exception_is_caught :
-  'a Flambda.flambda -> int counter_example
+  'a Flambda.flambda -> Flambda.static_exception counter_example
 
 val every_static_exception_is_caught_at_a_single_position :
-  'a Flambda.flambda -> int counter_example
+  'a Flambda.flambda -> Flambda.static_exception counter_example

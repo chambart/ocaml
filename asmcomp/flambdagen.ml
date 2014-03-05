@@ -152,10 +152,10 @@ let to_flambda ~compilation_unit lam =
                   fs_failaction = Misc.may_map (close sb) sw.sw_failaction },
                 nid ~name:"switch" ())
     | Lstaticraise (i, args) ->
-        Fstaticfail (i, close_list sb args, nid ())
+        Fstaticfail (Static_exception.of_int i, close_list sb args, nid ())
     | Lstaticcatch(body, (i, vars), handler) ->
-        Fcatch (i, List.map make_var vars, close sb body, close sb handler,
-                nid ())
+        Fcatch (Static_exception.of_int i, List.map make_var vars,
+                close sb body, close sb handler, nid ())
     | Ltrywith(body, id, handler) ->
         Ftrywith(close sb body, make_var id, close sb handler, nid ())
     | Lifthenelse(arg, ifso, ifnot) ->

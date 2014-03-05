@@ -10,7 +10,6 @@
 (*                                                                     *)
 (***********************************************************************)
 
-open Ext_types
 open Flambda
 
 let fatal_error_f fmt = Printf.kprintf Misc.fatal_error fmt
@@ -301,44 +300,44 @@ let every_used_variable_in_closure_from_current_compilation_unit_is_declared
   then No_counter_example
   else Counter_example counter_examples
 
-exception Counter_example_int of int
+exception Counter_example_se of static_exception
 
 let every_static_exception_is_caught flam =
   let check env = function
     | Fstaticfail(exn,_,_) ->
-        if not (IntSet.mem exn env)
-        then raise (Counter_example_int exn)
+        if not (StaticExceptionSet.mem exn env)
+        then raise (Counter_example_se exn)
     | _ -> ()
   in
   let rec loop env = function
     | Fcatch (i, _, body, handler,_) ->
         loop env handler;
-        let env = IntSet.add i env in
+        let env = StaticExceptionSet.add i env in
         loop env body
     | exp ->
         check env exp;
         Flambdaiter.apply_on_subexpressions (loop env) exp
   in
-  let env = IntSet.empty in
+  let env = StaticExceptionSet.empty in
   try
     loop env flam;
     No_counter_example
-  with Counter_example_int var ->
+  with Counter_example_se var ->
     Counter_example var
 
 let every_static_exception_is_caught_at_a_single_position flam =
-  let caught = ref IntSet.empty in
+  let caught = ref StaticExceptionSet.empty in
   let f = function
     | Fcatch (i, _, body, handler,_) ->
-        if IntSet.mem i !caught
-        then raise (Counter_example_int i);
-        caught := IntSet.add i !caught
+        if StaticExceptionSet.mem i !caught
+        then raise (Counter_example_se i);
+        caught := StaticExceptionSet.add i !caught
     | _ -> ()
   in
   try
     Flambdaiter.iter f flam;
     No_counter_example
-  with Counter_example_int var ->
+  with Counter_example_se var ->
     Counter_example var
 
 let test result fmt printer =
@@ -393,8 +392,8 @@ let check ~current_compilation_unit flam =
 
   test (every_static_exception_is_caught flam)
     "static exception %a can't be caught"
-    Format.pp_print_int;
+    Static_exception.print;
 
   test (every_static_exception_is_caught_at_a_single_position flam)
     "multiple catch point for exception %a"
-    Format.pp_print_int
+    Static_exception.print
