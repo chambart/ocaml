@@ -34,6 +34,8 @@ module type ExtMap = sig
   val union_right : 'a t -> 'a t -> 'a t
   (** [union_right m1 m2] contains all bindings from [m1] and [m2]. If
       some binding is present in both, the one from [m2] is taken *)
+  val union_left : 'a t -> 'a t -> 'a t
+  (** [union_left m1 m2 = union_right m2 m1] *)
   val rename : key t -> key -> key
   val map_keys : (key -> key) -> 'a t -> 'a t
   val keys : 'a t -> Set.Make(M).t
