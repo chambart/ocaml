@@ -186,6 +186,7 @@ module type Optcomp_options = sig
   val _dscheduling :  unit -> unit
   val _dlinear :  unit -> unit
   val _dstartup :  unit -> unit
+  val _nocmx :  unit -> unit
 
   val anonymous : string -> unit
 end;;
@@ -238,6 +239,7 @@ module type Opttop_options = sig
   val _dscheduling :  unit -> unit
   val _dlinear :  unit -> unit
   val _dstartup :  unit -> unit
+  val _nocmx :  unit -> unit
 
   val anonymous : string -> unit
 end;;
