@@ -133,15 +133,21 @@ module type S = sig
     | String of string_ty
     | Float_array of float_array_ty
 
-  and funs =
-    | Non_inlinable of non_inlinable_function_declaration Variable.Map.t
-    | Inlinable of inlinable_function_declaration Variable.Map.t
-
-  and function_declarations = {
+  and inlinable_function_declarations = {
     set_of_closures_id : Set_of_closures_id.t;
     set_of_closures_origin : Set_of_closures_origin.t;
-    funs : funs;
+    funs : inlinable_function_declaration Variable.Map.t;
   }
+
+  and non_inlinable_function_declarations = {
+    funs : non_inlinable_function_declaration Variable.Map.t
+  }
+
+  (* CR pchambart: the inlinable property should maybe be a
+     per function property *)
+  and function_declarations =
+    | Non_inlinable of non_inlinable_function_declarations
+    | Inlinable of inlinable_function_declarations
 
   and function_body = {
     body : expr;

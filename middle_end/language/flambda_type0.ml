@@ -217,15 +217,19 @@ end) = struct
     | String of string_ty
     | Float_array of float_array_ty
 
-  and funs =
-    | Non_inlinable of non_inlinable_function_declaration Variable.Map.t
-    | Inlinable of inlinable_function_declaration Variable.Map.t
- 
-  and function_declarations = {
+  and inlinable_function_declarations = {
     set_of_closures_id : Set_of_closures_id.t;
     set_of_closures_origin : Set_of_closures_origin.t;
-    funs : funs;
+    funs : inlinable_function_declaration Variable.Map.t;
   }
+
+  and non_inlinable_function_declarations = {
+    funs : non_inlinable_function_declaration Variable.Map.t
+  }
+
+  and function_declarations =
+    | Non_inlinable of non_inlinable_function_declarations
+    | Inlinable of inlinable_function_declarations
 
   and function_body = {
     body : expr;
@@ -284,23 +288,37 @@ end) = struct
   let _ = Expr.print  (* temporarily silence compiler warning *)
 
   (* CR mshinwell: we should probably enhance this for debugging *)
-  let print_funs ppf funs =
-    match funs with
-    | Non_inlinable funs ->
-      Format.fprintf ppf "@[(non_inlinable %a)@]"
-        Variable.Set.print (Variable.Map.keys funs)
-    | Inlinable funs ->
-      Format.fprintf ppf "@[(inlinable %a)@]"
-        Variable.Set.print (Variable.Map.keys funs)
+  let print_non_inlinable_funs ppf
+        (funs : non_inlinable_function_declaration Variable.Map.t) =
+    Format.fprintf ppf "@[(non_inlinable %a)@]"
+      Variable.Set.print (Variable.Map.keys funs)
 
-  let print_function_declarations ppf function_decls =
+  let print_inlinable_funs ppf funs =
+    Format.fprintf ppf "@[(inlinable %a)@]"
+      Variable.Set.print (Variable.Map.keys funs)
+
+  let print_non_inlinable_function_declarations ppf
+        (function_decls : non_inlinable_function_declarations) =
+    print_non_inlinable_funs ppf function_decls.funs
+
+  let print_inlinable_function_declarations ppf
+        (function_decls : inlinable_function_declarations) =
     Format.fprintf ppf
       "@[(@[(set_of_closures_id %a)@]@,\
           @[(set_of_closures_origin %a)@]@,\
           @[(funs %a)@]@]"
       Set_of_closures_id.print function_decls.set_of_closures_id
       Set_of_closures_origin.print function_decls.set_of_closures_origin
-      print_funs function_decls.funs
+      print_inlinable_funs function_decls.funs
+
+  let print_function_declarations ppf function_decls =
+    match function_decls with
+    | Non_inlinable function_decls ->
+      Format.fprintf ppf "@[(non_inlinable %a)@]"
+        print_non_inlinable_function_declarations function_decls
+    | Inlinable function_decls ->
+      Format.fprintf ppf "@[(inlinable %a)@]"
+        print_inlinable_function_declarations function_decls
 
   let print_set_of_closures ppf
         { function_decls; invariant_params; _ } =
@@ -1616,17 +1634,17 @@ end) = struct
           free_variables_ty_value ty_value acc)
         set_of_closures.closure_elements acc
     in
-    begin match set_of_closures.function_decls.funs with
-    | Non_inlinable funs ->
+    begin match set_of_closures.function_decls with
+    | Non_inlinable function_decls ->
       Variable.Map.fold
         (fun _fun_var (decl : non_inlinable_function_declaration) acc ->
           List.fold_left (fun acc ty ->
             free_variables ty acc)
             acc
             decl.result)
-        funs
+        function_decls.funs
         acc
-    | Inlinable funs ->
+    | Inlinable function_decls ->
       Variable.Map.fold
         (fun _fun_var (decl : inlinable_function_declaration) acc ->
           let acc =
@@ -1639,7 +1657,7 @@ end) = struct
               free_variables ty acc)
             acc
             decl.params)
-        funs
+        function_decls.funs
         acc
     end
 
@@ -1843,10 +1861,9 @@ end) = struct
           clean_ty_value ~importer t clean_var_opt)
         set_of_closures.closure_elements
     in
-    let function_decls = set_of_closures.function_decls in
-    let funs : funs =
-    match function_decls.funs with
-    | Non_inlinable funs ->
+    let function_decls : function_declarations =
+    match set_of_closures.function_decls with
+    | Non_inlinable function_decls ->
       let funs =
         Variable.Map.map
           (fun (decl : non_inlinable_function_declaration)
@@ -1857,10 +1874,10 @@ end) = struct
                 decl.result
             in
             { result; })
-          funs
+          function_decls.funs
       in
-      Non_inlinable funs
-    | Inlinable funs ->
+      Non_inlinable { funs }
+    | Inlinable function_decls ->
       let funs =
         Variable.Map.map
           (fun (decl : inlinable_function_declaration)
@@ -1879,15 +1896,15 @@ end) = struct
               params;
               result;
             })
-          funs
+          function_decls.funs
       in
-      Inlinable funs
-    in
-    let function_decls : function_declarations =
-      { set_of_closures_id = function_decls.set_of_closures_id;
-        set_of_closures_origin = function_decls.set_of_closures_origin;
-        funs;
-      }
+      let function_decls : inlinable_function_declarations =
+        { set_of_closures_id = function_decls.set_of_closures_id;
+          set_of_closures_origin = function_decls.set_of_closures_origin;
+          funs;
+        }
+      in
+      Inlinable function_decls
     in
     { function_decls;
       closure_elements = closure_elements;
