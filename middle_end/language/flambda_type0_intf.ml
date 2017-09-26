@@ -86,6 +86,7 @@ module type S = sig
   and resolved_ty_naked_int32 = (of_kind_naked_int32, unit) resolved_ty
   and resolved_ty_naked_int64 = (of_kind_naked_int64, unit) resolved_ty
   and resolved_ty_naked_nativeint = (of_kind_naked_nativeint, unit) resolved_ty
+  and resolved_ty_set_of_closures = (set_of_closures, unit) resolved_ty
 
   and ('a, 'u) resolved_ty = ('a, 'u) or_unknown_or_bottom with_var_and_symbol
 
@@ -125,7 +126,8 @@ module type S = sig
     | Block of Tag.Scannable.t * (ty_value array)
     | Set_of_closures of set_of_closures
     | Closure of {
-        set_of_closures : ty_value;
+        (* CR pchambart: should Unknown or Bottom really be allowed here ? *)
+        set_of_closures : resolved_ty_set_of_closures;
         closure_id : Closure_id.t
       }
     | String of string_ty
@@ -134,7 +136,7 @@ module type S = sig
   and funs =
     | Non_inlinable of non_inlinable_function_declaration Variable.Map.t
     | Inlinable of inlinable_function_declaration Variable.Map.t
- 
+
   and function_declarations = {
     set_of_closures_id : Set_of_closures_id.t;
     set_of_closures_origin : Set_of_closures_origin.t;
@@ -151,7 +153,7 @@ module type S = sig
     closure_origin : Closure_origin.t;
     params : (Parameter.t * t) list;
     body : function_body;
-    result : t;
+    result : t list;
     stub : bool;
     dbg : Debuginfo.t;
     inline : Lambda.inline_attribute;
