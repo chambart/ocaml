@@ -133,10 +133,17 @@ module type S = sig
     | String of string_ty
     | Float_array of float_array_ty
 
-  and inlinable_function_declarations = {
+  and inlinable_function_declarations = private {
     set_of_closures_id : Set_of_closures_id.t;
     set_of_closures_origin : Set_of_closures_origin.t;
     funs : inlinable_function_declaration Variable.Map.t;
+    (* CR mshinwell: try to change these to [Misc.Stdlib.Set_once.t]?
+       (ask xclerc) *)
+    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
+    size : int option Variable.Map.t lazy_t;
+    (** For functions that are very likely to be inlined, the size of the
+        function's body. *)
+    direct_call_surrogates : Closure_id.t Closure_id.Map.t;
   }
 
   and non_inlinable_function_declarations = {
@@ -167,20 +174,13 @@ module type S = sig
     is_a_functor : bool;
   }
 
-  and non_inlinable_function_declaration = private {
+  and non_inlinable_function_declaration = {
     result : t list;
   }
 
   and set_of_closures = private {
     function_decls : function_declarations;
     closure_elements : ty_value Var_within_closure.Map.t;
-    (* CR mshinwell: try to change these to [Misc.Stdlib.Set_once.t]?
-       (ask xclerc) *)
-    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
-    size : int option Variable.Map.t lazy_t;
-    (** For functions that are very likely to be inlined, the size of the
-        function's body. *)
-    direct_call_surrogates : Closure_id.t Closure_id.Map.t;
   }
 
   and float_array_contents = private
@@ -277,14 +277,14 @@ module type S = sig
     -> Closure_id.t
     -> t
 
+  (* CR pchambart: inlinable_function_declaration should be made
+     private now that it is expected to maintain the invariants that
+     create_set_of_closures was supposed to maintain. *)
   (** Create a [set_of_closures] structure which can be used for building a
       type describing a set of closures. *)
   val create_set_of_closures
      : function_decls:function_declarations
-    -> size:int option Variable.Map.t lazy_t
     -> closure_elements:ty_value Var_within_closure.Map.t
-    -> invariant_params:Variable.Set.t Variable.Map.t lazy_t
-    -> direct_call_surrogates:Closure_id.t Closure_id.Map.t
     -> set_of_closures
 
   (** Construct a set of closures type. [set_of_closures_var] is as for the

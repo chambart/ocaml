@@ -71,6 +71,10 @@ let rename_variables ~importer t ~f =
 let unresolved_symbol sym =
   (* CR mshinwell: check with Pierre about this comment.  I suspect
      this is irrelevant now closure freshening has been removed *)
+  (* CR pchambart: This won't be strictly needed, but I remembered
+     using that to track some problems. This might helps generate more
+     precise inlining report: "couldn't inline because this cmx file
+     was missing" *)
   (* We don't know anything, but we must remember that it comes
      from another compilation unit in case it contains a closure. *)
   any_value Must_scan (Unresolved_value (Symbol sym))
@@ -608,6 +612,86 @@ module Blocks = struct
     with Same_tag_different_arities -> Wrong
 end
 
+module Set_of_closures = struct
+  type t = set_of_closures
+
+  let non_inlinable_function_declaration (f : inlinable_function_declaration)
+        : non_inlinable_function_declaration =
+    { result = f.result }
+
+  let non_inlinable_function_declarations (t : t)
+        : non_inlinable_function_declarations =
+    match t.function_decls with
+    | Non_inlinable non_inlinable_function_decls ->
+      non_inlinable_function_decls
+    | Inlinable function_decls ->
+      let funs =
+        Variable.Map.map
+          non_inlinable_function_declaration
+          function_decls.funs
+      in
+      { funs }
+
+  let join_non_inlinable ~importer (t1 : t) (t2 : t) : t =
+    let f1 = non_inlinable_function_declarations t1 in
+    let f2 = non_inlinable_function_declarations t2 in
+    let join_results
+        (f1:non_inlinable_function_declaration)
+        (f2:non_inlinable_function_declaration) =
+      if List.length f1.result <> List.length f2.result then
+        Misc.fatal_error "A function appear with 2 different return arities";
+      let result = List.map2 (join ~importer) f1.result f2.result in
+      { result }
+    in
+    let funs =
+      Variable.Map.union_merge join_results f1.funs f2.funs
+    in
+    let function_decls = Non_inlinable { funs } in
+    let closure_elements =
+      Var_within_closure.Map.union_merge (join_ty_value ~importer)
+        t1.closure_elements t2.closure_elements
+    in
+    create_set_of_closures
+      ~function_decls
+      ~closure_elements
+
+  let join ~importer (t1 : t) (t2 : t) : t =
+    match t1.function_decls, t2.function_decls with
+    | Non_inlinable _, (Inlinable _ | Non_inlinable _)
+    | Inlinable _, Non_inlinable _ ->
+      join_non_inlinable ~importer t1 t2
+    | Inlinable f1, Inlinable f2 ->
+      if Set_of_closures_id.equal
+          f1.set_of_closures_id
+          f2.set_of_closures_id
+      then begin
+      (* If the set_of_closures are the same, the result is inlinable.
+         The real constraint is that the union of two functions is
+         inlinable if any of the two functions can be replaced by the
+         other. This is an overapproximation, but might not be too
+         restrictive in practice. *)
+      assert(
+        Set_of_closures_origin.equal
+          f1.set_of_closures_origin
+          f2.set_of_closures_origin);
+      (* CR pchambart: this is too strong, but should hold in general.
+         It can be kept for now to help debugging *)
+      assert(f1.funs == f2.funs);
+      let closure_elements =
+        Var_within_closure.Map.union_merge (join_ty_value ~importer)
+          t1.closure_elements t2.closure_elements
+      in
+      create_set_of_closures
+        ~function_decls:t1.function_decls
+        ~closure_elements
+    end
+      else
+        (* We assume here that functions are different, hence the result
+           is not inlinable *)
+        join_non_inlinable ~importer t1 t2
+
+end
+
 module Summary = struct
   type t =
     | Wrong
@@ -674,9 +758,13 @@ module Summary = struct
       end
     | Closures closures1, Closures closures2 ->
       begin match
-        Or_not_all_values_known.join (fun _map1 _map2 : _ or_wrong ->
-            (* Pierre to fix *)
-            assert false)
+        Or_not_all_values_known.join (fun map1 map2 : _ or_wrong ->
+          let map =
+            Closure_id.Map.union_merge (Set_of_closures.join ~importer)
+              map1 map2
+          in
+          (* CR pchambart: Could this fail and not be a real error *)
+          Ok map)
           closures1 closures2
       with
       | Ok closures -> Closures closures

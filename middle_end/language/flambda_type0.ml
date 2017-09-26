@@ -221,6 +221,9 @@ end) = struct
     set_of_closures_id : Set_of_closures_id.t;
     set_of_closures_origin : Set_of_closures_origin.t;
     funs : inlinable_function_declaration Variable.Map.t;
+    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
+    size : int option Variable.Map.t lazy_t;
+    direct_call_surrogates : Closure_id.t Closure_id.Map.t;
   }
 
   and non_inlinable_function_declarations = {
@@ -256,9 +259,6 @@ end) = struct
   and set_of_closures = {
     function_decls : function_declarations;
     closure_elements : ty_value Var_within_closure.Map.t;
-    invariant_params : Variable.Set.t Variable.Map.t lazy_t;
-    size : int option Variable.Map.t lazy_t;
-    direct_call_surrogates : Closure_id.t Closure_id.Map.t;
   }
 
   and float_array_contents =
@@ -306,9 +306,12 @@ end) = struct
     Format.fprintf ppf
       "@[(@[(set_of_closures_id %a)@]@,\
           @[(set_of_closures_origin %a)@]@,\
+          @[(invariant_params %a)@]@,\
           @[(funs %a)@]@]"
       Set_of_closures_id.print function_decls.set_of_closures_id
       Set_of_closures_origin.print function_decls.set_of_closures_origin
+      (Variable.Map.print Variable.Set.print)
+        (Lazy.force function_decls.invariant_params)
       print_inlinable_funs function_decls.funs
 
   let print_function_declarations ppf function_decls =
@@ -321,11 +324,10 @@ end) = struct
         print_inlinable_function_declarations function_decls
 
   let print_set_of_closures ppf
-        { function_decls; invariant_params; _ } =
+        { function_decls; _ } =
     Format.fprintf ppf
-      "(function_decls:@ %a invariant_params=%a)"
+      "(function_decls:@ %a)"
       print_function_declarations function_decls
-      (Variable.Map.print Variable.Set.print) (Lazy.force invariant_params)
 
   let print_unresolved_value ppf (unresolved : unresolved_value) =
     match unresolved with
@@ -1564,13 +1566,10 @@ end) = struct
     }
 
   (* CR mshinwell: crappy name *)
-  let create_set_of_closures ~function_decls ~size ~closure_elements
-        ~invariant_params ~direct_call_surrogates : set_of_closures =
+  let create_set_of_closures ~function_decls ~closure_elements
+        : set_of_closures =
     { function_decls;
       closure_elements;
-      invariant_params;
-      size;
-      direct_call_surrogates;
     }
 
   let set_of_closures ?set_of_closures_var set_of_closures : t =
@@ -1902,15 +1901,15 @@ end) = struct
         { set_of_closures_id = function_decls.set_of_closures_id;
           set_of_closures_origin = function_decls.set_of_closures_origin;
           funs;
+          invariant_params = function_decls.invariant_params;
+          size = function_decls.size;
+          direct_call_surrogates = function_decls.direct_call_surrogates;
         }
       in
       Inlinable function_decls
     in
     { function_decls;
       closure_elements = closure_elements;
-      invariant_params = set_of_closures.invariant_params;
-      size = set_of_closures.size;
-      direct_call_surrogates = set_of_closures.direct_call_surrogates;
     }
 
   and clean_of_kind_value ~importer (o : of_kind_value) clean_var_opt

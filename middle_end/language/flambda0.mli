@@ -134,6 +134,11 @@ module Switch : sig
   (** Equivalent to the similar type in [Ilambda]. *)
   type t = private {
     (* CR mshinwell: [numconsts] should move onto the default case. *)
+    (* CR pchambart: [numconsts] and [failaction] should be removed in fact.
+       This was useful when the cases contents were not continuations. It
+       allowed sharing without declaring a continuation. Now that sharing is
+       there by default, there is no benefit of not having that part of
+       consts. *)
     numconsts : Targetint.Set.t;
     (** All possible values that the scrutinee might have. *)
     consts : (Targetint.t * Continuation.t) list;
