@@ -162,7 +162,7 @@ module type S = sig
   }
 
   and non_inlinable_function_declaration = private {
-    result : t;
+    result : t list;
   }
 
   and set_of_closures = private {

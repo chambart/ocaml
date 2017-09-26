@@ -246,7 +246,7 @@ end) = struct
   }
 
   and non_inlinable_function_declaration = {
-    result : t;
+    result : t list;
   }
 
   and set_of_closures = {
@@ -1620,18 +1620,21 @@ end) = struct
     | Non_inlinable funs ->
       Variable.Map.fold
         (fun _fun_var (decl : non_inlinable_function_declaration) acc ->
-          free_variables decl.result acc)
+          List.fold_left (fun acc ty ->
+            free_variables ty acc)
+            acc
+            decl.result)
         funs
         acc
     | Inlinable funs ->
       Variable.Map.fold
         (fun _fun_var (decl : inlinable_function_declaration) acc ->
-         let acc =
-           List.fold_left (fun acc ty ->
-             free_variables ty acc)
-             acc
-             decl.result
-         in
+          let acc =
+            List.fold_left (fun acc ty ->
+              free_variables ty acc)
+              acc
+              decl.result
+          in
           List.fold_left (fun acc (_param, ty) ->
               free_variables ty acc)
             acc
@@ -1848,7 +1851,11 @@ end) = struct
         Variable.Map.map
           (fun (decl : non_inlinable_function_declaration)
                 : non_inlinable_function_declaration ->
-            let result = clean_t ~importer decl.result clean_var_opt in
+            let result =
+              List.map (fun ty ->
+                clean_t ~importer ty clean_var_opt)
+                decl.result
+            in
             { result; })
           funs
       in
