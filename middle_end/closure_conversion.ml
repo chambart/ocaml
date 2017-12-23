@@ -28,6 +28,7 @@ type t = {
   current_unit_id : Ident.t;
   symbol_for_global' : (Ident.t -> Symbol.t);
   filename : string;
+  backend : (module Backend_intf.S);
   mutable imported_symbols : Symbol.Set.t;
   mutable declared_symbols : (Symbol.t * Flambda.constant_defining_value) list;
 }
@@ -157,6 +158,15 @@ let close_const t (const : Lambda.structured_constant)
     Const c, name
   | Symbol s, name ->
     Symbol s, name
+
+let lambda_const_bool b : Lambda.structured_constant =
+  if b then
+    Const_pointer 1
+  else
+    Const_pointer 0
+
+let lambda_const_int i : Lambda.structured_constant =
+  Const_base (Const_int i)
 
 let rec close t env (lam : Lambda.lambda) : Flambda.t =
   match lam with
@@ -393,7 +403,15 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
         (If_then_else (cond, arg2, Var const_false)))
   | Lprim ((Psequand | Psequor), _, _) ->
     Misc.fatal_error "Psequand / Psequor must have exactly two arguments"
-  | Lprim (Pidentity, [arg], _) -> close t env arg
+  | Lprim ((Pidentity | Pbytes_to_string | Pbytes_of_string), [arg], _) ->
+    close t env arg
+  | Lprim (Pignore, [arg], _) ->
+    let var = Variable.create Internal_variable_names.ignore in
+    let defining_expr =
+      close_let_bound_expression t var env arg
+    in
+    Flambda.create_let var defining_expr
+      (name_expr (Const (Const_pointer 0)) ~name:"unit")
   | Lprim (Pdirapply, [funct; arg], loc)
   | Lprim (Prevapply, [arg; funct], loc) ->
     let apply : Lambda.lambda_apply =
@@ -416,6 +434,24 @@ let rec close t env (lam : Lambda.lambda) : Flambda.t =
       (name_expr
         (Prim (Praise kind, [arg_var], dbg))
         ~name:Names.raise)
+  | Lprim (Pctconst c, [arg], _loc) ->
+      let module Backend = (val t.backend) in
+      let const =
+        begin match c with
+        | Big_endian -> lambda_const_bool Backend.big_endian
+        | Word_size -> lambda_const_int (8*Backend.size_int)
+        | Int_size -> lambda_const_int (8*Backend.size_int - 1)
+        | Max_wosize ->
+            lambda_const_int ((1 lsl ((8*Backend.size_int) - 10)) - 1)
+        | Ostype_unix -> lambda_const_bool (Sys.os_type = "Unix")
+        | Ostype_win32 -> lambda_const_bool (Sys.os_type = "Win32")
+        | Ostype_cygwin -> lambda_const_bool (Sys.os_type = "Cygwin")
+        | Backend_type ->
+            Lambda.Const_pointer 0 (* tag 0 is the same as Native *)
+        end
+      in
+      close t env
+        (Lambda.Llet(Strict, Pgenval, Ident.create "dummy", arg, Lconst const))
   | Lprim (Pfield _, [Lprim (Pgetglobal id, [],_)], _)
       when Ident.same id t.current_unit_id ->
     Misc.fatal_errorf "[Pfield (Pgetglobal ...)] for the current compilation \
@@ -647,6 +683,7 @@ let lambda_to_flambda ~backend ~module_ident ~size ~filename lam
     { current_unit_id = Compilation_unit.get_persistent_ident compilation_unit;
       symbol_for_global' = Backend.symbol_for_global';
       filename;
+      backend;
       imported_symbols = Symbol.Set.empty;
       declared_symbols = [];
     }
