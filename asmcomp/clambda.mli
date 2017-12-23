@@ -45,7 +45,7 @@ and ulambda =
   | Uoffset of ulambda * int
   | Ulet of mutable_flag * value_kind * Ident.t * ulambda * ulambda
   | Uletrec of (Ident.t * ulambda) list * ulambda
-  | Uprim of primitive * ulambda list * Debuginfo.t
+  | Uprim of Clambda_primitives.primitive * ulambda list * Debuginfo.t
   | Uswitch of ulambda * ulambda_switch * Debuginfo.t
   | Ustringswitch of ulambda * (string * ulambda) list * ulambda option
   | Ustaticfail of int * ulambda list

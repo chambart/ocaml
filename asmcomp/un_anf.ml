@@ -36,7 +36,7 @@ let ignore_debuginfo (_ : Debuginfo.t) = ()
 let ignore_int (_ : int) = ()
 let ignore_ident (_ : Ident.t) = ()
 let ignore_ident_option (_ : Ident.t option) = ()
-let ignore_primitive (_ : Lambda.primitive) = ()
+let ignore_primitive (_ : Clambda_primitives.primitive) = ()
 let ignore_string (_ : string) = ()
 let ignore_int_array (_ : int array) = ()
 let ignore_ident_list (_ : Ident.t list) = ()
@@ -539,7 +539,7 @@ let both_moveable a b =
   | Fixed, Moveable
   | Fixed, Fixed -> Fixed
 
-let primitive_moveable (prim : Lambda.primitive)
+let primitive_moveable (prim : Clambda_primitives.primitive)
     (args : Clambda.ulambda list)
     (ident_info : ident_info) =
   match prim, args with
@@ -556,7 +556,7 @@ let primitive_moveable (prim : Lambda.primitive)
        is never mutated *)
     Moveable
   | _ ->
-    match Semantics_of_primitives.for_primitive prim with
+    match Semantics_of_primitives.for_clambda_primitive prim with
     | No_effects, No_coeffects -> Moveable
     | No_effects, Has_coeffects
     | Only_generative_effects, No_coeffects
