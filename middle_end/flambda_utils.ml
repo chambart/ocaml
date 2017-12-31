@@ -735,7 +735,7 @@ module Switch_storer = Switch.Store (struct
   and key_named =
     | Symbol of Symbol.t
     | Const of Flambda.const
-    | Prim of Lambda.primitive * Variable.t list
+    | Prim of Clambda_primitives.primitive * Variable.t list
     | Expr of key
 
   exception Not_comparable

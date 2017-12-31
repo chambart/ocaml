@@ -78,7 +78,8 @@ let phys_different (approxs:A.t list) =
   | [a1; a2] ->
     structurally_different a1 a2
 
-let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
+let primitive (p : Clambda_primitives.primitive) (args, approxs)
+      expr dbg ~size_int
     : Flambda.named * A.t * Inlining_cost.Benefit.t =
   let fpc = !Clflags.float_const_prop in
   match p with
@@ -94,12 +95,6 @@ let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
     A.value_block tag (Array.of_list approxs), C.Benefit.zero
   | Praise _ ->
     expr, A.value_bottom, C.Benefit.zero
-  | Pignore -> begin
-      match args, A.descrs approxs with
-      | [arg], [(Value_int 0 | Value_constptr 0)] ->
-        S.const_ptr_expr (Flambda.Expr (Var arg)) 0
-      | _ -> S.const_ptr_expr expr 0
-    end
   | Pmakearray(_, _) when approxs = [] ->
     Prim (Pmakeblock(0, Asttypes.Immutable, Some []), [], dbg),
     A.value_block (Tag.create_exn 0) [||], C.Benefit.zero
@@ -148,7 +143,6 @@ let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
     match A.descrs approxs with
     | [Value_int x] ->
       begin match p with
-      | Pidentity -> S.const_int_expr expr x
       | Pnot -> S.const_bool_expr expr (x = 0)
       | Pnegint -> S.const_int_expr expr (-x)
       | Pbswap16 -> S.const_int_expr expr (S.swap16 x)
@@ -187,7 +181,6 @@ let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
       begin match p with
       (* [Pidentity] should probably never appear, but is here for
          completeness. *)
-      | Pidentity -> S.const_ptr_expr expr x
       | Pnot -> S.const_bool_expr expr (x = 0)
       | Pisint -> S.const_bool_expr expr true
       | Poffsetint y -> S.const_ptr_expr expr (x + y)
@@ -231,10 +224,11 @@ let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
     | [A.Value_boxed_int(A.Int64, n1); Value_int n2] ->
       I.Simplify_boxed_int64.simplify_binop_int p Int64 expr n1 n2
         ~size_int
-    | [Value_block _] when p = Lambda.Pisint ->
+    | [Value_block _] when p = Clambda_primitives.Pisint ->
       S.const_bool_expr expr false
     | [Value_string { size }]
-      when (p = Lambda.Pstringlength || p = Lambda.Pbyteslength) ->
+      when (p = Clambda_primitives.Pstringlength ||
+            p = Clambda_primitives.Pbyteslength) ->
       S.const_int_expr expr size
     | [Value_string { size; contents = Some s };
        (Value_int x | Value_constptr x)] when x >= 0 && x < size ->
@@ -248,14 +242,14 @@ let primitive (p : Lambda.primitive) (args, approxs) expr dbg ~size_int
         end
     | [Value_string { size; contents = None };
        (Value_int x | Value_constptr x)]
-      when x >= 0 && x < size && p = Lambda.Pstringrefs ->
+      when x >= 0 && x < size && p = Clambda_primitives.Pstringrefs ->
         Flambda.Prim (Pstringrefu, args, dbg),
           A.value_unknown Other,
           (* we improved it, but there is no way to account for that: *)
           C.Benefit.zero
     | [Value_string { size; contents = None };
        (Value_int x | Value_constptr x)]
-      when x >= 0 && x < size && p = Lambda.Pbytesrefs ->
+      when x >= 0 && x < size && p = Clambda_primitives.Pbytesrefs ->
         Flambda.Prim (Pbytesrefu, args, dbg),
           A.value_unknown Other,
           (* we improved it, but there is no way to account for that: *)
