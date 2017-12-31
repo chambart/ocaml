@@ -289,6 +289,7 @@ let symbol_field_block = "symbol_field_block"
 let the_dead_constant = "the_dead_constant"
 let toplevel_substitution_named = "toplevel_substitution_named"
 let unbox_free_vars_of_closures = "unbox_free_vars_of_closures"
+let unit = "unit"
 let zero = "zero"
 
 let anon_fn_with_loc_fmt = format_of_string "anon_fn[%a]"

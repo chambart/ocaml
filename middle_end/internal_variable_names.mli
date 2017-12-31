@@ -87,6 +87,7 @@ val symbol_field_block : t
 val the_dead_constant : t
 val toplevel_substitution_named : t
 val unbox_free_vars_of_closures : t
+val unit : t
 val zero : t
 
 val of_primitive : Lambda.primitive -> t
