@@ -200,12 +200,6 @@ let lambda_smaller lam threshold =
   with Exit ->
     false
 
-let is_pure_prim p =
-  let open Semantics_of_primitives in
-  match Semantics_of_primitives.for_primitive p with
-  | (No_effects | Only_generative_effects), _ -> true
-  | Arbitrary_effects, _ -> false
-
 let is_pure_clambda_prim p =
   let open Semantics_of_primitives in
   match Semantics_of_primitives.for_clambda_primitive p with
@@ -717,23 +711,6 @@ let bind_params loc fpc params args body =
 (* Check if a lambda term is ``pure'',
    that is without side-effects *and* not containing function definitions *)
 
-let rec is_pure = function
-    Lvar _ -> true
-  | Lconst _ -> true
-  | Lprim(p, args,_) -> is_pure_prim p && List.for_all is_pure args
-  | Levent(lam, _ev) -> is_pure lam
-  | _ -> false
-
-let is_pure lam ulam =
-  let lam_pure = is_pure lam in
-  let ulam_pure = is_pure_clambda ulam in
-  if lam_pure && not ulam_pure then
-    Misc.fatal_errorf "mismatching purity:@.lam: %b@.%a@.clam: %b@.%a@.@."
-      lam_pure Printlambda.lambda lam
-      ulam_pure Printclambda.clambda ulam
-  else
-    lam_pure
-
 let warning_if_forced_inline ~loc ~attribute warning =
   if attribute = Always_inline then
     Location.prerr_warning loc
@@ -741,7 +718,7 @@ let warning_if_forced_inline ~loc ~attribute warning =
 
 (* Generate a direct application *)
 
-let direct_apply fundesc funct ufunct uargs ~loc ~attribute =
+let direct_apply fundesc ufunct uargs ~loc ~attribute =
   let app_args =
     if fundesc.fun_closed then uargs else uargs @ [ufunct] in
   let app =
@@ -759,7 +736,7 @@ let direct_apply fundesc funct ufunct uargs ~loc ~attribute =
      If the function is not closed, we evaluate ufunct as part of the
      arguments.
      If the function is closed, we force the evaluation of ufunct first. *)
-  if not fundesc.fun_closed || is_pure funct ufunct
+  if not fundesc.fun_closed || is_pure_clambda ufunct
   then app
   else Usequence(ufunct, app)
 
@@ -775,10 +752,10 @@ let strengthen_approx appl approx =
 (* If a term has approximation Value_integer or Value_constptr and is pure,
    replace it by an integer constant *)
 
-let check_constant_result lam ulam approx =
+let check_constant_result ulam approx =
   match approx with
-    Value_const c when is_pure lam ulam -> make_const c
-  | Value_global_field (id, i) when is_pure lam ulam ->
+    Value_const c when is_pure_clambda ulam -> make_const c
+  | Value_global_field (id, i) when is_pure_clambda ulam ->
       begin match ulam with
       | Uprim(P.Pfield _, [Uprim(P.Pread_symbol _, _, _)], _) -> (ulam, approx)
       | _ ->
@@ -792,8 +769,8 @@ let check_constant_result lam ulam approx =
 (* Evaluate an expression with known value for its side effects only,
    or discard it if it's pure *)
 
-let sequence_constant_expr lam ulam1 (ulam2, approx2 as res2) =
-  if is_pure lam ulam1 then res2 else (Usequence(ulam1, ulam2), approx2)
+let sequence_constant_expr ulam1 (ulam2, approx2 as res2) =
+  if is_pure_clambda ulam1 then res2 else (Usequence(ulam1, ulam2), approx2)
 
 (* Maintain the approximation of the global structure being defined *)
 
@@ -872,12 +849,12 @@ let rec close fenv cenv = function
          [Uprim(P.Pmakeblock _, uargs, _)])
         when List.length uargs = - fundesc.fun_arity ->
           let app =
-            direct_apply ~loc ~attribute fundesc funct ufunct uargs in
+            direct_apply ~loc ~attribute fundesc ufunct uargs in
           (app, strengthen_approx app approx_res)
       | ((ufunct, Value_closure(fundesc, approx_res)), uargs)
         when nargs = fundesc.fun_arity ->
           let app =
-            direct_apply ~loc ~attribute fundesc funct ufunct uargs in
+            direct_apply ~loc ~attribute fundesc ufunct uargs in
           (app, strengthen_approx app approx_res)
 
       | ((ufunct, (Value_closure(fundesc, _) as fapprox)), uargs)
@@ -930,7 +907,7 @@ let rec close fenv cenv = function
           warning_if_forced_inline ~loc ~attribute "Over-application";
           let body =
             Ugeneric_apply(direct_apply ~loc ~attribute
-                              fundesc funct ufunct first_args,
+                              fundesc ufunct first_args,
                            rem_args, dbg)
           in
           let result =
@@ -958,7 +935,7 @@ let rec close fenv cenv = function
           let (ubody, abody) = close fenv cenv body in
           (Ulet(Mutable, kind, id, ulam, ubody), abody)
       | (_, Value_const _)
-        when str = Alias || is_pure lam ulam ->
+        when str = Alias || is_pure_clambda ulam ->
           close (Tbl.add id alam fenv) cenv body
       | (_, _) ->
           let (ubody, abody) = close (Tbl.add id alam fenv) cenv body in
@@ -1026,15 +1003,14 @@ let rec close fenv cenv = function
                               ap_args=[arg];
                               ap_inlined=Default_inline;
                               ap_specialised=Default_specialise})
-  | Lprim(Pgetglobal id, [], loc) as lam ->
+  | Lprim(Pgetglobal id, [], loc) ->
       let dbg = Debuginfo.from_location loc in
-      check_constant_result lam
-                            (getglobal dbg id)
+      check_constant_result (getglobal dbg id)
                             (Compilenv.global_approx id)
   | Lprim(Pfield n, [lam], loc) ->
       let (ulam, approx) = close fenv cenv lam in
       let dbg = Debuginfo.from_location loc in
-      check_constant_result lam (Uprim(P.Pfield n, [ulam], dbg))
+      check_constant_result (Uprim(P.Pfield n, [ulam], dbg))
                             (field_approx n approx)
   | Lprim(Psetfield(n, is_ptr, init), [Lprim(Pgetglobal id, [], _); lam], loc)->
       let (ulam, approx) = close fenv cenv lam in
@@ -1112,7 +1088,7 @@ let rec close fenv cenv = function
   | Lifthenelse(arg, ifso, ifnot) ->
       begin match close fenv cenv arg with
         (uarg, Value_const (Uconst_ptr n)) ->
-          sequence_constant_expr arg uarg
+          sequence_constant_expr uarg
             (close fenv cenv (if n = 0 then ifnot else ifso))
       | (uarg, _ ) ->
           let (uifso, _) = close fenv cenv ifso in
