@@ -1,4 +1,6 @@
 (* TEST
+   * native
+     compare_programs = "false"
 *)
 
 let rec x = (x; ());;
