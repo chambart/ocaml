@@ -1,7 +1,7 @@
 (* TEST
-
-include systhreads
-
+   include systhreads
+   * native
+     compare_programs = "false"
 *)
 
 open Printf
