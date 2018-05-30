@@ -50,6 +50,9 @@ Working version
 
 ### Code generation and optimizations:
 
+- GPR#1579: Add a separate types for clambda primitives
+  (Pierre Chambart, review by Vincent Laviron and Mark Shinwell)
+
 - MPR#7725, GPR#1754: improve AFL instrumentation for objects and lazy values
   (Stephen Dolan)
 
