@@ -65,13 +65,13 @@ COMPILERLIBS_INTFS = $(addprefix $(ROOTDIR)/,\
   parsing/asttypes.mli \
   parsing/parsetree.mli \
   typing/outcometree.mli \
-  bytecomp/cmo_format.mli \
-  asmcomp/cmxs_format.mli)
+  file_formats/cmo_format.mli)
 
 # .ml files from compilerlibs that have corresponding .mli files.
 COMPILERLIBS_SOURCES=$(addprefix $(ROOTDIR)/,\
   utils/config.ml \
   utils/build_path_prefix_map.ml \
+  utils/int_replace_polymorphic_compare.ml \
   utils/misc.ml \
   utils/identifiable.ml \
   utils/numbers.ml \
@@ -99,7 +99,7 @@ COMPILERLIBS_SOURCES=$(addprefix $(ROOTDIR)/,\
   typing/subst.ml \
   typing/predef.ml \
   typing/datarepr.ml \
-  typing/cmi_format.ml \
+  file_formats/cmi_format.ml \
   typing/persistent_env.ml \
   typing/env.ml \
   bytecomp/lambda.ml \
@@ -109,7 +109,9 @@ COMPILERLIBS_SOURCES=$(addprefix $(ROOTDIR)/,\
   bytecomp/bytesections.ml \
   bytecomp/dll.ml \
   bytecomp/meta.ml \
-  bytecomp/symtable.ml)
+  bytecomp/symtable.ml \
+  middle_end/compilation_unit.ml \
+  file_formats/cmxs_format.ml)
 
 # Transplanting of a source file from its usual location into a subdirectory
 # of otherlibs/dynlink/.  We know that all of the names of the source files
