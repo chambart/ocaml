@@ -45,6 +45,7 @@ val dummy : t
 val dup_func : t
 val dup_set_of_closures : t
 val const_float_array : t
+val env : t
 val fake_effect_symbol : t
 val for_from : t
 val for_to : t
