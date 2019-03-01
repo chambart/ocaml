@@ -16,6 +16,7 @@
 
 type t = private string
 
+val arg : t
 val apply_arg : t
 val apply_funct : t
 val block_symbol : t

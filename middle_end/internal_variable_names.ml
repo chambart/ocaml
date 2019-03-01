@@ -17,6 +17,7 @@ open! Int_replace_polymorphic_compare
 
 type t = string
 
+let arg = "arg"
 let apply_arg = "apply_arg"
 let apply_funct = "apply_funct"
 let block_symbol = "block_symbol"

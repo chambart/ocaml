@@ -1009,7 +1009,7 @@ let rec close fenv cenv lam =
       then begin
         (* Simple case: only function definitions *)
         let (clos, infos) = close_functions fenv cenv defs in
-        let clos_ident = V.create I.clos in
+        let clos_ident = V.create I.closure in
         let fenv_body =
           List.fold_right
             (fun (id, _var, _pos, approx) fenv -> Ident.Map.add id approx fenv)
