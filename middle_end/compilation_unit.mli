@@ -91,6 +91,7 @@ val for_pack_prefix : t -> Name.t list
 val for_pack_prefix_as_string : t -> string option
 
 (** Returns [true] iff the two given compilation units have ... *)
+(* CR pchambart to mshinwell: what was that meant to be ? *)
 
 (** Like [for_pack_prefix], except with the [name] of the compilation unit
     appended. *)
