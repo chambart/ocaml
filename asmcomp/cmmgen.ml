@@ -29,8 +29,10 @@ open Cmm
 
 module String = Misc.Stdlib.String
 module UI = Cmx_format.Unit_info
-module V = Backend_var
-module VP = Backend_var.With_provenance
+module Var = Variable
+module VarP = Variable.With_provenance
+module BV = Backend_var
+module BVP = Backend_var.With_provenance
 
 module S = Backend_sym
 open S.Names
@@ -42,29 +44,58 @@ type boxed_number =
   | Boxed_integer of boxed_integer * Debuginfo.t
 
 type env = {
-  unboxed_ids : (V.t * boxed_number) V.tbl;
-  environment_param : V.t option;
+  backend_var : BV.t Var.Map.t;
+  unboxed_ids : (Var.t * boxed_number) Var.Map.t;
+  environment_param : BV.t option;
 }
 
 let empty_env =
   {
-    unboxed_ids =V.empty;
+    backend_var = Var.Map.empty;
+    unboxed_ids = Var.Map.empty;
     environment_param = None;
   }
 
 let create_env ~environment_param =
-  { unboxed_ids = V.empty;
+  { unboxed_ids = Var.Map.empty;
     environment_param;
+    backend_var = Var.Map.empty;
   }
 
 let is_unboxed_id id env =
-  try Some (V.find_same id env.unboxed_ids)
+  try Some (Var.Map.find id env.unboxed_ids)
   with Not_found -> None
 
 let add_unboxed_id id unboxed_id bn env =
   { env with
-    unboxed_ids = V.add id (unboxed_id, bn) env.unboxed_ids;
+    unboxed_ids = Var.Map.add id (unboxed_id, bn) env.unboxed_ids;
   }
+
+let add_fresh_backend_var env var =
+  let bv = Backend_var.create_local (Variable.name var) in
+  bv, { env with backend_var = Var.Map.add var bv env.backend_var }
+let backend_var_for_var_exn env var =
+  Var.Map.find var env.backend_var
+
+let add_fresh_backend_var_with_provenance env varp =
+  let var = Variable.With_provenance.var varp in
+  let name = Variable.name var in
+  let provenance = Variable.With_provenance.provenance varp in
+  let bv = Backend_var.create_local name in
+  let bvp = Backend_var.With_provenance.create ?provenance bv in
+  bvp, { env with backend_var = Var.Map.add var bv env.backend_var }
+
+let add_fresh_backend_vars_with_provenance env vars =
+  List.fold_right (fun var (vars, env) ->
+      let var, env = add_fresh_backend_var_with_provenance env var in
+      var :: vars, env)
+    vars ([], env)
+
+let add_fresh_backend_vars_with_provenance_and_type env vars =
+  List.fold_right (fun (var, typ) (vars, env) ->
+      let var, env = add_fresh_backend_var_with_provenance env var in
+      (var, typ) :: vars, env)
+    vars ([], env)
 
 (* Local binding of complex expressions *)
 
@@ -73,7 +104,8 @@ let bind name arg fn =
     Cvar _ | Cconst_int _ | Cconst_natint _ | Cconst_symbol _
   | Cconst_pointer _ | Cconst_natpointer _
   | Cblockheader _ -> fn arg
-  | _ -> let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
+  | _ ->
+      let id = BV.create_local name in Clet(BVP.create id, arg, fn (Cvar id))
 
 let bind_load name arg fn =
   match arg with
@@ -85,7 +117,7 @@ let bind_nonvar name arg fn =
     Cconst_int _ | Cconst_natint _ | Cconst_symbol _
   | Cconst_pointer _ | Cconst_natpointer _
   | Cblockheader _ -> fn arg
-  | _ -> let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
+  | _ -> let id = BV.create_local name in Clet(BVP.create id, arg, fn (Cvar id))
 
 let caml_black = Nativeint.shift_left (Nativeint.of_int 3) 8
     (* cf. runtime/caml/gc.h *)
@@ -623,7 +655,7 @@ let get_field env ptr n dbg =
       match ptr with
       | Cvar ptr ->
         (* Loads from the current function's closure are immutable. *)
-        if V.same environment_param ptr then Immutable
+        if BV.same environment_param ptr then Immutable
         else Mutable
       | _ -> Mutable
   in
@@ -748,8 +780,8 @@ let float_array_set arr ofs newval dbg =
 
 let string_length exp dbg =
   bind "str" exp (fun str ->
-    let tmp_var = V.create_local "tmp" in
-    Clet(VP.create tmp_var,
+    let tmp_var = BV.create_local "tmp" in
+    Clet(BVP.create tmp_var,
          Cop(Csubi,
              [Cop(Clsl,
                    [get_size str dbg;
@@ -793,12 +825,12 @@ let make_alloc_generic set_fn dbg tag wordsize args =
   if wordsize <= Config.max_young_wosize then
     Cop(Calloc, Cblockheader(block_header tag wordsize, dbg) :: args, dbg)
   else begin
-    let id = V.create_local "alloc" in
+    let id = BV.create_local "alloc" in
     let rec fill_fields idx = function
       [] -> Cvar id
     | e1::el -> Csequence(set_fn (Cvar id) (Cconst_int idx) e1 dbg,
                           fill_fields (idx + 2) el) in
-    Clet(VP.create id,
+    Clet(BVP.create id,
          Cop(Cextcall(caml_alloc, typ_val, true, None),
                  [Cconst_int wordsize; Cconst_int tag], dbg),
          fill_fields 1 args)
@@ -850,15 +882,15 @@ type rhs_kind =
 ;;
 let rec expr_size env = function
   | Uvar id ->
-      begin try V.find_same id env with Not_found -> RHS_nonrec end
+      begin try Var.Map.find id env with Not_found -> RHS_nonrec end
   | Uclosure(fundecls, clos_vars) ->
       RHS_block (fundecls_size fundecls + List.length clos_vars)
   | Ulet(_str, _kind, id, exp, body) ->
-      expr_size (V.add (VP.var id) (expr_size env exp) env) body
+      expr_size (Var.Map.add (VarP.var id) (expr_size env exp) env) body
   | Uletrec(bindings, body) ->
       let env =
         List.fold_right
-          (fun (id, exp) env -> V.add (VP.var id) (expr_size env exp) env)
+          (fun (id, exp) env -> Var.Map.add (VarP.var id) (expr_size env exp) env)
           bindings env
       in
       expr_size env body
@@ -1865,8 +1897,10 @@ let rec transl env e =
   match e with
     Uvar id ->
       begin match is_unboxed_id id env with
-      | None -> Cvar id
-      | Some (unboxed_id, bn) -> box_number bn (Cvar unboxed_id)
+      | None ->
+          Cvar (backend_var_for_var_exn env id)
+      | Some (unboxed_id, bn) ->
+          box_number bn (Cvar (backend_var_for_var_exn env unboxed_id))
       end
   | Uconst sc ->
       transl_constant sc
@@ -1956,16 +1990,23 @@ let rec transl env e =
               Cphantom_read_symbol_field { sym = S.of_symbol sym; field; }
             | Uphantom_const (Uconst_int i) | Uphantom_const (Uconst_ptr i) ->
               Cphantom_const_int (targetint_const i)
-            | Uphantom_var var -> Cphantom_var var
+            | Uphantom_var var ->
+              Cphantom_var (backend_var_for_var_exn env var)
             | Uphantom_read_field { var; field; } ->
-              Cphantom_read_field { var; field; }
+              Cphantom_read_field
+                { var = (backend_var_for_var_exn env var); field; }
             | Uphantom_offset_var { var; offset_in_words; } ->
-              Cphantom_offset_var { var; offset_in_words; }
+              Cphantom_offset_var
+                { var = (backend_var_for_var_exn env var);
+                  offset_in_words; }
             | Uphantom_block { tag; fields; } ->
-              Cphantom_block { tag; fields; }
+              Cphantom_block
+                { tag;
+                  fields = List.map (backend_var_for_var_exn env) fields; }
           in
           Some defining_expr
       in
+      let var, env = add_fresh_backend_var_with_provenance env var in
       Cphantom_let (var, defining_expr, transl env body)
   | Uletrec(bindings, body) ->
       transl_letrec env bindings (transl env body)
@@ -2110,12 +2151,16 @@ let rec transl env e =
   | Ucatch(nfail, [], body, handler) ->
       make_catch nfail (transl env body) (transl env handler)
   | Ucatch(nfail, ids, body, handler) ->
+      let ids, env_handler =
+        add_fresh_backend_vars_with_provenance_and_type env ids
+      in
       (* CR-someday mshinwell: consider how we can do better than
          [typ_val] when appropriate. *)
       let ids_with_types =
         List.map (fun (i, _) -> (i, Cmm.typ_val)) ids in
-      ccatch(nfail, ids_with_types, transl env body, transl env handler)
+      ccatch(nfail, ids_with_types, transl env body, transl env_handler handler)
   | Utrywith(body, exn, handler) ->
+      let exn, env_handler = add_fresh_backend_var_with_provenance env exn in
       Ctrywith(transl env body, exn, transl env handler)
   | Uifthenelse(cond, ifso, ifnot) ->
       let dbg = Debuginfo.none in
@@ -2138,7 +2183,8 @@ let rec transl env e =
       let tst = match dir with Upto -> Cgt   | Downto -> Clt in
       let inc = match dir with Upto -> Caddi | Downto -> Csubi in
       let raise_num = next_raise_count () in
-      let id_prev = VP.rename id in
+      let id, env_body = add_fresh_backend_var_with_provenance env id in
+      let id_prev = BVP.rename id in
       return_unit
         (Clet
            (id, transl env low,
@@ -2146,18 +2192,18 @@ let rec transl env e =
               ccatch
                 (raise_num, [],
                  Cifthenelse
-                   (Cop(Ccmpi tst, [Cvar (VP.var id); high], dbg),
+                   (Cop(Ccmpi tst, [Cvar (BVP.var id); high], dbg),
                     Cexit (raise_num, []),
                     create_loop
                       (Csequence
-                         (remove_unit(transl env body),
-                         Clet(id_prev, Cvar (VP.var id),
+                         (remove_unit(transl env_body body),
+                         Clet(id_prev, Cvar (BVP.var id),
                           Csequence
-                            (Cassign(VP.var id,
-                               Cop(inc, [Cvar (VP.var id); Cconst_int 2],
+                            (Cassign(BVP.var id,
+                               Cop(inc, [Cvar (BVP.var id); Cconst_int 2],
                                  dbg)),
                              Cifthenelse
-                               (Cop(Ccmpi Ceq, [Cvar (VP.var id_prev); high],
+                               (Cop(Ccmpi Ceq, [Cvar (BVP.var id_prev); high],
                                   dbg),
                                 Cexit (raise_num,[]), Ctuple [])))))),
                  Ctuple []))))
@@ -2165,9 +2211,9 @@ let rec transl env e =
       let dbg = Debuginfo.none in
       begin match is_unboxed_id id env with
       | None ->
-          return_unit (Cassign(id, transl env exp))
+          return_unit (Cassign(backend_var_for_var_exn env id, transl env exp))
       | Some (unboxed_id, bn) ->
-          return_unit(Cassign(unboxed_id,
+          return_unit(Cassign(backend_var_for_var_exn env unboxed_id,
             transl_unbox_number dbg env bn exp))
       end
   | Uunreachable ->
@@ -2789,7 +2835,7 @@ and transl_unbox_sized size dbg env exp =
   | Thirty_two -> transl_unbox_int dbg env Pint32 exp
   | Sixty_four -> transl_unbox_int dbg env Pint64 exp
 
-and transl_let env str kind id exp body =
+and transl_let env str kind (id:VarP.t) exp body =
   let dbg = Debuginfo.none in
   let unboxing =
     (* If [id] is a mutable variable (introduced to eliminate a local
@@ -2821,11 +2867,18 @@ and transl_let env str kind id exp body =
   | No_unboxing | Boxed (_, true) | No_result ->
       (* N.B. [body] must still be traversed even if [exp] will never return:
          there may be constant closures inside that need lifting out. *)
-      Clet(id, transl env exp, transl env body)
+      let id, env_body = add_fresh_backend_var_with_provenance env id in
+      Clet(id, transl env exp, transl env_body body)
   | Boxed (boxed_number, _false) ->
-      let unboxed_id = V.create_local (VP.name id) in
-      Clet(VP.create unboxed_id, transl_unbox_number dbg env boxed_number exp,
-           transl (add_unboxed_id (VP.var id) unboxed_id boxed_number env) body)
+      let unboxed_id = VarP.rename id in
+      let bv_unboxed_id, env_body =
+        add_fresh_backend_var_with_provenance env unboxed_id
+      in
+      let env_body =
+        add_unboxed_id (VarP.var id) (VarP.var unboxed_id) boxed_number env
+      in
+      Clet(bv_unboxed_id, transl_unbox_number dbg env boxed_number exp,
+           transl env_body body)
 
 and make_catch ncatch body handler = match body with
 | Cexit (nexit,[]) when nexit=ncatch -> handler
@@ -2945,9 +2998,12 @@ and transl_switch loc env arg index cases = match Array.length cases with
               (Array.of_list inters) store)
 
 and transl_letrec env bindings cont =
+  let bindings =
+
+  in
   let dbg = Debuginfo.none in
   let bsz =
-    List.map (fun (id, exp) -> (id, exp, expr_size V.empty exp))
+    List.map (fun (id, exp) -> (id, exp, expr_size Var.Map.empty exp))
       bindings
   in
   let op_alloc prim sz =
