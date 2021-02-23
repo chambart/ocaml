@@ -161,6 +161,7 @@ module With_subkind : sig
       | Boxed_int64
       | Boxed_nativeint
       | Tagged_immediate
+      | Block of { tag : Tag.t; fields : t list }
 
     include Identifiable.S with type t := t
   end
@@ -186,6 +187,7 @@ module With_subkind : sig
   val boxed_int64 : t
   val boxed_nativeint : t
   val tagged_immediate : t
+  val block : Tag.t -> t list -> t
 
   type descr = private
     | Any_value
@@ -195,6 +197,7 @@ module With_subkind : sig
     | Boxed_int64
     | Boxed_nativeint
     | Tagged_immediate
+    | Block of { tag : Tag.t; fields : descr list }
 
   val descr : t -> descr
 
